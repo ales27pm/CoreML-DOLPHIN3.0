@@ -18,9 +18,16 @@ import json
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
+from typing import Iterable, List, Literal, Sequence, TypedDict
 
-Parity = str
+Parity = Literal["even", "odd"]
+
+
+class FibonacciReportPayload(TypedDict):
+    """JSON-compatible schema emitted by :func:`fibonacci_report`."""
+
+    sequence: List[int]
+    parity: List[Parity]
 
 
 @dataclass(frozen=True)
@@ -30,7 +37,7 @@ class FibonacciReport:
     sequence: List[int]
     parity: List[Parity]
 
-    def to_dict(self) -> Dict[str, List[object]]:
+    def to_dict(self) -> FibonacciReportPayload:
         """Return a serialisable representation of the report."""
 
         return {"sequence": list(self.sequence), "parity": list(self.parity)}

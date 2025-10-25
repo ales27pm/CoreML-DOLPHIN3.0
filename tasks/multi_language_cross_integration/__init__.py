@@ -2,6 +2,8 @@
 
 from .fibonacci import (
     FibonacciReport,
+    FibonacciReportPayload,
+    Parity,
     fibonacci_python,
     fibonacci_parity,
     fibonacci_report,
@@ -10,6 +12,8 @@ from .fibonacci import (
 
 __all__ = [
     "FibonacciReport",
+    "FibonacciReportPayload",
+    "Parity",
     "fibonacci_python",
     "fibonacci_parity",
     "fibonacci_report",

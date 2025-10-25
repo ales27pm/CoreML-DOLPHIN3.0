@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """End-to-end pipeline for converting Dolphin3.0-Llama3.1-8B to a compressed Core ML package.
 
 This script performs the following steps:
@@ -28,6 +27,7 @@ from pathlib import Path
 from typing import Any, Iterable, List, Sequence, Tuple
 
 import numpy as np
+import shlex
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ try:
     from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
     from rich.table import Table
 except ImportError:  # pragma: no cover - executed only when dependency missing
-    subprocess.run(f"{sys.executable} -m pip install rich", shell=True, check=True)
+    subprocess.run([sys.executable, "-m", "pip", "install", "rich"], check=True)
     from rich.console import Console
     from rich.panel import Panel
     from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -59,12 +59,13 @@ class ShellResult:
     command: str
 
 
-def sh(command: str, *, check: bool = True) -> ShellResult:
-    """Execute a shell command with optional error checking."""
+def sh(command: Sequence[str], *, check: bool = True) -> ShellResult:
+    """Execute a subprocess without invoking the shell."""
 
-    console.log(f"[shell] {command}")
-    result = subprocess.run(command, shell=True, check=check)
-    return ShellResult(returncode=result.returncode, command=command)
+    pretty = " ".join(shlex.quote(part) for part in command)
+    console.log(f"[shell] {pretty}")
+    result = subprocess.run(list(command), check=check)
+    return ShellResult(returncode=result.returncode, command=pretty)
 
 
 def ensure_packages(packages: Iterable[str]) -> None:
@@ -84,7 +85,7 @@ def ensure_packages(packages: Iterable[str]) -> None:
                 border_style="yellow",
             )
         )
-        sh(f"{sys.executable} -m pip install -q {' '.join(to_install)}")
+        sh([sys.executable, "-m", "pip", "install", "-q", *to_install])
 
 
 # Ensure core dependencies are present before importing heavy modules.
@@ -96,6 +97,7 @@ ensure_packages(
         "huggingface_hub",
         "sentencepiece",
         "tokenizers",
+        "peft",
         "coremltools>=8.0.0",
         "numpy",
     ]
@@ -240,7 +242,7 @@ def ensure_unsloth() -> None:
     if HAS_UNSLOTH:
         return
     ensure_packages(["unsloth"])
-    import unsloth as _unsloth  # noqa: F401  # pragma: no cover
+    import unsloth as _unsloth  # pragma: no cover
 
     HAS_UNSLOTH = True
 
@@ -250,7 +252,7 @@ def ensure_llm2vec() -> None:
     if HAS_LLM2VEC:
         return
     ensure_packages(["llm2vec"])
-    import llm2vec as _llm2vec  # noqa: F401  # pragma: no cover
+    import llm2vec as _llm2vec  # pragma: no cover
 
     HAS_LLM2VEC = True
 
@@ -392,6 +394,8 @@ def main(argv: Sequence[str]) -> int:
             input_ids: torch.Tensor,
             attention_mask: torch.Tensor,
         ) -> Tuple[torch.Tensor, torch.Tensor, *Tuple[torch.Tensor, ...]]:
+            input_ids = input_ids.long()
+            attention_mask = attention_mask.long()
             out = self.base(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -399,12 +403,12 @@ def main(argv: Sequence[str]) -> int:
                 return_dict=True,
                 output_hidden_states=True,
             )
-            logits = out.logits
-            last_hidden = out.hidden_states[-1]
+            logits = out.logits.to(dtype=torch.float16)
+            last_hidden = out.hidden_states[-1].to(dtype=torch.float16)
             flat: List[torch.Tensor] = []
             for key_tensor, value_tensor in out.past_key_values:
-                flat.append(key_tensor)
-                flat.append(value_tensor)
+                flat.append(key_tensor.to(dtype=torch.float16))
+                flat.append(value_tensor.to(dtype=torch.float16))
             return logits, last_hidden, *flat
 
     class DecodeWrapper(torch.nn.Module):
@@ -419,6 +423,8 @@ def main(argv: Sequence[str]) -> int:
             attention_mask: torch.Tensor,
             *flat_past: torch.Tensor,
         ) -> Tuple[torch.Tensor, torch.Tensor, *Tuple[torch.Tensor, ...]]:
+            input_ids = input_ids.long()
+            attention_mask = attention_mask.long()
             past: List[Tuple[torch.Tensor, torch.Tensor]] = []
             iterator = iter(flat_past)
             for _ in range(self.layers):
@@ -434,12 +440,12 @@ def main(argv: Sequence[str]) -> int:
                 return_dict=True,
                 output_hidden_states=True,
             )
-            logits = out.logits
-            last_hidden = out.hidden_states[-1]
+            logits = out.logits.to(dtype=torch.float16)
+            last_hidden = out.hidden_states[-1].to(dtype=torch.float16)
             flat: List[torch.Tensor] = []
             for key_tensor, value_tensor in out.past_key_values:
-                flat.append(key_tensor)
-                flat.append(value_tensor)
+                flat.append(key_tensor.to(dtype=torch.float16))
+                flat.append(value_tensor.to(dtype=torch.float16))
             return logits, last_hidden, *flat
 
     class EncodeWrapper(torch.nn.Module):
@@ -452,11 +458,13 @@ def main(argv: Sequence[str]) -> int:
             input_ids: torch.Tensor,
             attention_mask: torch.Tensor,
         ) -> torch.Tensor:
+            input_ids = input_ids.long()
+            attention_mask = attention_mask.long()
             embedding = self.encoder.encode(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
             )
-            return embedding
+            return embedding.to(dtype=torch.float16)
 
     init_module = InitWrapper(model)
     decode_module = DecodeWrapper(model, layers=num_layers)
@@ -464,28 +472,27 @@ def main(argv: Sequence[str]) -> int:
 
     console.print("[green]Wrappers built.")
 
+    try:
+        with torch.no_grad():
+            try:
+                probe_device = next(encode_module.parameters()).device
+            except (StopIteration, AttributeError):
+                probe_device = torch.device("cpu")
+            _ids = torch.zeros((1, 1), dtype=torch.long, device=probe_device)
+            _mask = torch.ones((1, 1), dtype=torch.long, device=probe_device)
+            _probe = encode_module(_ids, _mask)
+            embed_dim = int(_probe.shape[-1])
+    except Exception:
+        embed_dim = int(config.hidden_size)
+
     # ------------------------------------------------------------------
-    # Step 6: Prepare dummy inputs for tracing
+    # Step 6: Prepare export metadata for conversion
     # ------------------------------------------------------------------
-    console.print(Panel.fit("[bold green]Preparing dummy inputs for tracing & conversion…"))
+    console.print(Panel.fit("[bold green]Preparing export shapes for conversion…"))
     batch = 1
     seq_len = args.seq_len
-
-    input_ids = torch.randint(
-        low=0,
-        high=tokenizer.vocab_size,
-        size=(batch, seq_len),
-        dtype=torch.long,
-    )
-    attention_mask = torch.ones((batch, seq_len), dtype=torch.long)
-
     past_shape = (batch, n_heads, seq_len, head_dim)
-    dummy_flat_past: List[torch.Tensor] = []
-    for _ in range(num_layers):
-        dummy_flat_past.append(torch.randn(past_shape, dtype=torch.float16))
-        dummy_flat_past.append(torch.randn(past_shape, dtype=torch.float16))
-
-    console.print("[green]Dummy input tensors prepared.")
+    console.print("[green]Export shape metadata prepared.")
 
     # ------------------------------------------------------------------
     # Step 7: Convert to Core ML multifunction model
@@ -529,7 +536,7 @@ def main(argv: Sequence[str]) -> int:
         tensor_type("attention_mask", (batch, seq_len), np.int32),
     ]
     encode_outputs = [
-        tensor_type("embedding", (batch, config.hidden_size), np.float16),
+        tensor_type("embedding", (batch, embed_dim), np.float16),
     ]
 
     model_converted = ct.convert(

@@ -1,0 +1,15 @@
+# Benchmark Harness Guidance
+
+This scope covers the `Sources/App/Bench/` directory, including `BenchmarkHarness.swift`.
+
+- Retain the production-friendly benchmarking workflow: prompt encoding, warmup decode steps,
+  timed decode loop, and embedding latency measurement.
+- `trimCacheToSeqLen` must continue to validate tensor ranks and data types before performing
+  pointer arithmetic. Any modifications should add regression tests that exercise Float16 and
+  Float32 caches with varying sequence lengths.
+- Do not remove tokenizer protocol abstractions—extend `YourTokenizerProtocol` with documented
+  methods if the runtime contract evolves, and provide migration notes in doc comments.
+- Emit structured logs (e.g., formatted strings with timings) that are safe to consume in release
+  builds and avoid `print` spam unless reporting final benchmark summaries.
+- Keep the harness deterministic and make warmup/measurement token counts configurable through
+  method parameters when exposing new benchmarking scenarios.

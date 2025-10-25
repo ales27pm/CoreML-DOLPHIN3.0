@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "tasks/multi_language_cross_integration/ffi_bridge",
+    "tasks/multi_language_cross_integration/wasm_dot"
+]
+resolver = "2"

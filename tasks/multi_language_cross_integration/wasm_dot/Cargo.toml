@@ -1,0 +1,16 @@
+[package]
+name = "wasm_dot"
+version = "0.1.0"
+edition = "2021"
+description = "Shared dot-product routine compiled to WebAssembly"
+license = "MIT"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+wasm = ["wasm-bindgen"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", optional = true }

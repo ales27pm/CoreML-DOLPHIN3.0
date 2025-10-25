@@ -2,9 +2,10 @@
   "name": "coreml-dolphin3-multilang",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "lint": "eslint \"tasks/**/*.ts\" \"tests_ts/**/*.ts\"",
-    "test": "vitest run",
+    "test": "node ./scripts/run-vitest.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

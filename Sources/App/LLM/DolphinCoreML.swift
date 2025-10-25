@@ -147,7 +147,10 @@ public final class DolphinCoreML {
             "input_ids": inputIds,
             "attention_mask": attentionMask
         ]
-        let out = try model.prediction(from: MLDictionaryFeatureProvider(dictionary: inputs))
+        let provider = MLDictionaryFeatureProvider(dictionary: inputs)
+        let options = MLPredictionOptions()
+        options.predictionFunctionName = "encode"
+        let out = try model.prediction(from: provider, options: options)
         guard let emb = out.featureValue(for: "embedding")?.multiArrayValue else {
             throw NSError(domain: "DolphinCoreML", code: -5, userInfo: [NSLocalizedDescriptionKey: "Missing embedding"])
         }

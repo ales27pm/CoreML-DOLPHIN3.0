@@ -505,7 +505,6 @@ def main(argv: Sequence[str]) -> int:
     ]
     for layer_idx in range(num_layers):
         init_outputs.append(tensor_type(f"past_k_{layer_idx}", past_shape, np.float16))
-    for layer_idx in range(num_layers):
         init_outputs.append(tensor_type(f"past_v_{layer_idx}", past_shape, np.float16))
 
     decode_inputs = [
@@ -514,7 +513,6 @@ def main(argv: Sequence[str]) -> int:
     ]
     for layer_idx in range(num_layers):
         decode_inputs.append(tensor_type(f"in_k_{layer_idx}", past_shape, np.float16))
-    for layer_idx in range(num_layers):
         decode_inputs.append(tensor_type(f"in_v_{layer_idx}", past_shape, np.float16))
 
     decode_outputs: List[ct.TensorType] = [
@@ -524,7 +522,6 @@ def main(argv: Sequence[str]) -> int:
     decode_out_shape = (batch, n_heads, seq_len + 1, head_dim)
     for layer_idx in range(num_layers):
         decode_outputs.append(tensor_type(f"out_k_{layer_idx}", decode_out_shape, np.float16))
-    for layer_idx in range(num_layers):
         decode_outputs.append(tensor_type(f"out_v_{layer_idx}", decode_out_shape, np.float16))
 
     encode_inputs = [

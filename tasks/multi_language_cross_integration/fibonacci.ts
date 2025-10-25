@@ -1,5 +1,5 @@
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 export type ParityLabel = "even" | "odd";
 
@@ -64,6 +64,10 @@ export function writeFibonacciReport(options: WriteReportOptions): string {
   const { count, outputPath, indent = 2 } = options;
   const report = buildFibonacciReport(count);
   const resolvedPath = resolve(outputPath);
+  const directory = dirname(resolvedPath);
+  if (directory) {
+    mkdirSync(directory, { recursive: true });
+  }
   writeFileSync(
     resolvedPath,
     `${JSON.stringify(report, null, indent)}\n`,
@@ -102,6 +106,9 @@ function parseArguments(argv: string[]): WriteReportOptions {
   }
   if (!outputPath) {
     throw new Error("--output is required");
+  }
+  if (!Number.isInteger(count) || count < 0) {
+    throw new Error("--count must be a non-negative integer");
   }
   return { count, outputPath, indent };
 }

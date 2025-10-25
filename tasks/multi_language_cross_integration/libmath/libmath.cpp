@@ -5,7 +5,7 @@ namespace py = pybind11;
 namespace {
 int add(int a, int b) { return a + b; }
 int mul(int a, int b) { return a * b; }
-}
+}  // namespace
 
 PYBIND11_MODULE(libmath, m) {
     m.doc() = "Deterministic math bindings for integration tests";

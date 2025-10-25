@@ -24,65 +24,20 @@ This document consolidates implementation details, verification steps, and bench
 **Language:** Python 3.11  
 **Goal:** Implement an O(n²) expand-around-center solution with deterministic unit tests.
 
-```python
-from __future__ import annotations
-from typing import Tuple
-import unittest
+**Implementation Location**
+- Source: `tasks/core_algorithmic_foundations/longest_palindromic_substring.py`
+- Tests: `tests/core_algorithmic_foundations/test_longest_palindromic_substring.py`
 
-
-def _expand_from_center(text: str, left: int, right: int) -> Tuple[int, int]:
-    """Return start and end indices (inclusive) of the palindrome expanded from the given center."""
-    while left >= 0 and right < len(text) and text[left] == text[right]:
-        left -= 1
-        right += 1
-    return left + 1, right - 1
-
-
-def find_longest_palindromic_substring(text: str) -> str:
-    """Return the longest palindromic substring contained in *text* using center expansion."""
-    if len(text) < 2:
-        return text
-
-    best_start, best_end = 0, 0
-    for center in range(len(text)):
-        odd_start, odd_end = _expand_from_center(text, center, center)
-        even_start, even_end = _expand_from_center(text, center, center + 1)
-
-        if odd_end - odd_start > best_end - best_start:
-            best_start, best_end = odd_start, odd_end
-        if even_end - even_start > best_end - best_start:
-            best_start, best_end = even_start, even_end
-
-    return text[best_start : best_end + 1]
-
-
-class LongestPalindromeTests(unittest.TestCase):
-    def test_examples(self) -> None:
-        self.assertIn(find_longest_palindromic_substring("babad"), {"bab", "aba"})
-        self.assertEqual(find_longest_palindromic_substring("cbbd"), "bb")
-        self.assertEqual(find_longest_palindromic_substring("forgeeksskeegfor"), "geeksskeeg")
-
-    def test_single_character(self) -> None:
-        self.assertEqual(find_longest_palindromic_substring("a"), "a")
-
-    def test_all_unique(self) -> None:
-        self.assertEqual(find_longest_palindromic_substring("abcd"), "a")
-
-    def test_full_string_palindrome(self) -> None:
-        self.assertEqual(find_longest_palindromic_substring("racecar"), "racecar")
-
-    def test_multiple_centers(self) -> None:
-        self.assertEqual(find_longest_palindromic_substring("abacdfgdcaba"), "aba")
-
-
-if __name__ == "__main__":
-    unittest.main()
-```
+**Highlights**
+- Expand-around-center implementation returning a `PalindromeResult` dataclass with
+  explicit metadata for downstream benchmarking.
+- Input validation safeguards ensure only strings are processed.
+- Deterministic unit test coverage validates canonical examples plus metadata handling.
 
 **Observable Verification**
-1. `python -m unittest <path_to_file>`
-2. Evaluate deterministic outcomes across Python interpreters via `python -V` checks.
-3. Benchmark worst-case length `n=2_000` using `timeit` to confirm O(n²) scaling.
+1. `python -m unittest tests.core_algorithmic_foundations.test_longest_palindromic_substring`
+2. Validate reproducible outcomes across Python interpreters using `python -V` when required.
+3. Optional: benchmark `longest_palindromic_substring` with `timeit` for `n=2_000` to confirm O(n²) scaling.
 
 ---
 ## [Task 2 – Balanced Binary Tree Validator](#task-2)

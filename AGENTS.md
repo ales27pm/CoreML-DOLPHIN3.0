@@ -4,18 +4,21 @@ This repository uses dynamic `AGENTS.md` files to communicate directory-specific
 rules. These guidelines are **mandatory** for every change within the repository.
 
 ## Session Requirements
-1. Run `python tools/manage_agents.py sync` immediately after cloning or before starting work
-   to ensure all scoped `AGENTS.md` files are up to date. Re-run the command before committing
-   to refresh instructions and clean up outdated agent files.
-2. Respect the scope hierarchy defined by generated `AGENTS.md` files. More deeply nested files
+1. Treat this file as a **dynamic contract**: it is the single source of truth that drives
+   creation, updates, and cleanup of every scoped `AGENTS.md` in the repository.
+2. Run `python tools/manage_agents.py sync` immediately after cloning or before starting work
+   to materialize any new scopes defined in the manifest below. Re-run the command at the end of
+   every session—before committing—to refresh instructions and clean up unmanaged agent files.
+3. Respect the scope hierarchy defined by generated `AGENTS.md` files. More deeply nested files
    override parent scopes.
-3. **Absolutely no placeholders, stubs, mocks, incomplete flows, or simplified code examples are
+4. **Absolutely no placeholders, stubs, mocks, incomplete flows, or simplified code examples are
    permitted.** Deliver only advanced, fully implemented, production-ready logic with complete
    error handling, tests, and documentation relevant to the change.
-4. Align with repository tooling (formatters, linters, tests) described in scoped instructions.
+5. Align with repository tooling (formatters, linters, tests) described in scoped instructions.
    If a tool is unavailable, document the limitation and provide remediation steps.
-5. Keep this root file as the source of truth for the automation manifest below. Modify the
-   manifest when adding, updating, or removing directory-specific instructions.
+6. Keep this root file as the source of truth for the automation manifest below. Modify the
+   manifest when adding, updating, or removing directory-specific instructions and then run the
+   sync command to apply the changes immediately.
 
 ## Automation Manifest
 The block below drives automatic creation, update, and cleanup of scoped `AGENTS.md` files.

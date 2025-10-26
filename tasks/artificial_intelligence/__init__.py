@@ -14,6 +14,7 @@ from .embedding_compare import (
     evaluate_embeddings,
     load_sts_dataset,
 )
+from .regression_guard import RegressionGuard
 
 __all__ = [
     "PipelineValidationResult",
@@ -27,4 +28,5 @@ __all__ = [
     "InMemoryEmbeddingModel",
     "evaluate_embeddings",
     "load_sts_dataset",
+    "RegressionGuard",
 ]

@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 export default [
   {
-    files: ["tasks/**/*.ts", "tests_ts/**/*.ts"],
+    files: ["tasks/**/*.{ts,tsx}", "tests_ts/**/*.{ts,tsx}"],
     ignores: ["**/node_modules/**", "**/dist/**"],
     languageOptions: {
       parser: tsParser,
@@ -26,7 +26,7 @@ export default [
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/no-explicit-any": "error",

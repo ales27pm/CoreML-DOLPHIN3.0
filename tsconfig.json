@@ -8,8 +8,15 @@
     "strict": true,
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"],
+    "jsx": "react-jsx",
     "resolveJsonModule": true
   },
-  "include": ["tasks/**/*.ts", "tests_ts/**/*.ts", "vitest.config.ts"],
+  "include": [
+    "tasks/**/*.ts",
+    "tasks/**/*.tsx",
+    "tests_ts/**/*.ts",
+    "tests_ts/**/*.tsx",
+    "vitest.config.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

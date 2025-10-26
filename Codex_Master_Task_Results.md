@@ -60,7 +60,7 @@ task implementation changes to prevent status drift.
 | 28   | ✅ Implemented           | `tasks/artificial_intelligence/pipeline_validation.py`, validation tests                                                                                   | Keep CLI contract and output schema backward compatible when extending.                    |
 | 29   | ✅ Implemented           | `tasks/artificial_intelligence/quantization_study.py`, validation tests                                                                                    | Update fixture metrics if quantization baselines evolve.                                   |
 | 30   | ✅ Implemented           | `tasks/artificial_intelligence/embedding_compare.py`, validation tests                                                                                     | Ensure embeddings loader stays in sync with dataset metadata expectations.                 |
-| 31   | ⚠️ Partially Implemented | `Sources/App/Bench/BenchmarkHarness.swift`                                                                                                                 | Add CSV export of benchmark metrics with regression coverage before marking complete.      |
+| 31   | ✅ Implemented           | `Sources/App/Bench/BenchmarkHarness.swift`, `Sources/App/Bench/BenchmarkCSVSupport.swift`, `tests/test_benchmark_csv_support.py` | CSV export pipeline with throughput regression guard and Swift-backed tests. |
 | 32   | ⏳ Not Implemented       | —                                                                                                                                                          | Use historical specification below as the canonical blueprint when starting work.          |
 | 33   | ⏳ Not Implemented       | —                                                                                                                                                          | Use historical specification below as the canonical blueprint when starting work.          |
 | 34   | ⏳ Not Implemented       | —                                                                                                                                                          | Use historical specification below as the canonical blueprint when starting work.          |
@@ -83,7 +83,6 @@ task implementation changes to prevent status drift.
 
 ## Follow-Up Checklist
 
-- [ ] Task 31: add CSV export support and regression coverage in `Sources/App/Bench/BenchmarkHarness.swift`.
 - [ ] Tasks 2–3 & 5–23 & 32–50: no code currently exists—use the historical specifications below to scope future sessions.
 
 ## Session Log
@@ -91,6 +90,7 @@ task implementation changes to prevent status drift.
 | Date       | Update Summary                                                                          |
 | ---------- | --------------------------------------------------------------------------------------- |
 | 2025-10-25 | Restored historical task specifications and overlaid status dashboard to prevent drift. |
+| 2025-10-26 | Implemented Task 31 CSV export harness with regression validation and Swift integration tests. |
 
 ## Historical Task Specifications
 

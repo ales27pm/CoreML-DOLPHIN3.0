@@ -83,8 +83,20 @@ def test_networkx_visualization_payload_round_trip() -> None:
     payload = visualize_shortest_paths(sample_graph(), "A")
     assert set(payload.graph.nodes) == set(sample_graph())
     assert payload.distances["E"] == pytest.approx(20.0)
+    assert payload.target is None
+    assert payload.focus_path is None
 
     diag = build_networkx_graph(sample_graph())
     assert isinstance(diag, nx.DiGraph)
     assert diag.has_edge("A", "B")
     assert payload.edge_labels[("A", "B")] == 7.0
+
+
+def test_visualization_with_target_preserves_full_tree() -> None:
+    pytest.importorskip("networkx")
+    payload = visualize_shortest_paths(sample_graph(), "A", target="C")
+
+    # Full tree distances remain intact, including nodes beyond the requested target.
+    assert payload.distances["E"] == pytest.approx(20.0)
+    assert payload.target == "C"
+    assert payload.focus_path == ["A", "C"]

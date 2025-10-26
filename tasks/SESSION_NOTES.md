@@ -2,7 +2,7 @@
 
 <!-- session-log:session-2024-05-25:2024-05-25T00:00:00+00:00 -->
 
-### Session 2024-05-25 (2024-05-25T00:00:00+00:00)
+## Session 2024-05-25 (2024-05-25T00:00:00+00:00)
 
 **Summary:** Implemented session finalizer automation
 
@@ -13,7 +13,7 @@
 
 <!-- session-log:session-2025-10-26:2025-10-26T18:39:30+00:00 -->
 
-### Session 2025-10-26 (2025-10-26T18:39:30+00:00)
+## Session 2025-10-26 (2025-10-26T18:39:30+00:00)
 
 **Summary:** Rebuilt session finalizer and roadmap automation
 
@@ -34,7 +34,7 @@
 
 <!-- session-log:session-2025-10-26-190125:2025-10-26T19:01:25+00:00 -->
 
-### Session 2025-10-26 (2025-10-26T19:01:25+00:00)
+## Session 2025-10-26 (2025-10-26T19:01:25+00:00)
 
 **Summary:** Authored Task 33 architecture overview document
 
@@ -50,7 +50,7 @@
 
 <!-- session-log:session-2025-10-27-000000:2025-10-27T00:00:00+00:00 -->
 
-### Session 2025-10-27 (2025-10-27T00:00:00+00:00)
+## Session 2025-10-27 (2025-10-27T00:00:00+00:00)
 
 **Summary:** Implemented Task 5 graph shortest path visualizer and reconciled Task 3 ledger status
 

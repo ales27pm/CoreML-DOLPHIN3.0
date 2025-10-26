@@ -8,13 +8,13 @@ in notebooks or automated reports.
 
 Design goals:
 
-* **Deterministic correctness** – adjacency inputs are normalised and validated
+* **Deterministic correctness** - adjacency inputs are normalised and validated
   to prevent silent coercion of malformed payloads. Negative weights surface a
-  ``ValueError`` immediately because they violate Dijkstra's assumptions.
-* **Observability** – ``ShortestPathResult`` exposes helper methods for
+  ``GraphValidationError`` immediately because they violate Dijkstra's assumptions.
+* **Observability** - ``ShortestPathResult`` exposes helper methods for
   reconstructing the optimal route to any node and for emitting human-readable
   summaries that integrate with logging pipelines.
-* **NetworkX integration** – ``visualize_shortest_paths`` returns a
+* **NetworkX integration** - ``visualize_shortest_paths`` returns a
   ``VisualizationPayload`` dataclass containing an ``nx.DiGraph`` instance,
   layout coordinates, and labelled cost metadata so downstream tooling can call
   ``networkx.draw`` or export structured data without recomputing shortest
@@ -31,7 +31,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 import heapq
 import math
-from typing import Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
+
+if TYPE_CHECKING:  # pragma: no cover - import is for type checking only
+    import networkx as nx
+    NxDiGraph = nx.DiGraph
+else:  # pragma: no cover - alias keeps runtime dependency optional
+    NxDiGraph = Any
 
 GraphEdge = Tuple[str, float]
 GraphInput = Mapping[str, Iterable[GraphEdge]]
@@ -127,11 +133,13 @@ class ShortestPathResult:
 class VisualizationPayload:
     """Structured artefact for NetworkX visualisation pipelines."""
 
-    graph: "nx.DiGraph"
+    graph: NxDiGraph
     positions: Mapping[str, Tuple[float, float]]
     edge_labels: Mapping[Tuple[str, str], float]
     distances: Mapping[str, float]
     source: str
+    target: Optional[str] = None
+    focus_path: Optional[List[str]] = None
 
 
 def dijkstra(graph: Union[GraphInput, WeightedGraph], source: str, *, target: Optional[str] = None) -> ShortestPathResult:
@@ -155,8 +163,7 @@ def dijkstra(graph: Union[GraphInput, WeightedGraph], source: str, *, target: Op
     Raises
     ------
     GraphValidationError
-        If the graph contains invalid keys, negative weights, or references
-        unknown nodes.
+        If the graph contains invalid keys or negative edge weights.
     ValueError
         If ``source`` is not present in the graph.
     """
@@ -187,7 +194,7 @@ def dijkstra(graph: Union[GraphInput, WeightedGraph], source: str, *, target: Op
     return ShortestPathResult(source=source, distances=distances, previous=previous)
 
 
-def build_networkx_graph(graph: Union[GraphInput, WeightedGraph]) -> "nx.DiGraph":
+def build_networkx_graph(graph: Union[GraphInput, WeightedGraph]) -> NxDiGraph:
     """Convert *graph* to a NetworkX ``DiGraph``.
 
     The function imports NetworkX lazily to avoid forcing the dependency for
@@ -232,9 +239,9 @@ def visualize_shortest_paths(
         or ``circular``). The layout is resolved lazily to keep integration tests
         deterministic and side-effect free.
     target:
-        Optional node that, when supplied, restricts the path reconstruction to a
-        single destination. The returned payload still contains the full shortest
-        paths tree for callers that need aggregate information.
+        Optional node that downstream consumers may highlight in the resulting
+        visualisation. The solver still computes the full shortest paths tree so
+        aggregate metrics remain available.
     layout_seed:
         Seed forwarded to layout functions that support deterministic placement.
     """
@@ -247,7 +254,7 @@ def visualize_shortest_paths(
         ) from exc
 
     weighted = graph if isinstance(graph, WeightedGraph) else WeightedGraph.from_mapping(graph)
-    result = dijkstra(weighted, source, target=target)
+    result = dijkstra(weighted, source)
     nx_graph = build_networkx_graph(weighted)
 
     layout_resolvers = {
@@ -263,12 +270,16 @@ def visualize_shortest_paths(
     positions = resolver(nx_graph)
     edge_labels = {(u, v): data["weight"] for u, v, data in nx_graph.edges(data=True)}
 
+    focus_path = result.path_to(target) if target is not None else None
+
     return VisualizationPayload(
         graph=nx_graph,
         positions=positions,
         edge_labels=edge_labels,
         distances=result.distances,
         source=source,
+        target=target,
+        focus_path=focus_path,
     )
 
 
@@ -306,7 +317,7 @@ def _normalize_graph(graph: GraphInput) -> Dict[str, Tuple[GraphEdge, ...]]:
             if not isinstance(weight, (int, float)):
                 raise GraphValidationError("Edge weights must be numeric")
             if weight < 0:
-                raise GraphValidationError("Dijkstra's algorithm requires non-negative edge weights")
+                raise GraphValidationError("Edge weights must be non-negative")
             normalized_edges.append((neighbor, float(weight)))
             pending_neighbors.setdefault(neighbor, [])
         adjacency[node] = tuple(normalized_edges)

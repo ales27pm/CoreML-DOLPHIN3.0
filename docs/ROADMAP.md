@@ -1,19 +1,19 @@
 # Delivery Roadmap
 
-_Refreshed automatically: 2025-10-26T22:58:12+00:00_
+_Refreshed automatically: 2025-10-26T23:13:28+00:00_
 
 ## Session Pulse
 
-- **Session:** Session 2025-10-28
-- **Summary:** Implemented Task 16 session model crate
+- **Session:** Session 2025-10-29
+- **Summary:** Implemented Task 17 GraphQL resolver optimization
 - **Key Notes:**
-- Updated Task 16 status dashboard entries
+- Added DataLoader metrics instrumentation for batched product lookups.
 - git status changes:
-- M Cargo.lock
-- M Cargo.toml
 - M Codex_Master_Task_Results.md
-- M docs/ROADMAP.md
-- ?? tasks/core_algorithmic_foundations/session_model/
+- M package-lock.json
+- M package.json
+- ?? tasks/systems_backend_engineering/
+- ?? tests_ts/systems_backend_engineering/
 
 ## Snapshot Details
 
@@ -41,7 +41,7 @@ in `Codex_Master_Task_Results.md`. Update the ledger first, then rerun
 | 14   | ✅ Implemented     | `tasks/multi_language_cross_integration/react_snapshot/PriceTag.tsx`, `tests_ts/react/PriceTag.test.tsx`, `tests_ts/react/__snapshots__/PriceTag.test.tsx.snap`                                                   | Snapshot coverage for currency renderer; review stored snapshots when adjusting formatting or locales.                        |
 | 15   | ✅ Implemented     | `tasks/core_algorithmic_foundations/safe_add/src/lib.rs`, `tasks/core_algorithmic_foundations/safe_add/Cargo.toml`                                                                                                | Proptest-backed overflow guard for addition; rerun `cargo test -p safe_add` when extending invariants.                        |
 | 16   | ✅ Implemented     | `tasks/core_algorithmic_foundations/session_model/src/lib.rs`, `tasks/core_algorithmic_foundations/session_model/Cargo.toml`                                                                                      | Session lifecycle model with serde support and renewal helpers; keep TTL validation tests aligned with storage contracts.     |
-| 17   | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.                                             |
+| 17   | ✅ Implemented     | `tasks/systems_backend_engineering/graphqlResolvers.ts`, `tests_ts/systems_backend_engineering/graphqlResolvers.test.ts`                                             | DataLoader-backed GraphQL resolvers with cache instrumentation and Vitest regression coverage.                  |
 | 18   | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.                                             |
 | 19   | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.                                             |
 | 20   | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.                                             |

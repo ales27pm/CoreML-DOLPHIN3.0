@@ -80,3 +80,23 @@ def test_trie_node_validates_child_keys() -> None:
     with pytest.raises(TypeError):
         TrieNode(children={1: TrieNode()})  # type: ignore[arg-type]
 
+
+def test_trie_node_rejects_multi_character_keys_and_non_nodes() -> None:
+    with pytest.raises(TypeError):
+        TrieNode(children={"ab": TrieNode()})
+    with pytest.raises(TypeError):
+        TrieNode(children={"a": object()})  # type: ignore[arg-type]
+
+
+def test_deserialization_rejects_invalid_child_keys() -> None:
+    payload = json.dumps(
+        {
+            "terminal": False,
+            "children": {
+                "ab": {"terminal": True, "children": {}},
+            },
+        }
+    )
+    with pytest.raises(TypeError):
+        Trie.from_json(payload)
+

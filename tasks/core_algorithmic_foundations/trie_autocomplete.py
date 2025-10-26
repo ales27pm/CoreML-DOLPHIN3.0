@@ -39,9 +39,13 @@ class TrieNode:
     is_terminal: bool = False
 
     def __post_init__(self) -> None:
-        for key in self.children:
-            if not isinstance(key, str):
-                raise TypeError("TrieNode children must be keyed by strings")
+        for key, child in self.children.items():
+            if not isinstance(key, str) or len(key) != 1:
+                raise TypeError(
+                    "TrieNode children must be keyed by single-character strings"
+                )
+            if not isinstance(child, TrieNode):
+                raise TypeError("TrieNode children must be TrieNode instances")
         if not isinstance(self.is_terminal, bool):
             raise TypeError("TrieNode.is_terminal must be a boolean")
 
@@ -159,10 +163,18 @@ class Trie:
         children_payload = data.get("children", {})
         if not isinstance(children_payload, MutableMapping):
             raise TypeError("payload structure is invalid")
-        children = {
-            str(char): Trie._deserialize_node(child)  # str(...) ensures keys are serialisable
-            for char, child in children_payload.items()
-        }
+        children: Dict[str, TrieNode] = {}
+        for char, child_payload in children_payload.items():
+            if not isinstance(char, str) or len(char) != 1:
+                raise TypeError(
+                    "payload structure is invalid: child keys must be single-character strings"
+                )
+            child_node = Trie._deserialize_node(child_payload)
+            if not isinstance(child_node, TrieNode):  # pragma: no cover - defensive
+                raise TypeError(
+                    "payload structure is invalid: child values must describe TrieNodes"
+                )
+            children[char] = child_node
         return TrieNode(children=children, is_terminal=terminal)
 
     # ------------------------------------------------------------------

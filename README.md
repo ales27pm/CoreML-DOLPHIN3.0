@@ -186,24 +186,26 @@ You can wire any tokenizer (e.g., Hugging Face tokenizers via a small Swift port
 
 ## Session Finalization Automation
 
-Run the session finalizer script whenever you wrap up work. It keeps `AGENTS.md` files, repository README documents, the Codex ledger, and shared notes synchronized so reviewers always see an accurate snapshot.
+Run the session finalizer script whenever you wrap up work. It now refreshes `AGENTS.md` files without spawning a subprocess, rewrites the shared roadmap snapshot, and appends structured notes that future contributors can rely on. The CLI also emits a deterministic report describing every mutation (or dry-run preview) so you can copy the summary into session notes or CI logs.
 
 ```bash
 python tools/session_finalize.py \
   --session-name "Session 2024-05-25" \
   --summary "Implemented session finalizer automation" \
   --note "manage_agents synced" \
-  --note "Updated Codex ledger"
+  --include-git-status
 ```
 
 The command performs the following steps:
 
-1. Executes `python tools/manage_agents.py sync` to refresh scoped contribution guidance.
+1. Synchronizes scoped contribution guidance by invoking `tools.manage_agents.synchronize_agents` directly.
 2. Updates every `README.md` in the repo with a new entry under **Session Updates**.
 3. Maintains the `Codex_Master_Task_Results.md` session log to avoid drift between code and documentation.
 4. Appends the same information to `tasks/SESSION_NOTES.md` so long-running efforts retain a chronological narrative.
+5. Refreshes `docs/ROADMAP.md` using the latest status dashboard extracted from the Codex ledger so the roadmap never lags behind code.
+6. Emits a structured `FinalizationReport` detailing which documents changed, whether the roadmap snapshot moved, and if the scoped `AGENTS.md` files needed updates.
 
-Use `--timestamp` to record a specific ISO 8601 instant (e.g., for backfilling older sessions) and `--readme` to limit which documentation files receive the update. Pass `--skip-agent-sync` when running in a sandbox that cannot execute subprocesses.
+Use `--timestamp` to record a specific ISO 8601 instant (e.g., for backfilling older sessions), `--readme` to limit which documentation files receive the update, and `--roadmap-path` to redirect the generated roadmap. Pass `--skip-agent-sync` when running in a sandbox that cannot execute subprocesses, and add `--dry-run` to preview changes—the report will indicate exactly which files would have been updated without touching the filesystem.
 
 ## Session Updates
 
@@ -215,4 +217,23 @@ Use `--timestamp` to record a specific ISO 8601 instant (e.g., for backfilling o
 **Notes:**
 - manage_agents synced
 - Updated Codex ledger
+
+<!-- session-log:session-2025-10-26:2025-10-26T18:39:30+00:00 -->
+### Session 2025-10-26 (2025-10-26T18:39:30+00:00)
+
+**Summary:** Rebuilt session finalizer and roadmap automation
+
+**Notes:**
+- Introduced roadmap maintainer
+- Updated documentation to require finalizer
+- git status changes:
+- M AGENTS.md
+- M Codex_Master_Task_Results.md
+- M README.md
+- M tasks/SESSION_NOTES.md
+- M tests/tools/test_session_finalize.py
+- M tools/manage_agents.py
+- M tools/session_finalize.py
+- ?? docs/
+- ?? tools/__init__.py
 

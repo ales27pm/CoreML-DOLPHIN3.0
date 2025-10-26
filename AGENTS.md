@@ -23,9 +23,11 @@ rules. These guidelines are **mandatory** for every change within the repository
 1. Treat this file as a **dynamic contract**: it is the single source of truth that drives
    creation, updates, and cleanup of every scoped `AGENTS.md` in the repository.
 2. Run `python tools/manage_agents.py sync` immediately after cloning or before starting work
-   to materialize any new scopes defined in the manifest below. Re-run the command at the end of
-   every session—before committing—to refresh instructions and clean up unmanaged agent files.
-  3. Respect the scope hierarchy defined by generated `AGENTS.md` files. More deeply nested files
+   to materialize any new scopes defined in the manifest below. Conclude each session with
+   `python tools/session_finalize.py --session-name "<date>" --summary "<work>" --include-git-status`
+   so the finalizer performs a closing sync, refreshes documentation, and records notes for the
+   next contributor.
+3. Respect the scope hierarchy defined by generated `AGENTS.md` files. More deeply nested files
    override parent scopes.
 4. **Absolutely no placeholders, stubs, mocks, incomplete flows, or simplified code examples are
    permitted.** Deliver only advanced, fully implemented, production-ready logic with complete

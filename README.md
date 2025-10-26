@@ -183,3 +183,36 @@ public protocol YourTokenizerProtocol {
 Quick glue for a basic tokenizer (placeholder)
 
 You can wire any tokenizer (e.g., Hugging Face tokenizers via a small Swift port or ship precomputed SentencePiece tables). If you prefer, keep tokenization in Python and send IDs to the app; otherwise I can generate a tiny Swift tokenizer adapter if you share which Dolphin tokenizer vocab/SentencePiece model you’re using.
+
+## Session Finalization Automation
+
+Run the session finalizer script whenever you wrap up work. It keeps `AGENTS.md` files, repository README documents, the Codex ledger, and shared notes synchronized so reviewers always see an accurate snapshot.
+
+```bash
+python tools/session_finalize.py \
+  --session-name "Session 2024-05-25" \
+  --summary "Implemented session finalizer automation" \
+  --note "manage_agents synced" \
+  --note "Updated Codex ledger"
+```
+
+The command performs the following steps:
+
+1. Executes `python tools/manage_agents.py sync` to refresh scoped contribution guidance.
+2. Updates every `README.md` in the repo with a new entry under **Session Updates**.
+3. Maintains the `Codex_Master_Task_Results.md` session log to avoid drift between code and documentation.
+4. Appends the same information to `tasks/SESSION_NOTES.md` so long-running efforts retain a chronological narrative.
+
+Use `--timestamp` to record a specific ISO 8601 instant (e.g., for backfilling older sessions) and `--readme` to limit which documentation files receive the update. Pass `--skip-agent-sync` when running in a sandbox that cannot execute subprocesses.
+
+## Session Updates
+
+<!-- session-log:session-2024-05-25:2024-05-25T00:00:00+00:00 -->
+### Session 2024-05-25 (2024-05-25T00:00:00+00:00)
+
+**Summary:** Implemented session finalizer automation
+
+**Notes:**
+- manage_agents synced
+- Updated Codex ledger
+

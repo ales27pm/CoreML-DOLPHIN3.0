@@ -6,12 +6,24 @@ task implementation changes to prevent status drift.
 
 
 ## Session Update Protocol
+- Run `python tools/session_finalize.py --session-name "Session <date>" --summary "<work>"` when wrapping up work. The script
+  synchronizes scoped agent files, refreshes documentation, and appends the details to the log below.
 - Run `python tools/manage_agents.py sync` at the start and end of every working session.
 - When a task's implementation, tests, or tooling change, immediately refresh the status table and follow-up checklist below.
 - Append a new entry to the session log documenting the date, author, and summary of updates.
 - During review, confirm that code, tests, and this ledger moved forward together.
 
 
+## Session Log
+
+<!-- session-log:session-2024-05-25:2024-05-25T00:00:00+00:00 -->
+### Session 2024-05-25 (2024-05-25T00:00:00+00:00)
+
+**Summary:** Implemented session finalizer automation
+
+**Notes:**
+- manage_agents synced
+- Updated Codex ledger
 ## Status Dashboard
 | Task | Status | Implementation Artifacts | Follow-Up Notes |
 | --- | --- | --- | --- |

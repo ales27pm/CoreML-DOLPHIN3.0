@@ -37,7 +37,7 @@ class TreeNode:
     right: Optional["TreeNode"] = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.value, int):
+        if not isinstance(self.value, int) or isinstance(self.value, bool):
             raise TypeError("TreeNode value must be an integer")
 
 

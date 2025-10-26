@@ -195,26 +195,52 @@ def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
+def synchronize_agents(*, repo_root: Path | None = None, dry_run: bool = False) -> bool:
+    """Synchronize AGENTS.md files according to the manifest.
+
+    Parameters
+    ----------
+    repo_root:
+        Optional explicit repository root. When omitted, the path is derived relative to this
+        module.
+    dry_run:
+        When ``True`` the filesystem is left untouched and the function only reports whether
+        changes would have been applied.
+
+    Returns
+    -------
+    bool
+        ``True`` when modifications were applied (or would be applied in dry-run mode).
+    """
+
+    repo_root = repo_root or find_repo_root(Path(__file__))
+    root_agents = repo_root / "AGENTS.md"
+    if not root_agents.exists():
+        raise ManifestError("Root AGENTS.md not found. Ensure you are in the repository root.")
+
+    scopes = load_manifest(root_agents)
+    return sync_scopes(scopes, repo_root=repo_root, dry_run=dry_run)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entrypoint for the CLI."""
 
     args = parse_args(argv or sys.argv[1:])
     configure_logging()
 
-    repo_root = find_repo_root(Path(__file__))
-    root_agents = repo_root / "AGENTS.md"
-    if not root_agents.exists():
-        raise ManifestError("Root AGENTS.md not found. Ensure you are in the repository root.")
-
-    scopes = load_manifest(root_agents)
-
     if args.command == "sync":
-        changed = sync_scopes(scopes, repo_root=repo_root, dry_run=args.dry_run)
+        changed = synchronize_agents(repo_root=find_repo_root(Path(__file__)), dry_run=args.dry_run)
         if changed and args.dry_run:
             logging.info("Dry run detected differences. Re-run without --dry-run to apply them.")
         return 0
 
     if args.command == "check":
+        repo_root = find_repo_root(Path(__file__))
+        root_agents = repo_root / "AGENTS.md"
+        if not root_agents.exists():
+            raise ManifestError("Root AGENTS.md not found. Ensure you are in the repository root.")
+
+        scopes = load_manifest(root_agents)
         in_sync = check_scopes(scopes, repo_root=repo_root)
         return 0 if in_sync else 1
 

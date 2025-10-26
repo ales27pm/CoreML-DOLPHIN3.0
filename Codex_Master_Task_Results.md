@@ -6,9 +6,11 @@ task implementation changes to prevent status drift.
 
 ## Session Update Protocol
 
-- Run `python tools/session_finalize.py --session-name "Session <date>" --summary "<work>"` when wrapping up work. The script
-  synchronizes scoped agent files, refreshes documentation, and appends the details to the log below.
-- Run `python tools/manage_agents.py sync` at the start and end of every working session.
+- Run `python tools/session_finalize.py --session-name "Session <date>" --summary "<work>" --include-git-status` when wrapping
+  up work. The script synchronizes scoped agent files, refreshes documentation, regenerates the roadmap snapshot, and appends the
+  details to the logs below.
+- Run `python tools/manage_agents.py sync` at the start of every working session if you need to inspect planned instruction
+  changes without writing to disk (the finalizer handles the closing sync automatically).
 - When a task's implementation, tests, or tooling change, immediately refresh the status table and follow-up checklist below.
 - Append a new entry to the session log documenting the date, author, and summary of updates.
 - During review, confirm that code, tests, and this ledger moved forward together.
@@ -26,6 +28,26 @@ task implementation changes to prevent status drift.
 - manage_agents synced
 - Updated Codex ledger
 
+
+
+<!-- session-log:session-2025-10-26:2025-10-26T18:39:30+00:00 -->
+### Session 2025-10-26 (2025-10-26T18:39:30+00:00)
+
+**Summary:** Rebuilt session finalizer and roadmap automation
+
+**Notes:**
+- Introduced roadmap maintainer
+- Updated documentation to require finalizer
+- git status changes:
+- M AGENTS.md
+- M Codex_Master_Task_Results.md
+- M README.md
+- M tasks/SESSION_NOTES.md
+- M tests/tools/test_session_finalize.py
+- M tools/manage_agents.py
+- M tools/session_finalize.py
+- ?? docs/
+- ?? tools/__init__.py
 ## Status Dashboard
 
 | Task | Status                   | Implementation Artifacts                                                                                                                                   | Follow-Up Notes                                                                            |

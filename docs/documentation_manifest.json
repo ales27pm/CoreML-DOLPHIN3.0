@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "codex_path": "Codex_Master_Task_Results.md",
+  "roadmap_path": "docs/ROADMAP.md",
+  "documents": [
+    {
+      "path": "README.md",
+      "header": "## Session Timeline",
+      "limit": 3,
+      "tags": ["readme"]
+    },
+    {
+      "path": "docs/history/SESSION_LOG.md",
+      "header": "## Session Log",
+      "ensure_exists": true,
+      "template_path": "docs/templates/session_log.md"
+    },
+    {
+      "path": "Codex_Master_Task_Results.md",
+      "header": "## Session Journal"
+    },
+    {
+      "path": "tasks/SESSION_NOTES.md",
+      "header": "## Session Notes",
+      "ensure_exists": true,
+      "template_path": "docs/templates/session_notes.md"
+    }
+  ]
+}

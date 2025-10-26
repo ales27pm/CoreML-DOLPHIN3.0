@@ -1,12 +1,12 @@
-# Session Roadmap
+# Delivery Roadmap
 
-Last updated: 2025-10-27T06:30:00+00:00
+_Refreshed automatically: 2025-10-27T06:30:00+00:00_
 
-## Latest Session
+## Session Pulse
 
 - **Session:** Session 2025-10-27
 - **Summary:** Implemented Tasks 9–11 covering parallel CSV checksums, GoDoc enrichment, and a Google-style docstring CLI
-- **Notes:**
+- **Key Notes:**
 - Added `parallel_csv_reader` crate with Rayon-backed checksum, Criterion bench, and persisted metrics snapshot
 - Authored `vectormath` Go module with Markdown GoDoc plus arithmetic and mismatch tests
 - Delivered docstring rewriter CLI with logging, recursive traversal, and pytest coverage
@@ -22,7 +22,13 @@ Last updated: 2025-10-27T06:30:00+00:00
 - A `tasks/multi_language_cross_integration/go_dot/`
 - A `tests/documentation/test_docstring_rewriter.py`
 
-## Status Dashboard Snapshot
+## Snapshot Details
+
+This roadmap snapshot is rendered from the `## Status Dashboard` section
+in `Codex_Master_Task_Results.md`. Update the ledger first, then rerun
+`tools/session_finalize.py` to propagate the refresh across documentation.
+
+### Status Dashboard Snapshot
 
 | Task                                                                                    | Status             | Implementation Artifacts                                                                                                                                                                                          | Follow-Up Notes                                                                                |
 | --------------------------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -77,3 +83,8 @@ Last updated: 2025-10-27T06:30:00+00:00
 | 48                                                                                      | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.              |
 | 49                                                                                      | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.              |
 | 50                                                                                      | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.              |
+
+## Automation Footnotes
+
+- Maintained by `tools/session_finalize.py` using `docs/documentation_manifest.json`.
+- `docs/history/SESSION_LOG.md` retains the full session narrative; the README timeline is intentionally pruned to the latest updates.

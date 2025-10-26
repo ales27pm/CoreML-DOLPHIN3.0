@@ -1,16 +1,16 @@
-# Session Notes Handbook
+# Session History Ledger
 
-The long-form journal below captures implementation details, edge-case learnings,
-and git status snapshots for every working interval. It is continuously curated by
-`tools/session_finalize.py` based on the documentation manifest. Append content by
-running the finalizer rather than editing blocks manually.
+This file is the canonical record of every engineering session. It is fully
+managed by `tools/session_finalize.py`, which reads the documentation manifest,
+ensures the surrounding handbook files stay synchronized, and appends structured
+entries that mirror the Codex ledger and roadmap snapshots.
 
-- Highlight nuanced debugging steps and follow-up actions in the Notes list.
-- Use the README timeline for the quick executive summary of recent work.
-- Cross-reference related tasks in `Codex_Master_Task_Results.md` when updating
-  this file so the ledger, roadmap, and notes stay in sync.
+- **Do not** hand-edit individual session blocks—run the finalizer instead.
+- Use the repository README for the short-form, trimmed session summary.
+- Keep `docs/documentation_manifest.json` authoritative for the destinations the
+  finalizer updates. Adding a new log requires updating the manifest first.
 
-## Session Notes
+## Session Log
 
 <!-- session-log:session-2024-05-25:2024-05-25T00:00:00+00:00 -->
 

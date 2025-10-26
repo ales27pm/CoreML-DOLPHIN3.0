@@ -1,46 +1,33 @@
-# Repository Automation & Contribution Protocol
+# Repository Operations Playbook
 
-This repository uses dynamic `AGENTS.md` files to communicate directory-specific contribution
-rules. These guidelines are **mandatory** for every change within the repository.
+This playbook governs code, documentation, and automation across the entire
+CoreML-DOLPHIN3.0 workspace. Treat it as the canonical agreement for how
+contributors interact with the manifest-driven documentation fabric, automation
+scripts, and scoped contribution rules.
 
-## Repository Knowledge Snapshot
-- **Core export pipeline** lives in `dolphin2coreml_full.py` and provides a full end-to-end
-  conversion flow (Rich console UX, dependency bootstrapping, LoRA merge, LLM2Vec attachment,
-  Core ML conversion, compression, and optional validation). Preserve the production-grade logging
-  strategy (`rich` for UX, explicit error propagation) and dependency management via
-  `ensure_packages` when evolving this script.
-- **Swift runtime bindings** exist under `Sources/App/LLM/DolphinCoreML.swift`. They expose a thin
-  wrapper around the multifunction `.mlpackage` the pipeline exports, including compute-unit
-  selection, KV-cache streaming, embedding inference, and greedy sampling helpers.
-- **Benchmark harness** functionality lives under `Sources/App/Bench/BenchmarkHarness.swift`,
-  providing latency instrumentation, cache trimming safeguards, and tokenizer abstractions for
-  integration testing within iOS/macOS apps.
-- **Automation tooling** resides in `tools/manage_agents.py`, which enforces manifest-driven scoped
-  instructions. Always update the manifest block below and run the sync workflow whenever scopes
-  change so downstream instructions stay authoritative.
+## Documentation Fabric
+- `docs/documentation_manifest.json` defines every markdown surface maintained by
+  `tools/session_finalize.py`. Update the manifest before introducing new logs or
+  histories, then rerun the finalizer to materialize templates.
+- Auto-managed sections (README timeline, Codex session journal, roadmap snapshot,
+  session notes, session history) must be updated via the finalizer—never edit
+  the generated blocks by hand.
+- Keep the Codex ledger, roadmap, and session logs in sync with code changes;
+  reviews must confirm all three moved together.
 
-## Session Requirements
-1. Treat this file as a **dynamic contract**: it is the single source of truth that drives
-   creation, updates, and cleanup of every scoped `AGENTS.md` in the repository.
-2. Run `python tools/manage_agents.py sync` immediately after cloning or before starting work
-   to materialize any new scopes defined in the manifest below. Conclude each session with
-   `python tools/session_finalize.py --session-name "<date>" --summary "<work>" --include-git-status`
-   so the finalizer performs a closing sync, refreshes documentation, and records notes for the
-   next contributor.
-3. Respect the scope hierarchy defined by generated `AGENTS.md` files. More deeply nested files
-   override parent scopes.
-4. **Absolutely no placeholders, stubs, mocks, incomplete flows, or simplified code examples are
-   permitted.** Deliver only advanced, fully implemented, production-ready logic with complete
-   error handling, tests, and documentation relevant to the change.
-5. Align with repository tooling (formatters, linters, tests) described in scoped instructions.
-   If a tool is unavailable, document the limitation and provide remediation steps.
-6. Keep this root file as the source of truth for the automation manifest below. Modify the
-   manifest when adding, updating, or removing directory-specific instructions and then run the
-   sync command to apply the changes immediately.
+## Automation Lifecycle
+- Begin sessions by running `python tools/manage_agents.py sync` to materialize
+  scoped `AGENTS.md` files described in the manifest below.
+- End sessions with `python tools/session_finalize.py --session-name "<date>" --summary "<work>" --include-git-status`.
+  The finalizer now enforces manifest-driven document creation, README pruning,
+  roadmap regeneration, and ledger updates.
+- Never ship placeholder code or half implementations. Tests, documentation, and
+  automation updates are mandatory for every change.
 
 ## Automation Manifest
-The block below drives automatic creation, update, and cleanup of scoped `AGENTS.md` files.
-Maintain valid JSON and avoid comments.
+The JSON block below drives automatic creation, update, and cleanup of scoped
+`AGENTS.md` files. Maintain valid JSON and keep descriptions current with the
+repository’s architecture.
 
 <!--AGENTS_MANIFEST_BEGIN-->
 {
@@ -48,6 +35,18 @@ Maintain valid JSON and avoid comments.
     {
       "path": "tools",
       "content": "# Tooling Automation Instructions\n\nThis scope covers files within the `tools/` directory, including automation and maintenance\nscripts. Apply the following rules:\n\n- Implement scripts in Python 3.10+ with comprehensive type hints and docstrings for every\n  public function.\n- Use the standard library whenever possible. If third-party dependencies are required, update\n  the manifest and document installation steps in the root README before usage.\n- Provide robust error handling with actionable messages. Prefer `logging` over bare prints for\n  reusable modules.\n- Write deterministic unit tests under `tests/tools` when modifying logic. Ensure they run via\n  `pytest` or the repository's preferred test runner.\n- Remember: no placeholders, simplified logic, or half implementations—ship production-grade\n  automation code only."
+    },
+    {
+      "path": "docs",
+      "content": "# Documentation Guidance\n\nThis scope governs all files under `docs/`.\n\n- Treat documentation as code: changes require clear narrative structure, tables kept in sync\n  with automation outputs, and explicit references to the manifest-driven workflow.\n- Auto-managed sections must remain compatible with `tools/session_finalize.py`; avoid manual\n  edits to generated timelines or snapshots.\n- Provide contextual introductions for new documents and include cross-links back to the Codex\n  ledger or roadmap when relevant.\n- Use semantic headings (H1/H2/H3) and fenced code blocks to aid navigation.\n- When adding templates, ensure they live under `docs/templates/` with descriptive names."
+    },
+    {
+      "path": "docs/history",
+      "content": "# Session History Guidance\n\nThis scope covers `docs/history/` including `SESSION_LOG.md`.\n\n- Never edit session entry blocks by hand—run `tools/session_finalize.py` to append updates.\n- Keep introductory context accurate and reference the automation manifest when adjusting structure.\n- Use this directory for canonical logs only; additional playbooks belong elsewhere in `docs/`."
+    },
+    {
+      "path": "docs/templates",
+      "content": "# Documentation Template Guidance\n\nThis scope governs reusable markdown templates stored under `docs/templates/`.\n\n- Templates must render valid Markdown with placeholders avoided entirely.\n- Keep instructions within templates concise and ensure they describe how automation scripts populate the sections.\n- When updating a template, note the change in `docs/documentation_manifest.json` if new files should be auto-created."
     },
     {
       "path": "Sources",
@@ -60,18 +59,20 @@ Maintain valid JSON and avoid comments.
     {
       "path": "Sources/App/Bench",
       "content": "# Benchmark Harness Guidance\n\nThis scope covers the `Sources/App/Bench/` directory, including `BenchmarkHarness.swift`.\n\n- Retain the production-friendly benchmarking workflow: prompt encoding, warmup decode steps,\n  timed decode loop, and embedding latency measurement.\n- `trimCacheToSeqLen` must continue to validate tensor ranks and data types before performing\n  pointer arithmetic. Any modifications should add regression tests that exercise Float16 and\n  Float32 caches with varying sequence lengths.\n- Do not remove tokenizer protocol abstractions—extend `YourTokenizerProtocol` with documented\n  methods if the runtime contract evolves, and provide migration notes in doc comments.\n- Emit structured logs (e.g., formatted strings with timings) that are safe to consume in release\n  builds and avoid `print` spam unless reporting final benchmark summaries.\n- Keep the harness deterministic and make warmup/measurement token counts configurable through\n  method parameters when exposing new benchmarking scenarios."
+    },
+    {
+      "path": "tasks",
+      "content": "# Tasks & Session Notes Guidance\n\nThis scope applies to everything under `tasks/`.\n\n- Keep task implementations production-ready with exhaustive tests and documentation.\n- For `tasks/SESSION_NOTES.md`, never edit the auto-managed session blocks manually—use the\n  session finalizer to append entries.\n- When authoring new tasks, document validation commands and cross-reference the Codex ledger\n  section that tracks the task.\n- Maintain parity between Python, Rust, Go, and TypeScript implementations referenced in the\n  Codex dashboard."
     }
   ]
 }
 <!--AGENTS_MANIFEST_END-->
 
 ## Maintenance Workflow
-- Use `python tools/manage_agents.py check` in CI or pre-commit hooks to verify that all agent
-  files are synchronized without mutating the working tree.
+- Use `python tools/manage_agents.py check` in CI to validate manifest sync.
 - The sync script deletes unmanaged `AGENTS.md` files, preventing stale instructions.
 - Document any scope addition or removal in commit messages for traceability.
 
 ## Escalations
-If new directories require custom guidance, update the manifest above with their scoped
-instructions and run the sync command. Never leave directories without explicit guidance when the
-changes introduce new technologies or workflows.
+Update the manifest with new directory scopes as the architecture evolves. Never
+introduce new technologies without corresponding scoped instructions.

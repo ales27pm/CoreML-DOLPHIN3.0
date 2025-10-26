@@ -1,21 +1,35 @@
-# Codex Master Task Results — Live Status Ledger
+# Codex Master Task Ledger
 
-This ledger preserves the authoritative Codex Master task history while exposing a
-current implementation snapshot for this repository. Update it **every time** a
-task implementation changes to prevent status drift.
+This ledger is the operational source of truth for every Codex Master task tracked
+in this repository. It blends real-time implementation status, delivery guidance,
+and historical task specifications so engineering, product, and QA can operate
+from a single synchronized artifact.
 
-## Session Update Protocol
+## Governance Protocol
 
 - Run `python tools/session_finalize.py --session-name "Session <date>" --summary "<work>" --include-git-status` when wrapping
-  up work. The script synchronizes scoped agent files, refreshes documentation, regenerates the roadmap snapshot, and appends the
-  details to the logs below.
-- Run `python tools/manage_agents.py sync` at the start of every working session if you need to inspect planned instruction
-  changes without writing to disk (the finalizer handles the closing sync automatically).
-- When a task's implementation, tests, or tooling change, immediately refresh the status table and follow-up checklist below.
-- Append a new entry to the session log documenting the date, author, and summary of updates.
-- During review, confirm that code, tests, and this ledger moved forward together.
+  up a work block. The finalizer enforces manifest-driven documentation updates, synchronizes AGENTS files, refreshes the
+  roadmap snapshot, and writes structured notes to every session journal.
+- Execute `python tools/manage_agents.py sync` whenever the contribution guidance manifest changes to guarantee scoped
+  instructions are regenerated before reviews begin.
+- Refresh the Status Dashboard and Delivery Checklist immediately when implementation, validation, or tooling state moves.
+- Treat this ledger, the roadmap snapshot, and `docs/history/SESSION_LOG.md` as a single unit—updates belong in all three.
+- During review, confirm that code, tests, documentation, and automation artefacts advanced together with each commit.
 
-## Session Log
+## Automation Interfaces
+
+- **Documentation Manifest (`docs/documentation_manifest.json`):** Declares every markdown target managed by the finalizer,
+  including new history files that should be created on demand.
+- **Session Finalizer (`tools/session_finalize.py`):** Loads the manifest, ensures templated files exist, prunes the short-form
+  README timeline, and mirrors updates across the Codex ledger, roadmap, and session notes.
+- **Roadmap Maintainer:** Pulls the latest `## Status Dashboard` section from this file and renders an executive snapshot under
+  `docs/ROADMAP.md` for stakeholders who need a concise progress rollup.
+
+## Session Journal
+
+Each entry mirrors the canonical record maintained in `docs/history/SESSION_LOG.md`
+and the README timeline (which is automatically pruned to the latest few sessions).
+Use this section to understand the narrative arc behind dashboard changes.
 
 <!-- session-log:session-2024-05-25:2024-05-25T00:00:00+00:00 -->
 
@@ -149,11 +163,11 @@ task implementation changes to prevent status drift.
 | 49   | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.              |
 | 50   | ⏳ Not Implemented | —                                                                                                                                                                                                                 | Use historical specification below as the canonical blueprint when starting work.              |
 
-## Follow-Up Checklist
+## Delivery Checklist
 
 - [ ] Tasks 12–23 & 34–50: no code currently exists—use the historical specifications below to scope future sessions.
 
-## Session Log
+## Session Journal Index
 
 | Date       | Update Summary                                                                                 |
 | ---------- | ---------------------------------------------------------------------------------------------- |

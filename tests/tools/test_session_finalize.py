@@ -10,6 +10,7 @@ from tools.session_finalize import (
     SessionFinalizer,
     SessionRecord,
     discover_readmes,
+    load_documentation_manifest,
     slugify,
     update_markdown_log,
 )
@@ -90,7 +91,11 @@ def test_roadmap_maintainer_renders_dashboard(tmp_path: Path) -> None:
     assert maintainer.refresh(record) is True
 
     content = roadmap.read_text(encoding="utf-8")
-    assert "Session 99" in content
+    assert "# Delivery Roadmap" in content
+    assert "_Refreshed automatically: 2025-01-01T00:00:00+00:00_" in content
+    assert "## Session Pulse" in content
+    assert "- **Key Notes:**" in content
+    assert "## Automation Footnotes" in content
     assert "| Task | Status |" in content
 
 
@@ -106,6 +111,37 @@ def test_update_markdown_log_dry_run(tmp_path: Path) -> None:
 
     assert update_markdown_log(path, record, header, dry_run=True) is True
     assert not path.exists()
+
+
+def test_update_markdown_log_enforces_limit(tmp_path: Path) -> None:
+    header = "## Session Timeline"
+    path = tmp_path / "README.md"
+    record1 = SessionRecord(
+        session_name="Alpha",
+        summary="Did alpha",
+        notes=(),
+        timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+    )
+    record2 = SessionRecord(
+        session_name="Beta",
+        summary="Did beta",
+        notes=(),
+        timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
+    )
+    record3 = SessionRecord(
+        session_name="Gamma",
+        summary="Did gamma",
+        notes=(),
+        timestamp=datetime(2025, 1, 3, tzinfo=timezone.utc),
+    )
+
+    assert update_markdown_log(path, record1, header, limit=2) is True
+    assert update_markdown_log(path, record2, header, limit=2) is True
+    assert update_markdown_log(path, record3, header, limit=2) is True
+
+    content = path.read_text(encoding="utf-8")
+    assert content.count("<!-- session-log:") == 2
+    assert "Gamma" in content and "Beta" in content and "Alpha" not in content
 
 
 def test_session_finalizer_reports_changes(tmp_path: Path, monkeypatch) -> None:
@@ -185,3 +221,43 @@ def test_roadmap_maintainer_reports_no_change(tmp_path: Path) -> None:
     maintainer = RoadmapMaintainer(codex_path=codex, roadmap_path=roadmap_path)
     assert maintainer.refresh(record) is True
     assert maintainer.refresh(record) is False
+
+
+def test_load_documentation_manifest_reads_templates(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "docs" / "documentation_manifest.json"
+    templates_dir = tmp_path / "docs" / "templates"
+    templates_dir.mkdir(parents=True)
+    template_file = templates_dir / "example.md"
+    template_file.write_text("# Template\n", encoding="utf-8")
+
+    manifest_path.write_text(
+        (
+            "{\n"
+            "  \"version\": 1,\n"
+            "  \"documents\": [\n"
+            "    {\n"
+            "      \"path\": \"README.md\",\n"
+            "      \"header\": \"## Session Timeline\",\n"
+            "      \"limit\": 2\n"
+            "    },\n"
+            "    {\n"
+            "      \"path\": \"docs/history/SESSION_LOG.md\",\n"
+            "      \"header\": \"## Session Log\",\n"
+            "      \"ensure_exists\": true,\n"
+            "      \"template_path\": \"docs/templates/example.md\"\n"
+            "    }\n"
+            "  ]\n"
+            "}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = load_documentation_manifest(tmp_path, manifest_path)
+    assert manifest is not None
+    assert manifest.version == 1
+    assert len(manifest.documents) == 2
+    readme_plan, log_plan = manifest.documents
+    assert readme_plan.limit == 2
+    assert readme_plan.ensure_exists is False
+    assert log_plan.ensure_exists is True
+    assert log_plan.template == "# Template\n"

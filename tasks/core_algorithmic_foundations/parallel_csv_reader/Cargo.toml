@@ -1,0 +1,28 @@
+[package]
+name = "parallel_csv_reader"
+version = "0.1.0"
+edition = "2021"
+description = "High-throughput CSV checksum calculator with sequential and Rayon-powered parallel implementations."
+authors = ["CoreML Dolphin Contributors"]
+license = "MIT"
+
+[lib]
+bench = false
+
+[dependencies]
+anyhow = "1.0"
+rayon = "1.10"
+sha2 = "0.10"
+hex = "0.4"
+thiserror = "1.0"
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+once_cell = "1.19"
+tempfile = "3.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[[bench]]
+name = "parallel_csv"
+harness = false

@@ -29,7 +29,9 @@ fn utf8_cstring(bytes: &[u8]) -> Option<CString> {
 #[no_mangle]
 pub extern "C" fn rust_echo(ptr: *const u8, len: usize) -> *mut c_char {
     if len == 0 {
-        return CString::new("").expect("empty string is always valid").into_raw();
+        return CString::new("")
+            .expect("empty string is always valid")
+            .into_raw();
     }
 
     if ptr.is_null() {
@@ -50,7 +52,9 @@ pub extern "C" fn rust_echo(ptr: *const u8, len: usize) -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn rust_echo_c(ptr: *const c_char) -> *mut c_char {
     if ptr.is_null() {
-        return CString::new("").expect("empty string is always valid").into_raw();
+        return CString::new("")
+            .expect("empty string is always valid")
+            .into_raw();
     }
 
     let c_string = unsafe { CStr::from_ptr(ptr) };

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "tasks/core_algorithmic_foundations/parallel_csv_reader",
     "tasks/multi_language_cross_integration/ffi_bridge",
     "tasks/multi_language_cross_integration/wasm_dot"
 ]

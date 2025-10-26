@@ -1,0 +1,6 @@
+{
+  "dataset_rows": 200001,
+  "sequential_microseconds": 36462.868,
+  "parallel_microseconds": 68234.562,
+  "speedup": 0.5343753507203578
+}

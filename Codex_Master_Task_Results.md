@@ -953,39 +953,82 @@ const describeError = (error: unknown): string => {
 
 ```rust
 use rayon::prelude::*;
+use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use sha2::{Digest, Sha256};
+use std::path::Path;
 
-pub fn parallel_csv_checksum(path: &str) -> anyhow::Result<(usize, String)> {
-    let file = File::open(path)?;
+const DEFAULT_CHUNK_SIZE: usize = 10_000;
+
+pub fn sequential_csv_checksum<P: AsRef<Path>>(path: P) -> anyhow::Result<(usize, String)> {
+    let file = File::open(&path)?;
+    let reader = BufReader::new(file);
+    let mut total = 0usize;
+    let mut digest = [0u8; 32];
+    let mut chunk = Vec::with_capacity(DEFAULT_CHUNK_SIZE);
+
+    for line in reader.lines() {
+        let line = line?;
+        total += 1;
+        chunk.push(line);
+        if chunk.len() == DEFAULT_CHUNK_SIZE {
+            xor_in_place(&mut digest, digest_for_lines(&chunk));
+            chunk.clear();
+        }
+    }
+
+    if !chunk.is_empty() {
+        xor_in_place(&mut digest, digest_for_lines(&chunk));
+    }
+
+    Ok((total, hex::encode(digest)))
+}
+
+pub fn parallel_csv_checksum<P: AsRef<Path>>(path: P) -> anyhow::Result<(usize, String)> {
+    let file = File::open(&path)?;
     let reader = BufReader::new(file);
     let lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
     let total = lines.len();
     let digest = lines
-        .par_chunks(10_000)
-        .map(|chunk| {
-            let mut hasher = Sha256::new();
-            for line in chunk {
-                hasher.update(line.as_bytes());
-            }
-            hasher.finalize()
-        })
-        .reduce(|| Sha256::new().finalize(), |mut acc, item| {
-            for (idx, byte) in item.iter().enumerate() {
-                acc[idx] ^= byte;
-            }
-            acc
-        });
+        .par_chunks(DEFAULT_CHUNK_SIZE)
+        .map(digest_for_lines)
+        .reduce(|| [0u8; 32], xor_digests);
     Ok((total, hex::encode(digest)))
+}
+
+fn digest_for_lines(lines: &[String]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    for line in lines {
+        hasher.update(line.as_bytes());
+    }
+    finalize_to_array(hasher)
+}
+
+fn finalize_to_array(hasher: Sha256) -> [u8; 32] {
+    let bytes = hasher.finalize();
+    let mut buffer = [0u8; 32];
+    buffer.copy_from_slice(&bytes);
+    buffer
+}
+
+fn xor_in_place(target: &mut [u8; 32], rhs: [u8; 32]) {
+    for (lhs, r) in target.iter_mut().zip(rhs) {
+        *lhs ^= r;
+    }
+}
+
+fn xor_digests(lhs: [u8; 32], rhs: [u8; 32]) -> [u8; 32] {
+    let mut out = lhs;
+    xor_in_place(&mut out, rhs);
+    out
 }
 ```
 
 **Observable Verification**
 
-1. Benchmark sequential vs. parallel ingestion with `cargo bench`.
-2. Capture CPU utilization using `perf` or `top`, ensuring ≥ 90% saturation.
-3. Report speedup factor relative to baseline, persisting results in `benchmarks/parallel_csv.json`.
+1. `cargo test -p parallel_csv_reader` validates sequential and parallel parity plus error propagation.
+2. `cargo bench -p parallel_csv_reader parallel_csv` refreshes Criterion results and rewrites `benchmarks/parallel_csv.json`.
+3. Inspect `benchmarks/parallel_csv.json` for recorded microsecond timings and computed speedup ratio.
 
 ---
 
@@ -996,111 +1039,99 @@ pub fn parallel_csv_checksum(path: &str) -> anyhow::Result<(usize, String)> {
 **Language:** Go 1.22  
 **Content:** Structured GoDoc snippet for vector dot product API.
 
-````markdown
-### func Dot(a []float64, b []float64) (float64, error)
-
-Dot multiplies corresponding elements in _a_ and _b_ and returns their sum. The slices must be equal length.
-
-**Inputs**
-
-- `a []float64`: First vector.
-- `b []float64`: Second vector.
-
-**Outputs**
-
-- `(float64, error)`: Dot product or error when lengths mismatch.
-
-**Example**
-
 ```go
-result, err := Dot([]float64{1, 2}, []float64{3, 4})
-if err != nil {
-    log.Fatal(err)
+// Package vectormath provides vector arithmetic primitives tuned for parity
+// with the repository's cross-language dot product implementations.
+//
+// ### func Dot(a []float64, b []float64) (float64, error)
+//
+// Dot multiplies corresponding elements in *a* and *b* and returns their sum.
+// The slices must be equal length.
+package vectormath
+
+import "fmt"
+
+// Dot multiplies corresponding elements and returns their sum.
+func Dot(a []float64, b []float64) (float64, error) {
+    if len(a) != len(b) {
+        return 0, fmt.Errorf("length mismatch: got %d and %d", len(a), len(b))
+    }
+    var sum float64
+    for i := range a {
+        sum += a[i] * b[i]
+    }
+    return sum, nil
 }
-fmt.Println(result) // 11
 ```
-````
-
-**Complexity**
-
-- Time: O(n)
-- Space: O(1)
-
-````
 
 **Observable Verification**
-1. Place snippet in `doc.go` and run `godoc -all ./...`.
-2. Confirm Dot documentation renders under package listing.
-3. Cross-link example to tests verifying mismatched length error propagation.
+
+1. `go test ./...` inside `tasks/multi_language_cross_integration/go_dot` to validate arithmetic and error handling.
+2. `godoc -all ./...` renders the Markdown-formatted section and example within the `vectormath` package docs.
+3. Confirm the mismatch error surface matches the unit test expectation `length mismatch: got 2 and 1`.
 
 ---
 
 <a id="documentation-docstrings--knowledge-clarity"></a>
+
 # Documentation, Docstrings & Knowledge Clarity
 
 ## [Task 11 – Python Docstring Rewriter CLI](#task-11)
+
 <a id="task-11"></a>
 
 **Language:** Python 3.11
 **Description:** Convert module docstrings to Google style via command-line utility.
 
 ```python
-from __future__ import annotations
-import argparse
-import ast
-import pathlib
-from typing import List
+class GoogleDocstringTransformer(ast.NodeTransformer):
+    def __init__(self) -> None:
+        self.module_updated = False
+        self.classes_updated = 0
+        self.functions_updated = 0
 
-GOOGLE_TEMPLATE = """"""{summary}
+    def visit_Module(self, node: ast.Module) -> ast.AST:
+        self.generic_visit(node)
+        docstring = build_module_docstring(node)
+        if docstring and update_docstring(node.body, docstring):
+            self.module_updated = True
+        return node
 
-Args:
-{args}
-Returns:
-    {returns}
-""""""
-
-
-def format_function_doc(node: ast.FunctionDef) -> str:
-    summary = f"{node.name} function."
-    args = [
-        f"    {arg.arg}: Description." for arg in node.args.args if arg.arg not in {"self", "cls"}
-    ] or ["    None"]
-    returns = "Return value description." if node.returns else "None"
-    return GOOGLE_TEMPLATE.format(summary=summary, args="\n".join(args), returns=returns)
-
-
-def rewrite_docstrings(path: pathlib.Path) -> None:
-    source = path.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    transformer = DocstringTransformer()
-    transformer.visit(tree)
-    path.write_text(ast.unparse(tree), encoding="utf-8")
-
-
-class DocstringTransformer(ast.NodeTransformer):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:
-        node = self.generic_visit(node)
-        node.body.insert(0, ast.Expr(value=ast.Constant(format_function_doc(node))))
+        self.generic_visit(node)
+        docstring = build_function_docstring(node)
+        if docstring and update_docstring(node.body, docstring):
+            self.functions_updated += 1
         return node
 
 
-def main(argv: List[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Rewrite docstrings into Google style")
-    parser.add_argument("paths", nargs="+", type=pathlib.Path)
-    args = parser.parse_args(argv)
-    for path in args.paths:
-        rewrite_docstrings(path)
+def update_docstring(body: list[ast.stmt], value: str) -> bool:
+    doc_expr = ast.Expr(value=ast.Constant(value=value))
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        if body[0].value.value == value:
+            return False
+        body[0] = doc_expr
+        return True
+    body.insert(0, doc_expr)
+    return True
 
 
-if __name__ == "__main__":
-    main()
-````
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    configure_logging(args.quiet)
+    targets = expand_targets(args.paths)
+
+    reports = [rewrite_file(target) for target in targets]
+    total_changes = sum(report.changes for report in reports)
+    LOGGER.info("Updated %d docstrings across %d files", total_changes, len(reports))
+    return 0
+```
 
 **Observable Verification**
 
-1. Execute `python docstring_rewriter.py src/**/*.py`.
-2. Review `git diff` to confirm Google-style docstrings inserted consistently.
-3. Run `pytest` to ensure transformations preserve behavior.
+1. `pytest tests/documentation/test_docstring_rewriter.py -q` validates CLI error handling and rewrite behaviour.
+2. Run `python -m tasks.documentation.docstring_rewriter path/to/module.py` and inspect the Google-style docstring sections.
+3. Execute the tool against a project directory and confirm the info log reports the expected number of rewrites.
 
 ---
 

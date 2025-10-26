@@ -5,19 +5,31 @@
 
 import Foundation
 import CoreML
+#if canImport(os)
+import os.log
+#endif
 
 public final class BenchmarkHarness {
     private let dolphin: DolphinCoreML
     private let tokenizer: YourTokenizerProtocol
-    private let warmupTokens = 16
+    private let defaultWarmupTokens: Int
+#if canImport(os)
+    private let logger = Logger(subsystem: "ai.dolphin.bench", category: "BenchmarkHarness")
+#endif
 
-    public init(dolphin: DolphinCoreML, tokenizer: YourTokenizerProtocol) {
+    public init(dolphin: DolphinCoreML, tokenizer: YourTokenizerProtocol, warmupTokens: Int = 16) {
+        precondition(warmupTokens >= 0, "Warmup tokens must be non-negative.")
         self.dolphin = dolphin
         self.tokenizer = tokenizer
+        self.defaultWarmupTokens = warmupTokens
     }
 
     @discardableResult
-    public func run(prompt: String, genTokens: Int = 64) throws -> (initMs: Double, tokPerSec: Double, embedMs: Double) {
+    public func run(
+        prompt: String,
+        genTokens: Int = 64,
+        warmupTokens: Int? = nil
+    ) throws -> (initMs: Double, tokPerSec: Double, embedMs: Double) {
         let (ids, mask) = tokenizer.encodeToMultiArray(prompt, seqLen: dolphin.seqLen)
 
         let t0 = CFAbsoluteTimeGetCurrent()
@@ -27,8 +39,9 @@ public final class BenchmarkHarness {
 
         var k = initOut.pastK
         var v = initOut.pastV
+        let warmupBudget = warmupTokens ?? defaultWarmupTokens
         var stepCountWarmup = 0
-        while stepCountWarmup < warmupTokens {
+        while stepCountWarmup < warmupBudget {
             let (nid, nmask) = tokenizer.nextMaskArrays(tokenId: Int32(1))
             let warmupStep = try dolphin.decodeStep(nextId: nid, nextMask: nmask, pastK: k, pastV: v)
             k = try trimCacheToSeqLen(warmupStep.outK)
@@ -60,7 +73,62 @@ public final class BenchmarkHarness {
         let embedMs = (tE1 - tE0) * 1000.0
 
         print(String(format: "Init: %.1f ms • Decode: %.2f tok/s • Embed: %.1f ms", initMs, tokPerSec, embedMs))
+#if canImport(os)
+        logger.log(
+            "Single benchmark iteration — init: \(initMs, privacy: .public) ms, decode: \(tokPerSec, privacy: .public) tok/s, embed: \(embedMs, privacy: .public) ms"
+        )
+#endif
         return (initMs, tokPerSec, embedMs)
+    }
+
+    /// Runs multiple benchmark iterations and persists the throughput metrics to CSV.
+    /// - Parameters:
+    ///   - prompt: Prompt to feed into the model.
+    ///   - genTokens: Number of tokens to decode per iteration.
+    ///   - iterations: Number of benchmark passes to execute (must be > 0).
+    ///   - outputURL: Destination CSV file URL.
+    ///   - minimumTokensPerSecond: Guardrail for minimum acceptable throughput per iteration.
+    ///   - warmupTokens: Optional override for warmup decode steps (defaults to the harness configuration).
+    ///   - clock: Dependency-injected clock for deterministic testing.
+    /// - Returns: The recorded benchmark samples written to disk.
+    @discardableResult
+    public func runAndExport(
+        prompt: String,
+        genTokens: Int = 64,
+        iterations: Int,
+        outputURL: URL,
+        minimumTokensPerSecond: Double = 33.0,
+        warmupTokens: Int? = nil,
+        clock: () -> Date = Date.init
+    ) throws -> [BenchmarkCSVRow] {
+        precondition(iterations > 0, "Iterations must be positive.")
+        var samples: [BenchmarkCSVRow] = []
+        samples.reserveCapacity(iterations)
+
+        for _ in 0..<iterations {
+            let metrics = try run(prompt: prompt, genTokens: genTokens, warmupTokens: warmupTokens)
+            let decodeMsPerToken = 1000.0 / metrics.tokPerSec
+            let sample = BenchmarkCSVRow(
+                timestamp: clock(),
+                tokensPerSecond: metrics.tokPerSec,
+                initMilliseconds: metrics.initMs,
+                decodeMillisecondsPerToken: decodeMsPerToken,
+                embedMilliseconds: metrics.embedMs
+            )
+            samples.append(sample)
+        }
+
+        let summary = try ThroughputRegressor.validate(samples, minimumRate: minimumTokensPerSecond)
+        let writer = BenchmarkCSVWriter()
+        try writer.write(samples: samples, to: outputURL)
+
+#if canImport(os)
+        logger.log(
+            "Persisted \(samples.count, privacy: .public) benchmark samples to \(outputURL.absoluteString, privacy: .public); minimum observed \(summary.minimumObserved, privacy: .public) tok/s"
+        )
+#endif
+
+        return samples
     }
 }
 

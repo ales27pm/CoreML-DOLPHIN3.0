@@ -35,7 +35,7 @@ interface FetchResponseLike {
   text(): Promise<string>;
 }
 
-type FetchLike = (
+export type FetchLike = (
   input: string | URL,
   init?: { signal?: AbortSignal },
 ) => Promise<FetchResponseLike>;
@@ -121,9 +121,11 @@ const fetchWithTimeout = async (
     return await response.text();
   } catch (error) {
     if (abortSignal.aborted) {
-      throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`, {
-        cause: error,
-      });
+      const timeoutError = new Error(
+        `Request to ${url} timed out after ${timeoutMs}ms`,
+      );
+      (timeoutError as Error & { cause?: unknown }).cause = error;
+      throw timeoutError;
     }
     throw error;
   } finally {

@@ -3,9 +3,8 @@ import {
   batchFetch,
   BatchFetchError,
   type BatchFetchFailure,
+  type FetchLike,
 } from "../../tasks/code_quality_refactoring/batchFetch";
-
-type FetchLike = NonNullable<Parameters<typeof batchFetch>[1]["fetchImpl"]>;
 
 const createResponse = (
   body: string,
@@ -62,6 +61,7 @@ describe("batchFetch", () => {
         {
           index: 1,
           url: "https://fail",
+          cause: expect.any(Error),
         },
       ] satisfies BatchFetchFailure[],
     });

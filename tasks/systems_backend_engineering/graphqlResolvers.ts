@@ -159,7 +159,7 @@ const createProductLoader = (
 ): DataLoader<number, Product> => {
   const cacheMap = new InstrumentedCache<number, Promise<Product>>(metrics);
   return new DataLoader<number, Product>(
-    async (keys) => {
+    async (keys: readonly number[]) => {
       const uniqueKeys = uniqueNumbers(keys);
       if (uniqueKeys.length === 0) {
         return [];
@@ -176,7 +176,7 @@ const createProductLoader = (
         products.map((product) => [product.id, product]),
       );
 
-      return keys.map((key) => {
+      return keys.map((key: number) => {
         const product = productMap.get(key);
         if (!product) {
           throw new ProductNotFoundError(key);

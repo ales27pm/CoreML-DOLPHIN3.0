@@ -48,7 +48,7 @@ def test_rewrite_handles_async_and_class(tmp_path: Path) -> None:
     contents = path.read_text(encoding="utf-8")
 
     assert "Sample manager class." in contents
-    assert "Fetch function." in contents
+    assert "Fetch coroutine." in contents
     assert "limit (int): Limit parameter. Keyword only." in contents
     assert report.classes_updated == 1
     assert report.functions_updated == 1

@@ -4,7 +4,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from tools.session_finalize import (
+    DocumentPlan,
+    FinalizationReport,
     RoadmapMaintainer,
+    SessionFinalizer,
     SessionRecord,
     discover_readmes,
     slugify,
@@ -84,8 +87,101 @@ def test_roadmap_maintainer_renders_dashboard(tmp_path: Path) -> None:
     )
 
     maintainer = RoadmapMaintainer(codex_path=codex, roadmap_path=roadmap)
-    maintainer.refresh(record)
+    assert maintainer.refresh(record) is True
 
     content = roadmap.read_text(encoding="utf-8")
     assert "Session 99" in content
     assert "| Task | Status |" in content
+
+
+def test_update_markdown_log_dry_run(tmp_path: Path) -> None:
+    record = SessionRecord(
+        session_name="Dry Run",
+        summary="Verification",
+        notes=(),
+        timestamp=datetime(2024, 6, 1, tzinfo=timezone.utc),
+    )
+    path = tmp_path / "README.md"
+    header = "## Session Updates"
+
+    assert update_markdown_log(path, record, header, dry_run=True) is True
+    assert not path.exists()
+
+
+def test_session_finalizer_reports_changes(tmp_path: Path, monkeypatch) -> None:
+    record = SessionRecord(
+        session_name="Session 101",
+        summary="Expanded coverage",
+        notes=("Checked report",),
+        timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
+    )
+
+    codex = tmp_path / "Codex_Master_Task_Results.md"
+    codex.write_text(
+        "\n".join([
+            "# Codex",
+            "",
+            "## Status Dashboard",
+            "",
+            "| Task | Status |",
+            "| ---- | ------ |",
+            "| Hardening | 🔄 In Progress |",
+        ]),
+        encoding="utf-8",
+    )
+
+    roadmap = RoadmapMaintainer(codex_path=codex, roadmap_path=tmp_path / "docs" / "ROADMAP.md")
+
+    calls: list[tuple[Path, bool]] = []
+
+    def fake_sync(*, repo_root: Path, dry_run: bool) -> bool:
+        calls.append((repo_root, dry_run))
+        return True
+
+    monkeypatch.setattr("tools.session_finalize.synchronize_agents", fake_sync)
+
+    document = DocumentPlan(path=tmp_path / "README.md", header="## Session Updates")
+    finalizer = SessionFinalizer(
+        repo_root=tmp_path,
+        record=record,
+        documents=[document],
+        roadmap=roadmap,
+        sync_agents=True,
+        dry_run=False,
+    )
+
+    report = finalizer.finalize()
+
+    assert isinstance(report, FinalizationReport)
+    assert report.agents_changed is True
+    assert report.roadmap_changed is True
+    assert report.documents_changed == (document.path,)
+    assert (tmp_path / "README.md").exists()
+    assert (tmp_path / "docs" / "ROADMAP.md").exists()
+    assert calls == [(tmp_path, False)]
+
+
+def test_roadmap_maintainer_reports_no_change(tmp_path: Path) -> None:
+    codex = tmp_path / "Codex_Master_Task_Results.md"
+    codex.write_text(
+        "\n".join([
+            "# Codex",
+            "",
+            "## Status Dashboard",
+            "",
+            "| Task | Status |",
+        ]),
+        encoding="utf-8",
+    )
+
+    roadmap_path = tmp_path / "docs" / "ROADMAP.md"
+    record = SessionRecord(
+        session_name="Repeat",
+        summary="Initial",
+        notes=(),
+        timestamp=datetime(2025, 1, 3, tzinfo=timezone.utc),
+    )
+
+    maintainer = RoadmapMaintainer(codex_path=codex, roadmap_path=roadmap_path)
+    assert maintainer.refresh(record) is True
+    assert maintainer.refresh(record) is False

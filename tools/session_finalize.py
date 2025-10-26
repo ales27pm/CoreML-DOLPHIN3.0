@@ -46,6 +46,29 @@ class DocumentPlan:
     header: str
 
 
+@dataclass(frozen=True)
+class DocumentUpdateResult:
+    """Represents the outcome of a document update during finalization."""
+
+    path: Path
+    changed: bool
+
+
+@dataclass(frozen=True)
+class FinalizationReport:
+    """Aggregate report emitted after a session finalization run."""
+
+    agents_changed: bool | None
+    documents: Sequence[DocumentUpdateResult]
+    roadmap_changed: bool | None
+
+    @property
+    def documents_changed(self) -> Sequence[Path]:
+        """Return paths for documents that required mutation."""
+
+        return tuple(result.path for result in self.documents if result.changed)
+
+
 class MarkdownUpdateError(RuntimeError):
     """Raised when markdown content cannot be updated as requested."""
 
@@ -112,23 +135,25 @@ def _update_markdown_content(content: str, header: str, entry: str, marker: str)
     return updated, True
 
 
-def update_markdown_log(path: Path, record: SessionRecord, header: str) -> bool:
+def update_markdown_log(
+    path: Path, record: SessionRecord, header: str, *, dry_run: bool = False
+) -> bool:
     """Insert ``record`` under ``header`` in ``path`` if not already present."""
 
     content = path.read_text(encoding="utf-8") if path.exists() else ""
     entry = _render_entry(record)
     updated, changed = _update_markdown_content(content, header, entry, record.marker)
-    if changed:
+    if changed and not dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(updated, encoding="utf-8")
     return changed
 
 
-def write_notes(path: Path, record: SessionRecord) -> bool:
+def write_notes(path: Path, record: SessionRecord, *, dry_run: bool = False) -> bool:
     """Append an extended session entry to the notes file located at ``path``."""
 
     header = "# Session Notes"
-    changed = update_markdown_log(path, record, header)
+    changed = update_markdown_log(path, record, header, dry_run=dry_run)
     return changed
 
 
@@ -164,16 +189,27 @@ class RoadmapMaintainer:
         self.codex_path = codex_path
         self.roadmap_path = roadmap_path
 
-    def refresh(self, record: SessionRecord, *, dry_run: bool = False) -> None:
-        """Update the roadmap document using the latest Codex status."""
+    def refresh(self, record: SessionRecord, *, dry_run: bool = False) -> bool:
+        """Update the roadmap document using the latest Codex status.
+
+        Returns ``True`` when the rendered content differs from the previous snapshot.
+        """
 
         dashboard = self._extract_status_dashboard()
         content = self._render_content(record, dashboard)
+        previous = (
+            self.roadmap_path.read_text(encoding="utf-8")
+            if self.roadmap_path.exists()
+            else None
+        )
+        changed = previous != content
         if dry_run:
             LOGGER.info("[dry-run] Would update roadmap at %s", self.roadmap_path)
-            return
-        self.roadmap_path.parent.mkdir(parents=True, exist_ok=True)
-        self.roadmap_path.write_text(content, encoding="utf-8")
+            return changed
+        if changed:
+            self.roadmap_path.parent.mkdir(parents=True, exist_ok=True)
+            self.roadmap_path.write_text(content, encoding="utf-8")
+        return changed
 
     def _extract_status_dashboard(self) -> str:
         if not self.codex_path.exists():
@@ -232,25 +268,43 @@ class SessionFinalizer:
         self.sync_agents = sync_agents
         self.dry_run = dry_run
 
-    def finalize(self) -> None:
+    def finalize(self) -> FinalizationReport:
         """Execute the session finalization workflow."""
 
+        agents_changed: bool | None = None
         if self.sync_agents:
             LOGGER.info("Synchronizing AGENTS.md manifest")
-            synchronize_agents(repo_root=self.repo_root, dry_run=self.dry_run)
+            agents_changed = synchronize_agents(
+                repo_root=self.repo_root, dry_run=self.dry_run
+            )
 
-        for plan in self.documents:
-            self._update_document(plan)
+        document_results = [self._update_document(plan) for plan in self.documents]
 
+        roadmap_changed: bool | None = None
         if self.roadmap is not None:
             LOGGER.info("Refreshing roadmap snapshot")
-            self.roadmap.refresh(self.record, dry_run=self.dry_run)
+            roadmap_changed = self.roadmap.refresh(self.record, dry_run=self.dry_run)
 
-    def _update_document(self, plan: DocumentPlan) -> None:
+        return FinalizationReport(
+            agents_changed=agents_changed,
+            documents=tuple(document_results),
+            roadmap_changed=roadmap_changed,
+        )
+
+    def _update_document(self, plan: DocumentPlan) -> DocumentUpdateResult:
         LOGGER.info("Updating %s", plan.path)
-        if self.dry_run:
-            return
-        update_markdown_log(plan.path, self.record, plan.header)
+        changed = update_markdown_log(
+            plan.path, self.record, plan.header, dry_run=self.dry_run
+        )
+        if changed:
+            LOGGER.info(
+                "%s %s",
+                "Would update" if self.dry_run else "Updated",
+                plan.path,
+            )
+        else:
+            LOGGER.info("No changes required for %s", plan.path)
+        return DocumentUpdateResult(path=plan.path, changed=changed)
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -327,7 +381,23 @@ def main(argv: Sequence[str] | None = None) -> None:
         sync_agents=not args.skip_agent_sync,
         dry_run=args.dry_run,
     )
-    finalizer.finalize()
+    report = finalizer.finalize()
+
+    changed_docs = [str(path) for path in report.documents_changed]
+    if changed_docs:
+        LOGGER.info("Updated %d document(s): %s", len(changed_docs), ", ".join(changed_docs))
+    else:
+        LOGGER.info("No document updates required")
+
+    if report.roadmap_changed is True:
+        LOGGER.info("Roadmap snapshot refreshed")
+    elif report.roadmap_changed is False:
+        LOGGER.info("Roadmap already up to date")
+
+    if report.agents_changed is True:
+        LOGGER.info("AGENTS.md manifest synchronization applied changes")
+    elif report.agents_changed is False:
+        LOGGER.info("AGENTS.md manifest already in sync")
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI guard

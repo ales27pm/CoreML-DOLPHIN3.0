@@ -186,7 +186,7 @@ You can wire any tokenizer (e.g., Hugging Face tokenizers via a small Swift port
 
 ## Session Finalization Automation
 
-Run the session finalizer script whenever you wrap up work. It now refreshes `AGENTS.md` files without spawning a subprocess, rewrites the shared roadmap snapshot, and appends structured notes that future contributors can rely on.
+Run the session finalizer script whenever you wrap up work. It now refreshes `AGENTS.md` files without spawning a subprocess, rewrites the shared roadmap snapshot, and appends structured notes that future contributors can rely on. The CLI also emits a deterministic report describing every mutation (or dry-run preview) so you can copy the summary into session notes or CI logs.
 
 ```bash
 python tools/session_finalize.py \
@@ -203,8 +203,9 @@ The command performs the following steps:
 3. Maintains the `Codex_Master_Task_Results.md` session log to avoid drift between code and documentation.
 4. Appends the same information to `tasks/SESSION_NOTES.md` so long-running efforts retain a chronological narrative.
 5. Refreshes `docs/ROADMAP.md` using the latest status dashboard extracted from the Codex ledger so the roadmap never lags behind code.
+6. Emits a structured `FinalizationReport` detailing which documents changed, whether the roadmap snapshot moved, and if the scoped `AGENTS.md` files needed updates.
 
-Use `--timestamp` to record a specific ISO 8601 instant (e.g., for backfilling older sessions), `--readme` to limit which documentation files receive the update, and `--roadmap-path` to redirect the generated roadmap. Pass `--skip-agent-sync` when running in a sandbox that cannot execute subprocesses, and add `--dry-run` to preview changes without touching the filesystem.
+Use `--timestamp` to record a specific ISO 8601 instant (e.g., for backfilling older sessions), `--readme` to limit which documentation files receive the update, and `--roadmap-path` to redirect the generated roadmap. Pass `--skip-agent-sync` when running in a sandbox that cannot execute subprocesses, and add `--dry-run` to preview changes—the report will indicate exactly which files would have been updated without touching the filesystem.
 
 ## Session Updates
 

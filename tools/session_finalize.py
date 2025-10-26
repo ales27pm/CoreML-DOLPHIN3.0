@@ -186,6 +186,12 @@ class RoadmapMaintainer:
     """Synchronize the roadmap document with the Codex status dashboard."""
 
     def __init__(self, codex_path: Path, roadmap_path: Path) -> None:
+        """Initialize maintainer with Codex source and roadmap target paths.
+
+        :param codex_path: Path to the Codex dashboard markdown document.
+        :param roadmap_path: Path to the roadmap snapshot markdown output.
+        """
+
         self.codex_path = codex_path
         self.roadmap_path = roadmap_path
 

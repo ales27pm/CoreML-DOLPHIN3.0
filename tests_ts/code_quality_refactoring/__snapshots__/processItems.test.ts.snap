@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`processItems > matches snapshot output for mixed item statuses 1`] = `
+[
+  2,
+  4,
+  6,
+  12,
+]
+`;

@@ -3,14 +3,19 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+import json
+import pytest
+
 from tools.session_finalize import (
     DocumentPlan,
     FinalizationReport,
+    MarkdownUpdateError,
     RoadmapMaintainer,
     SessionFinalizer,
     SessionRecord,
     discover_readmes,
     load_documentation_manifest,
+    main,
     slugify,
     update_markdown_log,
 )
@@ -261,3 +266,102 @@ def test_load_documentation_manifest_reads_templates(tmp_path: Path) -> None:
     assert readme_plan.ensure_exists is False
     assert log_plan.ensure_exists is True
     assert log_plan.template == "# Template\n"
+
+
+def test_load_documentation_manifest_invalid_json(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "docs" / "documentation_manifest.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text("{ invalid", encoding="utf-8")
+
+    with pytest.raises(MarkdownUpdateError):
+        load_documentation_manifest(tmp_path, manifest_path)
+
+
+def test_load_documentation_manifest_missing_template(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "docs" / "documentation_manifest.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "documents": [
+                    {
+                        "path": "docs/history/SESSION_LOG.md",
+                        "header": "## Session Log",
+                        "ensure_exists": True,
+                        "template_path": "docs/templates/missing.md",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(MarkdownUpdateError):
+        load_documentation_manifest(tmp_path, manifest_path)
+
+
+def test_manifest_codex_override_updates_plan(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "docs" / "documentation_manifest.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "codex_path": "Codex_Master_Task_Results.md",
+                "roadmap_path": "docs/ROADMAP.md",
+                "documents": [
+                    {
+                        "path": "Codex_Master_Task_Results.md",
+                        "header": "## Session Journal",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    default_codex = tmp_path / "Codex_Master_Task_Results.md"
+    default_codex.write_text(
+        "# Codex\n\n## Status Dashboard\n\n| Task | Status |\n",
+        encoding="utf-8",
+    )
+
+    alternate_codex = tmp_path / "AltCodex.md"
+    alternate_codex.write_text(
+        "\n".join(
+            [
+                "# Codex",
+                "",
+                "## Status Dashboard",
+                "",
+                "| Task | Status |",
+                "| ---- | ------ |",
+                "| 1 | ✅ Done |",
+                "",
+                "## Session Journal",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    main(
+        [
+            "--session-name",
+            "Override Session",
+            "--summary",
+            "Testing manifest override",
+            "--codex-path",
+            "AltCodex.md",
+            "--manifest-path",
+            str(manifest_path),
+            "--repo-root",
+            str(tmp_path),
+            "--skip-agent-sync",
+        ]
+    )
+
+    default_content = default_codex.read_text(encoding="utf-8")
+    override_content = alternate_codex.read_text(encoding="utf-8")
+
+    assert "Override Session" not in default_content
+    assert "Override Session" in override_content
+    assert "<!-- session-log:" in override_content

@@ -2,6 +2,7 @@
 members = [
     "tasks/core_algorithmic_foundations/parallel_csv_reader",
     "tasks/core_algorithmic_foundations/safe_add",
+    "tasks/core_algorithmic_foundations/session_model",
     "tasks/multi_language_cross_integration/ffi_bridge",
     "tasks/multi_language_cross_integration/wasm_dot"
 ]

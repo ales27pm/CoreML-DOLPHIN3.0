@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Iterable, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -44,6 +45,16 @@ class DocumentPlan:
 
     path: Path
     header: str
+    limit: int | None = None
+    ensure_exists: bool = False
+    template: str | None = None
+    tags: frozenset[str] = frozenset()
+
+    @property
+    def is_readme(self) -> bool:
+        """Return ``True`` when the plan targets a README file."""
+
+        return self.path.name.lower() == "readme.md"
 
 
 @dataclass(frozen=True)
@@ -73,6 +84,17 @@ class MarkdownUpdateError(RuntimeError):
     """Raised when markdown content cannot be updated as requested."""
 
 
+@dataclass(frozen=True)
+class DocumentationManifest:
+    """Configuration describing documentation update behavior."""
+
+    version: int
+    documents: Sequence[DocumentPlan]
+    codex_path: Path
+    roadmap_path: Path
+    manifest_path: Path
+
+
 def slugify(text: str) -> str:
     """Generate a filesystem-safe slug from ``text`` for use in markers."""
 
@@ -80,11 +102,11 @@ def slugify(text: str) -> str:
     return cleaned.strip("-") or "session"
 
 
-def discover_readmes(root: Path) -> List[Path]:
+def discover_readmes(root: Path) -> list[Path]:
     """Return README files beneath ``root`` while skipping vendor directories."""
 
     excluded = {".git", "node_modules", "__pycache__", "build", "dist", ".venv", ".pytest_cache"}
-    paths: List[Path] = []
+    paths: list[Path] = []
     for readme in root.rglob("README.md"):
         if any(part in excluded for part in readme.parts):
             continue
@@ -107,7 +129,21 @@ def _render_entry(record: SessionRecord) -> str:
     return "\n".join(entry_lines)
 
 
-def _update_markdown_content(content: str, header: str, entry: str, marker: str) -> tuple[str, bool]:
+def _header_level(header: str) -> int:
+    """Return the heading level for ``header`` or default to level 2."""
+
+    match = re.match(r"^\s*(#{1,6})\s+", header)
+    return len(match.group(1)) if match else 2
+
+
+def _update_markdown_content(
+    content: str,
+    header: str,
+    entry: str,
+    marker: str,
+    *,
+    limit: int | None = None,
+) -> tuple[str, bool]:
     """Insert ``entry`` below ``header`` when ``marker`` is not already present."""
 
     if marker in content:
@@ -122,27 +158,99 @@ def _update_markdown_content(content: str, header: str, entry: str, marker: str)
         base = content.rstrip()
         prefix = "\n\n" if base else ""
         combined = base + f"{prefix}{header}{entry_block}\n"
-        return combined, True
+        updated = combined
+        if limit is not None and limit >= 0:
+            updated = _limit_entries_within_header(updated, header, limit)
+        return updated, True
 
     insert_pos = match.end()
     subsequent = content[insert_pos:]
-    next_header_match = re.search(r"(?m)^##\s+", subsequent)
+    level = _header_level(header)
+    next_header_match = re.search(rf"(?m)^\s*{'#' * level}\s+", subsequent)
     if next_header_match:
         absolute_pos = insert_pos + next_header_match.start()
         updated = content[:absolute_pos] + entry_block + content[absolute_pos:]
     else:
         updated = content.rstrip() + entry_block + "\n"
+
+    if limit is not None and limit >= 0:
+        updated = _limit_entries_within_header(updated, header, limit)
     return updated, True
 
 
+def _limit_entries_within_header(content: str, header: str, limit: int) -> str:
+    """Ensure only the ``limit`` newest session entries remain under ``header``."""
+
+    if limit <= 0:
+        return content
+
+    header_pattern = re.compile(rf"(?m)^\s*{re.escape(header)}\s*$")
+    match = header_pattern.search(content)
+    if not match:
+        return content
+
+    insert_pos = match.end()
+    subsequent = content[insert_pos:]
+    level = _header_level(header)
+    next_header_match = re.search(rf"(?m)^\s*{'#' * level}\s+", subsequent)
+    section_end = (
+        insert_pos + next_header_match.start()
+        if next_header_match
+        else len(content)
+    )
+
+    section = content[insert_pos:section_end]
+    trimmed = _trim_section_entries(section, limit)
+    if trimmed == section:
+        return content
+    return content[:insert_pos] + trimmed + content[section_end:]
+
+
+def _trim_section_entries(section: str, limit: int) -> str:
+    """Trim session log entries within ``section`` to ``limit`` occurrences."""
+
+    marker = "<!-- session-log:"
+    first_idx = section.find(marker)
+    if first_idx == -1:
+        return section
+
+    prefix = section[:first_idx]
+    body = section[first_idx:]
+    entry_pattern = re.compile(
+        r"(<!-- session-log:[^>]+-->.*?)(?=(?:\n<!-- session-log:)|\Z)", re.DOTALL
+    )
+    entries = list(entry_pattern.finditer(body))
+    if len(entries) <= limit:
+        return section
+
+    keep_entries = entries[-limit:]
+    keep_start = keep_entries[0].start()
+    trimmed_body = body[keep_start:]
+    trimmed_body = trimmed_body.lstrip("\n")
+    if trimmed_body and not trimmed_body.endswith("\n"):
+        trimmed_body += "\n"
+
+    if prefix and not prefix.endswith("\n"):
+        prefix += "\n"
+
+    return prefix + trimmed_body
+
+
 def update_markdown_log(
-    path: Path, record: SessionRecord, header: str, *, dry_run: bool = False
+    path: Path,
+    record: SessionRecord,
+    header: str,
+    *,
+    dry_run: bool = False,
+    limit: int | None = None,
 ) -> bool:
     """Insert ``record`` under ``header`` in ``path`` if not already present."""
 
     content = path.read_text(encoding="utf-8") if path.exists() else ""
     entry = _render_entry(record)
-    updated, changed = _update_markdown_content(content, header, entry, record.marker)
+    updated, changed = _update_markdown_content(
+        content, header, entry, record.marker, limit=limit
+    )
     if changed and not dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(updated, encoding="utf-8")
@@ -152,7 +260,7 @@ def update_markdown_log(
 def write_notes(path: Path, record: SessionRecord, *, dry_run: bool = False) -> bool:
     """Append an extended session entry to the notes file located at ``path``."""
 
-    header = "# Session Notes"
+    header = "## Session Notes"
     changed = update_markdown_log(path, record, header, dry_run=dry_run)
     return changed
 
@@ -167,8 +275,9 @@ def collect_git_status(repo_root: Path) -> Sequence[str]:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=8,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         LOGGER.debug("Unable to collect git status; skipping auto-notes", exc_info=True)
         return ()
 
@@ -235,20 +344,32 @@ class RoadmapMaintainer:
     def _render_content(self, record: SessionRecord, dashboard: str) -> str:
         notes_section = "\n".join(f"- {note}" for note in record.notes) if record.notes else "- (none)"
         lines = [
-            "# Session Roadmap",
+            "# Delivery Roadmap",
             "",
-            f"Last updated: {record.timestamp.isoformat()}",
+            f"_Refreshed automatically: {record.timestamp.isoformat()}_",
             "",
-            "## Latest Session",
+            "## Session Pulse",
             "",
             f"- **Session:** {record.session_name}",
             f"- **Summary:** {record.summary}",
-            "- **Notes:**",
+            "- **Key Notes:**",
             notes_section,
             "",
-            "## Status Dashboard Snapshot",
+            "## Snapshot Details",
+            "",
+            "This roadmap snapshot is rendered from the `## Status Dashboard` section",
+            "in `Codex_Master_Task_Results.md`. Update the ledger first, then rerun",
+            "`tools/session_finalize.py` to propagate the refresh across documentation.",
+            "",
+            "### Status Dashboard Snapshot",
             "",
             dashboard,
+            "",
+            "## Automation Footnotes",
+            "",
+            "- Maintained by `tools/session_finalize.py` using `docs/documentation_manifest.json`.",
+            "- `docs/history/SESSION_LOG.md` retains the full session narrative; the README",
+            "  timeline is intentionally pruned to the latest updates.",
             "",
         ]
         return "\n".join(lines)
@@ -299,8 +420,24 @@ class SessionFinalizer:
 
     def _update_document(self, plan: DocumentPlan) -> DocumentUpdateResult:
         LOGGER.info("Updating %s", plan.path)
+
+        created = False
+        if plan.ensure_exists and not plan.path.exists():
+            if self.dry_run:
+                LOGGER.info("[dry-run] Would create %s", plan.path)
+            else:
+                LOGGER.info("Creating %s", plan.path)
+                plan.path.parent.mkdir(parents=True, exist_ok=True)
+                initial_content = plan.template or f"{plan.header}\n\n"
+                plan.path.write_text(initial_content, encoding="utf-8")
+            created = True
+
         changed = update_markdown_log(
-            plan.path, self.record, plan.header, dry_run=self.dry_run
+            plan.path,
+            self.record,
+            plan.header,
+            dry_run=self.dry_run,
+            limit=plan.limit,
         )
         if changed:
             LOGGER.info(
@@ -310,7 +447,116 @@ class SessionFinalizer:
             )
         else:
             LOGGER.info("No changes required for %s", plan.path)
-        return DocumentUpdateResult(path=plan.path, changed=changed)
+        return DocumentUpdateResult(path=plan.path, changed=changed or created)
+
+
+def load_documentation_manifest(
+    repo_root: Path, manifest_path: Path
+) -> DocumentationManifest | None:
+    """Load documentation manifest configuration if present."""
+
+    resolved = manifest_path if manifest_path.is_absolute() else repo_root / manifest_path
+    if not resolved.exists():
+        return None
+
+    try:
+        raw = resolved.read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise MarkdownUpdateError(f"Invalid JSON in manifest at {resolved}: {exc}") from exc
+
+    if "documents" not in data or not isinstance(data["documents"], list):
+        raise MarkdownUpdateError(
+            f"Manifest at {resolved} must include a 'documents' array"
+        )
+
+    version = int(data.get("version", 1))
+    documents_cfg = data["documents"]
+    documents: list[DocumentPlan] = []
+    for index, entry in enumerate(documents_cfg):
+        if not isinstance(entry, dict):
+            raise MarkdownUpdateError(
+                f"Manifest entry at index {index} must be an object"
+            )
+
+        try:
+            doc_path_value = entry["path"]
+            header = entry["header"]
+        except KeyError as exc:
+            raise MarkdownUpdateError(
+                f"Manifest entry at index {index} missing required key: {exc}"
+            ) from exc
+
+        if not isinstance(doc_path_value, str) or not isinstance(header, str):
+            raise MarkdownUpdateError(
+                f"Manifest entry at index {index} must provide string 'path' and 'header'"
+            )
+
+        doc_path = Path(doc_path_value)
+        if not doc_path.is_absolute():
+            doc_path = repo_root / doc_path
+
+        limit_value = entry.get("limit")
+        if limit_value is not None and not isinstance(limit_value, int):
+            raise MarkdownUpdateError(
+                f"Manifest entry at index {index} must define 'limit' as an integer"
+            )
+        limit = limit_value
+
+        ensure_exists = bool(entry.get("ensure_exists", False))
+
+        template_path_value = entry.get("template_path")
+        template: str | None = None
+        if template_path_value is not None:
+            if not isinstance(template_path_value, str):
+                raise MarkdownUpdateError(
+                    f"Manifest entry at index {index} must define 'template_path' as a string"
+                )
+            template_path = Path(template_path_value)
+            if not template_path.is_absolute():
+                template_path = repo_root / template_path
+            if not template_path.exists():
+                raise MarkdownUpdateError(f"Template path not found: {template_path}")
+            template = template_path.read_text(encoding="utf-8")
+
+        tags_value = entry.get("tags", [])
+        if isinstance(tags_value, str) or not isinstance(tags_value, Iterable):
+            raise MarkdownUpdateError(
+                f"Manifest entry at index {index} must define 'tags' as an iterable if provided"
+            )
+        tags = frozenset(str(tag) for tag in tags_value)
+
+        documents.append(
+            DocumentPlan(
+                path=doc_path,
+                header=header,
+                limit=limit,
+                ensure_exists=ensure_exists,
+                template=template,
+                tags=tags,
+            )
+        )
+
+    codex_path_cfg = data.get("codex_path", "Codex_Master_Task_Results.md")
+    roadmap_path_cfg = data.get("roadmap_path", "docs/ROADMAP.md")
+    if not isinstance(codex_path_cfg, str) or not isinstance(roadmap_path_cfg, str):
+        raise MarkdownUpdateError(
+            f"Manifest at {resolved} must define 'codex_path' and 'roadmap_path' as strings"
+        )
+    codex_path = Path(codex_path_cfg)
+    roadmap_path = Path(roadmap_path_cfg)
+    if not codex_path.is_absolute():
+        codex_path = repo_root / codex_path
+    if not roadmap_path.is_absolute():
+        roadmap_path = repo_root / roadmap_path
+
+    return DocumentationManifest(
+        version=version,
+        documents=tuple(documents),
+        codex_path=codex_path,
+        roadmap_path=roadmap_path,
+        manifest_path=resolved,
+    )
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -322,9 +568,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--note", action="append", default=[])
     parser.add_argument("--timestamp", help="ISO timestamp; defaults to current UTC time")
     parser.add_argument("--readme", action="append", dest="readmes")
-    parser.add_argument("--codex-path", default="Codex_Master_Task_Results.md")
-    parser.add_argument("--notes-path", default="tasks/SESSION_NOTES.md")
-    parser.add_argument("--roadmap-path", default="docs/ROADMAP.md")
+    parser.add_argument("--codex-path")
+    parser.add_argument("--notes-path")
+    parser.add_argument("--roadmap-path")
+    parser.add_argument("--manifest-path", default="docs/documentation_manifest.json")
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--skip-agent-sync", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -343,7 +590,7 @@ def _build_record(args: argparse.Namespace, repo_root: Path) -> SessionRecord:
         if args.timestamp
         else datetime.now(timezone.utc).replace(microsecond=0)
     )
-    notes: List[str] = list(args.note)
+    notes: list[str] = list(args.note)
     if args.include_git_status:
         notes.extend(collect_git_status(repo_root))
     return SessionRecord(
@@ -362,22 +609,73 @@ def main(argv: Sequence[str] | None = None) -> None:
     repo_root = Path(args.repo_root).resolve()
     record = _build_record(args, repo_root)
 
-    readmes = (
-        [repo_root / path for path in args.readmes]
-        if args.readmes
-        else discover_readmes(repo_root)
-    )
+    manifest = load_documentation_manifest(repo_root, Path(args.manifest_path))
 
-    documents = [
-        DocumentPlan(path=readme, header="## Session Updates") for readme in readmes
-    ]
-    documents.append(DocumentPlan(path=repo_root / args.codex_path, header="## Session Log"))
-    documents.append(DocumentPlan(path=repo_root / args.notes_path, header="# Session Notes"))
+    documents: list[DocumentPlan]
+    if manifest:
+        documents = list(manifest.documents)
+        codex_path = (
+            (repo_root / Path(args.codex_path)).resolve()
+            if args.codex_path
+            else manifest.codex_path
+        )
+        roadmap_path = (
+            repo_root / Path(args.roadmap_path)
+            if args.roadmap_path
+            else manifest.roadmap_path
+        )
 
-    roadmap = RoadmapMaintainer(
-        codex_path=repo_root / args.codex_path,
-        roadmap_path=repo_root / args.roadmap_path,
-    )
+        if args.codex_path:
+            manifest_codex = manifest.codex_path.resolve()
+            updated_documents: list[DocumentPlan] = []
+            codex_updated = False
+            for plan in documents:
+                if plan.path.resolve() == manifest_codex:
+                    updated_documents.append(replace(plan, path=codex_path))
+                    codex_updated = True
+                else:
+                    updated_documents.append(plan)
+            if not codex_updated:
+                raise SystemExit(
+                    "Manifest does not define a Codex ledger document; cannot override --codex-path"
+                )
+            documents = updated_documents
+
+        if args.readmes:
+            requested = {(repo_root / Path(path)).resolve() for path in args.readmes}
+            readme_docs = {
+                plan.path.resolve(): plan for plan in documents if plan.is_readme
+            }
+            missing = sorted(str(path) for path in requested - set(readme_docs))
+            if missing:
+                raise SystemExit(
+                    "Manifest does not define the requested README path(s): "
+                    + ", ".join(missing)
+                )
+            documents = [
+                plan
+                for plan in documents
+                if not plan.is_readme or plan.path.resolve() in requested
+            ]
+    else:
+        readmes = (
+            [repo_root / path for path in args.readmes]
+            if args.readmes
+            else discover_readmes(repo_root)
+        )
+        documents = [
+            DocumentPlan(path=readme, header="## Session Updates") for readme in readmes
+        ]
+
+        codex_path = repo_root / Path(
+            args.codex_path or "Codex_Master_Task_Results.md"
+        )
+        roadmap_path = repo_root / Path(args.roadmap_path or "docs/ROADMAP.md")
+        documents.append(DocumentPlan(path=codex_path, header="## Session Log"))
+        notes_path = repo_root / Path(args.notes_path or "tasks/SESSION_NOTES.md")
+        documents.append(DocumentPlan(path=notes_path, header="## Session Notes"))
+
+    roadmap = RoadmapMaintainer(codex_path=codex_path, roadmap_path=roadmap_path)
 
     finalizer = SessionFinalizer(
         repo_root=repo_root,

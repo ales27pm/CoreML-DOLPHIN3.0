@@ -1,12 +1,27 @@
-# Dolphin 3.1 8B → Core ML (W4, multifunction) — Chat + LLM2Vec
+# CoreML Dolphin 3.0 Engineering Handbook
 
-This repo contains a **turn-key pipeline** to export **Dolphin3.0-Llama3.1-8B** to a single Core ML `.mlpackage` with **two entry points**:
-- `init` + `decode` (with KV-cache) for token streaming
-- `encode_for_llm2vec` for embeddings
+This repository packages everything required to export **Dolphin3.0-Llama3.1-8B**
+into a multifunction Core ML `.mlpackage`, integrate the model inside Apple
+platform apps, and verify runtime performance. The codebase is production-ready:
+it contains the full Python conversion pipeline, Swift runtime bindings, a
+benchmark harness, cross-language task implementations, and an automation layer
+that keeps documentation synchronized with every engineering session.
 
-It also includes a **Swift helper** and a **benchmark harness** for iOS/macOS.
+## Platform Overview
 
-## 1) End-to-end export
+- **Single-command export:** `dolphin2coreml_full.py` orchestrates dependency
+  bootstrapping, LoRA merging, tokenizer validation, Core ML conversion,
+  palettization/compression, and optional evaluation loops.
+- **Multifunction runtime:** the exported `.mlpackage` exposes `init`, `decode`,
+  and `encode_for_llm2vec` entry points for chat + embedding workloads.
+- **Swift bindings:** `Sources/App/LLM/DolphinCoreML.swift` wraps the model with
+  compute-unit selection, KV-cache streaming, greedy sampling, and metadata
+  helpers tuned for iOS 18 / macOS 15.
+- **Benchmark harness:** `Sources/App/Bench/BenchmarkHarness.swift` provides
+  deterministic latency profiling with warmup control, tokenizer abstractions,
+  and CSV export for regression monitoring.
+
+## Conversion Pipeline
 
 ```bash
 python dolphin2coreml_full.py \
@@ -18,222 +33,149 @@ python dolphin2coreml_full.py \
   --minimum-deployment-target iOS18 \
   --profile-validate \
   --clean-tmp
-
-What you get
-•out/Dolphin3_1_8B_W4.mlpackage — one artifact with:
-•init   → logits + KV cache tensors (first tokens)
-•decode → logits + updated KV (one token per step)
-•encode_for_llm2vec → embedding [1, hidden]
-
-Compression
-•Palettization to W4 (4-bit LUT+indices), per_grouped_channel, group size 16
-•Linear quant over palettized tables with joint_compression=True
-
-Target: iOS 18 / macOS 15+ (ANE/GPU/CPU).
-
-2) App integration (Swift)
-•Add DolphinCoreML.swift to your Xcode target.
-•Put .mlpackage into your app bundle (e.g. via Xcode “Add Files to …”).
-•Instantiate the wrapper:
-
-```swift
-let url = Bundle.main.url(forResource: "Dolphin3_1_8B_W4", withExtension: "mlpackage")!
-let dolphin = try DolphinCoreML(
-  modelURL: url,
-  computeUnits: .all,
-  metadata: (vocabSize: 32000, hiddenSize: 4096, numLayers: 32, numHeads: 32, headDim: 128, seqLen: 2048)
-)
 ```
 
-Use your model’s actual dims if they differ.
+Key behaviours:
 
-Token loop sketch
+1. Resolves Python dependencies with `ensure_packages`, ensuring deterministic
+   environments for CI and local runs.
+2. Validates tokenizer compatibility and sequence-length limits before
+   exporting the model graph.
+3. Applies 4-bit palettization with optional joint compression and writes the
+   compressed package to disk.
+4. Optionally benchmarks the converted model to confirm regression budgets.
 
-```swift
-// 1) Prepare ids/mask [1, T] for the prompt
-let (ids, mask) = YourTokenizer.encode(prompt: "Hello")
+## Runtime Integration
 
-// 2) First pass to build KV
-let initOut = try dolphin.initPass(inputIds: ids, attentionMask: mask)
+1. Add `DolphinCoreML.swift` to your Xcode target and ship the `.mlpackage`
+   inside the application bundle.
+2. Instantiate the wrapper with the exported metadata:
 
-// 3) Stream tokens with decode step
-var k = initOut.pastK
-var v = initOut.pastV
-for _ in 0..<128 {
-  let nextId = try tokenizer.lastTokenAsArray(fromLogits: initOut.logits) // or use greedySample
-  let nextMask = try makeMaskOne() // [1,1] of 1s
-  let step = try dolphin.decodeStep(nextId: nextId, nextMask: nextMask, pastK: k, pastV: v)
-  let tok = dolphin.greedySample(from: step.logits)
-  // append token to output, update KV
-  k = step.outK; v = step.outV
-}
-```
+   ```swift
+   let dolphin = try DolphinCoreML(
+       modelURL: url,
+       computeUnits: .all,
+       metadata: (vocabSize: 32000, hiddenSize: 4096, numLayers: 32,
+                  numHeads: 32, headDim: 128, seqLen: 2048)
+   )
+   ```
 
-Embeddings
+3. Use `initPass` + `decodeStep` for streaming chat inference, and
+   `encodeEmbedding` for LLM2Vec workloads. The helper guarantees Float16/Float32
+   compatibility and low-allocation cache updates.
+4. Run the benchmark harness inside your app to capture `init`, per-token, and
+   embedding latency using device-appropriate compute units.
 
-```swift
-let (ids, mask) = YourTokenizer.encode(text: "Search document …")
-let emb = try dolphin.encodeEmbedding(inputIds: ids, attentionMask: mask)  // [1, hidden]
-```
+## Documentation System
 
-3) Benchmarking
-•Tokens/sec depends on device + compute units + sequence length + cache I/O.
-•Use BenchmarkHarness.swift (below) inside your app to measure:
-•Init pass latency
-•Per-token step latency (average over N tokens)
-•Embedding latency
+The repository now uses a manifest-driven documentation architecture. The
+manifest (`docs/documentation_manifest.json`) declares every markdown file the
+finalizer manages, the headers used for session journaling, retention limits,
+and optional templates for auto-created files. The automation layer keeps the
+following artefacts in sync:
 
-4) Troubleshooting
-•Op not supported: ensure you exported with minimum_deployment_target=iOS18.
-•Memory pressure: lower --seq-len, or try .cpuAndGPU on older phones.
-•Quality drop at 4-bit: try per_channel or increase group_size → higher fidelity.
-•Tokenizer mismatch: verify vocab + special tokens exactly match Dolphin’s tokenizer.
+- **README timeline:** Short-form view of the last three sessions.
+- **Codex Master Task Ledger:** Operational status dashboard and canonical task
+  specifications.
+- **docs/history/SESSION_LOG.md:** Full chronological record for every session.
+- **docs/ROADMAP.md:** Executive roadmap snapshot derived from the Codex
+  dashboard.
+- **tasks/SESSION_NOTES.md:** Long-form engineering notes and git status
+  summaries.
 
-5) License / Credits
-•Dolphin model weights per original license.
-•Conversion scripts and helpers MIT.
+## Automation Playbooks
 
----
-
-# `Sources/App/Bench/BenchmarkHarness.swift`
-
-```swift
-//
-//  BenchmarkHarness.swift
-//  Simple tok/s + embedding latency measurement for DolphinCoreML
-//
-
-import Foundation
-import CoreML
-
-public final class BenchmarkHarness {
-    private let dolphin: DolphinCoreML
-    private let tokenizer: YourTokenizerProtocol   // replace with your tokenizer impl
-    private let warmupTokens = 16
-
-    public init(dolphin: DolphinCoreML, tokenizer: YourTokenizerProtocol) {
-        self.dolphin = dolphin
-        self.tokenizer = tokenizer
-    }
-
-    @discardableResult
-    public func run(prompt: String, genTokens: Int = 64) throws -> (initMs: Double, tokPerSec: Double, embedMs: Double) {
-        // Encode prompt
-        let (ids, mask) = tokenizer.encodeToMultiArray(prompt, seqLen: dolphin.seqLen)
-
-        // INIT
-        let t0 = CFAbsoluteTimeGetCurrent()
-        let initOut = try dolphin.initPass(inputIds: ids, attentionMask: mask)
-        let t1 = CFAbsoluteTimeGetCurrent()
-        let initMs = (t1 - t0) * 1000.0
-
-        // Warmup a few decode steps
-        var k = initOut.pastK
-        var v = initOut.pastV
-        var stepCountWarmup = 0
-        while stepCountWarmup < warmupTokens {
-            let (nid, nmask) = tokenizer.nextMaskArrays(tokenId: Int32(1)) // dummy 1 or last sampled token
-            _ = try dolphin.decodeStep(nextId: nid, nextMask: nmask, pastK: k, pastV: v)
-            stepCountWarmup += 1
-        }
-
-        // Timed decoding
-        let steps = max(1, genTokens)
-        var produced = 0
-        var nextId = try tokenizer.firstNextIdArray() // provide your first next token array
-        var nextMask = try tokenizer.oneMaskArray()
-
-        let t2 = CFAbsoluteTimeGetCurrent()
-        while produced < steps {
-            let step = try dolphin.decodeStep(nextId: nextId, nextMask: nextMask, pastK: k, pastV: v)
-            let tok = dolphin.greedySample(from: step.logits)
-            (nextId, nextMask) = tokenizer.nextMaskArrays(tokenId: tok)
-            k = step.outK; v = step.outV
-            produced += 1
-        }
-        let t3 = CFAbsoluteTimeGetCurrent()
-        let stepMs = ((t3 - t2) * 1000.0) / Double(steps)
-        let tokPerSec = 1000.0 / stepMs
-
-        // Embedding latency
-        let tE0 = CFAbsoluteTimeGetCurrent()
-        _ = try dolphin.encodeEmbedding(inputIds: ids, attentionMask: mask)
-        let tE1 = CFAbsoluteTimeGetCurrent()
-        let embedMs = (tE1 - tE0) * 1000.0
-
-        print(String(format: "Init: %.1f ms • Decode: %.2f tok/s • Embed: %.1f ms", initMs, tokPerSec, embedMs))
-        return (initMs, tokPerSec, embedMs)
-    }
-}
-
-/// Example tokenizer protocol you can implement with your own tokenizer.
-public protocol YourTokenizerProtocol {
-    /// Build MLMultiArray [1, T] int32 ids and [1, T] int32 mask. Must match export seqLen.
-    func encodeToMultiArray(_ text: String, seqLen: Int) -> (MLMultiArray, MLMultiArray)
-    /// Return nextId [1,1] and nextMask [1,1] (both int32)
-    func nextMaskArrays(tokenId: Int32) -> (MLMultiArray, MLMultiArray)
-    /// Helper variations
-    func firstNextIdArray() throws -> MLMultiArray
-    func oneMaskArray() throws -> MLMultiArray
-}
-```
-
----
-
-Quick glue for a basic tokenizer (placeholder)
-
-You can wire any tokenizer (e.g., Hugging Face tokenizers via a small Swift port or ship precomputed SentencePiece tables). If you prefer, keep tokenization in Python and send IDs to the app; otherwise I can generate a tiny Swift tokenizer adapter if you share which Dolphin tokenizer vocab/SentencePiece model you’re using.
-
-## Session Finalization Automation
-
-Run the session finalizer script whenever you wrap up work. It now refreshes `AGENTS.md` files without spawning a subprocess, rewrites the shared roadmap snapshot, and appends structured notes that future contributors can rely on. The CLI also emits a deterministic report describing every mutation (or dry-run preview) so you can copy the summary into session notes or CI logs.
+Run the session finalizer whenever you finish a work block:
 
 ```bash
 python tools/session_finalize.py \
-  --session-name "Session 2024-05-25" \
-  --summary "Implemented session finalizer automation" \
+  --session-name "Session 2025-10-27" \
+  --summary "Refined documentation automation" \
   --note "manage_agents synced" \
   --include-git-status
 ```
 
-The command performs the following steps:
+The command will:
 
-1. Synchronizes scoped contribution guidance by invoking `tools.manage_agents.synchronize_agents` directly.
-2. Updates every `README.md` in the repo with a new entry under **Session Updates**.
-3. Maintains the `Codex_Master_Task_Results.md` session log to avoid drift between code and documentation.
-4. Appends the same information to `tasks/SESSION_NOTES.md` so long-running efforts retain a chronological narrative.
-5. Refreshes `docs/ROADMAP.md` using the latest status dashboard extracted from the Codex ledger so the roadmap never lags behind code.
-6. Emits a structured `FinalizationReport` detailing which documents changed, whether the roadmap snapshot moved, and if the scoped `AGENTS.md` files needed updates.
+1. Load `docs/documentation_manifest.json` to determine which files require
+   updates and create templated history files if they are missing.
+2. Synchronize scoped `AGENTS.md` instructions via `tools/manage_agents.py`.
+3. Append structured entries to the README timeline, Codex ledger, canonical
+   session log, and session notes while pruning the README to the configured
+   retention window.
+4. Regenerate `docs/ROADMAP.md` using the latest `## Status Dashboard` section in
+   the ledger.
+5. Emit a detailed report summarizing which documents changed.
 
-Use `--timestamp` to record a specific ISO 8601 instant (e.g., for backfilling older sessions), `--readme` to limit which documentation files receive the update, and `--roadmap-path` to redirect the generated roadmap. Pass `--skip-agent-sync` when running in a sandbox that cannot execute subprocesses, and add `--dry-run` to preview changes—the report will indicate exactly which files would have been updated without touching the filesystem.
+Use `python tools/manage_agents.py sync` after editing any manifest-controlled
+`AGENTS.md` file to keep scoped guidance authoritative.
 
-## Session Updates
+## Build & Validation Checklist
 
-<!-- session-log:session-2024-05-25:2024-05-25T00:00:00+00:00 -->
-### Session 2024-05-25 (2024-05-25T00:00:00+00:00)
+- `python -m pytest` — Python task validation.
+- `cargo test` and `cargo bench -p parallel_csv_reader parallel_csv` — Rust
+  artefacts and benchmarks.
+- `go test ./...` within `tasks/multi_language_cross_integration/go_dot` — Go
+  vector math module validation.
+- `npm install && npm run lint && npm test` — TypeScript utilities and Vitest
+  coverage.
 
-**Summary:** Implemented session finalizer automation
+Run the commands relevant to your change before finalizing a session.
+
+## Session Timeline
+
+<!-- session-log:session-2025-10-27-043000:2025-10-27T04:30:00+00:00 -->
+### Session 2025-10-27 (2025-10-27T04:30:00+00:00)
+
+**Summary:** Implemented Task 8 asynchronous batch HTTP manager with concurrency instrumentation
 
 **Notes:**
-- manage_agents synced
-- Updated Codex ledger
-
-<!-- session-log:session-2025-10-26:2025-10-26T18:39:30+00:00 -->
-### Session 2025-10-26 (2025-10-26T18:39:30+00:00)
-
-**Summary:** Rebuilt session finalizer and roadmap automation
-
-**Notes:**
-- Introduced roadmap maintainer
-- Updated documentation to require finalizer
+- Added timeout-aware fetch queue with aggregate error surfacing and concurrency ceiling enforcement
+- Added Vitest suite validating timeout, HTTP error, and concurrency scenarios
+- Updated roadmap and Codex ledger to reflect Task 8 completion
 - git status changes:
-- M AGENTS.md
-- M Codex_Master_Task_Results.md
-- M README.md
-- M tasks/SESSION_NOTES.md
-- M tests/tools/test_session_finalize.py
-- M tools/manage_agents.py
-- M tools/session_finalize.py
-- ?? docs/
-- ?? tools/__init__.py
+  - M `Codex_Master_Task_Results.md`
+  - M `docs/ROADMAP.md`
+  - M `tasks/SESSION_NOTES.md`
+  - A `tasks/code_quality_refactoring/batchFetch.ts`
+  - A `tests_ts/code_quality_refactoring/batchFetch.test.ts`
 
+<!-- session-log:session-2025-10-27-063000:2025-10-27T06:30:00+00:00 -->
+### Session 2025-10-27 (2025-10-27T06:30:00+00:00)
+
+**Summary:** Implemented Task 9 parallel CSV checksum crate, Task 10 GoDoc enrichment, and Task 11 docstring rewriter CLI
+
+**Notes:**
+- Added Rayon-backed checksum crate with Criterion bench output persisted to `benchmarks/parallel_csv.json`
+- Authored Go `vectormath` package with Markdown GoDoc and deterministic arithmetic tests
+- Delivered Google-style docstring CLI with logging, recursive traversal, and pytest coverage
+- git status changes:
+  - M `Codex_Master_Task_Results.md`
+  - M Cargo.toml
+  - M Cargo.lock
+  - M `docs/ROADMAP.md`
+  - M `tasks/SESSION_NOTES.md`
+  - A `benchmarks/parallel_csv.json`
+  - A `tasks/core_algorithmic_foundations/parallel_csv_reader/`
+  - A `tasks/documentation/docstring_rewriter.py`
+  - A `tasks/multi_language_cross_integration/go_dot/`
+  - A `tests/documentation/test_docstring_rewriter.py`
+  - Updated `tasks/core_algorithmic_foundations/parallel_csv_reader/benches/parallel_csv.rs`
+- Tests & benches executed:
+  - `cargo test`
+  - `cargo bench -p parallel_csv_reader parallel_csv`
+  - `go test ./...` (within `tasks/multi_language_cross_integration/go_dot`)
+  - `pytest`
+  - `npm run lint`
+
+<!-- session-log:session-2025-10-27-073000:2025-10-27T07:30:00+00:00 -->
+### Session 2025-10-27 (2025-10-27T07:30:00+00:00)
+
+**Summary:** Reconciled ledger statuses for Tasks 7–11
+
+**Notes:**
+- Updated task ledger entries with implementation artifacts for Tasks 7–11
+- Narrowed outstanding follow-up checklist to remaining unimplemented tasks
+- git status changes:
+  - M `Codex_Master_Task_Results.md`
+  - M `tasks/SESSION_NOTES.md`

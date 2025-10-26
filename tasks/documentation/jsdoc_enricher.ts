@@ -338,14 +338,14 @@ if (require.main === module) {
       "Usage: ts-node tasks/documentation/jsdoc_enricher.ts <path> [--dry-run]",
     );
     process.exitCode = 1;
-  } else {
-    const dryRun = args.includes("--dry-run");
-    const targets = args.filter((arg) => !arg.startsWith("--"));
-    for (const target of targets) {
-      enrichJsDoc(target, {
-        dryRun,
-        logger: (message) => console.log(message),
-      });
-    }
+    process.exit(1);
+  }
+  const dryRun = args.includes("--dry-run");
+  const targets = args.filter((arg) => !arg.startsWith("--"));
+  for (const target of targets) {
+    enrichJsDoc(target, {
+      dryRun,
+      logger: (message) => console.log(message),
+    });
   }
 }

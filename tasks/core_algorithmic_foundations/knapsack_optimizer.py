@@ -273,7 +273,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     write_profiles_to_csv(args.output, (top_profile, bottom_profile))
-    logger.info("Profiles written to %%s", args.output)
+    logger.info("Profiles written to %s", args.output)
     return 0
 
 

@@ -19,6 +19,8 @@ with comprehensive error handling and logging.
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -49,6 +51,68 @@ except ImportError:  # pragma: no cover - executed only when dependency missing
     from rich.table import Table
 
 console = Console()
+
+
+def _module_available(name: str) -> bool:
+    """Return True when the module can be imported."""
+
+    return importlib.util.find_spec(name) is not None
+
+
+def ensure_packages(packages: Iterable[str]) -> None:
+    """Ensure that the required Python packages are available."""
+
+    to_install: List[str] = []
+    for pkg in packages:
+        module_name = pkg.split("==")[0].split(">=")[0].replace("-", "_")
+        if not _module_available(module_name):
+            to_install.append(pkg)
+    if to_install:
+        console.print(
+            Panel.fit(
+                f"[bold yellow]Installing dependencies:[/] {' '.join(to_install)}",
+                border_style="yellow",
+            )
+        )
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q", *to_install],
+            check=True,
+        )
+
+
+try:  # pragma: no cover - fallback when optional deps are missing
+    import torch
+except ImportError:  # pragma: no cover
+    ensure_packages(["torch>=2.0.0"])
+    import torch
+
+try:  # pragma: no cover
+    import coremltools as ct
+except ImportError:  # pragma: no cover
+    ensure_packages(["coremltools>=8.0.0"])
+    import coremltools as ct
+
+try:  # pragma: no cover
+    from huggingface_hub import snapshot_download
+except ImportError:  # pragma: no cover
+    ensure_packages(["huggingface_hub"])
+    from huggingface_hub import snapshot_download
+
+try:  # pragma: no cover
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+except ImportError:  # pragma: no cover
+    ensure_packages([
+        "transformers>=4.44.0",
+        "accelerate",
+        "sentencepiece",
+        "tokenizers",
+    ])
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+
+
+# Optional packages are installed on demand later in the workflow.
+HAS_UNSLOTH = _module_available("unsloth")
+HAS_LLM2VEC = _module_available("llm2vec")
 
 
 # ---------------------------------------------------------------------------
@@ -272,63 +336,6 @@ def _run_coreml_decode(
     }
 
 
-def ensure_packages(packages: Iterable[str]) -> None:
-    """Ensure that the required Python packages are available."""
-
-    to_install: List[str] = []
-    for pkg in packages:
-        module_name = pkg.split("==")[0].split(">=")[0].replace("-", "_")
-        try:
-            __import__(module_name)
-        except ImportError:
-            to_install.append(pkg)
-    if to_install:
-        console.print(
-            Panel.fit(
-                f"[bold yellow]Installing dependencies:[/] {' '.join(to_install)}",
-                border_style="yellow",
-            )
-        )
-        sh([sys.executable, "-m", "pip", "install", "-q", *to_install])
-
-
-# Ensure core dependencies are present before importing heavy modules.
-ensure_packages(
-    [
-        "torch>=2.0.0",
-        "transformers>=4.44.0",
-        "accelerate",
-        "huggingface_hub",
-        "sentencepiece",
-        "tokenizers",
-        "peft",
-        "coremltools>=8.0.0",
-        "numpy",
-    ]
-)
-
-# Optional packages are installed on demand later in the workflow.
-try:  # pragma: no cover - best effort dependency management
-    import unsloth  # type: ignore
-
-    HAS_UNSLOTH = True
-except ImportError:  # pragma: no cover
-    HAS_UNSLOTH = False
-
-try:  # pragma: no cover
-    import llm2vec  # type: ignore
-
-    HAS_LLM2VEC = True
-except ImportError:  # pragma: no cover
-    HAS_LLM2VEC = False
-
-import torch
-from huggingface_hub import snapshot_download
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
-
-import coremltools as ct
-
-
 # ---------------------------------------------------------------------------
 # Argument parsing utilities
 # ---------------------------------------------------------------------------
@@ -446,9 +453,9 @@ def ensure_unsloth() -> None:
     if HAS_UNSLOTH:
         return
     ensure_packages(["unsloth"])
-    import unsloth as _unsloth  # pragma: no cover
-
-    HAS_UNSLOTH = True
+    HAS_UNSLOTH = _module_available("unsloth")
+    if not HAS_UNSLOTH:
+        raise RuntimeError("Unsloth installation did not make the module importable.")
 
 
 def ensure_llm2vec() -> None:
@@ -456,9 +463,9 @@ def ensure_llm2vec() -> None:
     if HAS_LLM2VEC:
         return
     ensure_packages(["llm2vec"])
-    import llm2vec as _llm2vec  # pragma: no cover
-
-    HAS_LLM2VEC = True
+    HAS_LLM2VEC = _module_available("llm2vec")
+    if not HAS_LLM2VEC:
+        raise RuntimeError("LLM2Vec installation did not make the module importable.")
 
 
 # ---------------------------------------------------------------------------
@@ -547,7 +554,11 @@ def main(argv: Sequence[str]) -> int:
     console.print(
         Panel.fit(f"[bold green]Merging LoRA adapters from: {args.lora_checkpoint}")
     )
-    from peft import PeftModel  # imported lazily to avoid unnecessary dependency during help
+    try:
+        from peft import PeftModel  # imported lazily to avoid unnecessary dependency during help
+    except ImportError:  # pragma: no cover
+        ensure_packages(["peft"])
+        from peft import PeftModel
 
     lora_model = PeftModel.from_pretrained(model, args.lora_checkpoint)
     merged_model = lora_model.merge_and_unload()
@@ -598,7 +609,7 @@ def main(argv: Sequence[str]) -> int:
             self,
             input_ids: torch.Tensor,
             attention_mask: torch.Tensor,
-        ) -> Tuple[torch.Tensor, torch.Tensor, *Tuple[torch.Tensor, ...]]:
+        ) -> Tuple[torch.Tensor, ...]:
             input_ids = input_ids.long()
             attention_mask = attention_mask.long()
             out = self.base(
@@ -627,7 +638,7 @@ def main(argv: Sequence[str]) -> int:
             input_ids: torch.Tensor,
             attention_mask: torch.Tensor,
             *flat_past: torch.Tensor,
-        ) -> Tuple[torch.Tensor, torch.Tensor, *Tuple[torch.Tensor, ...]]:
+        ) -> Tuple[torch.Tensor, ...]:
             input_ids = input_ids.long()
             attention_mask = attention_mask.long()
             past: List[Tuple[torch.Tensor, torch.Tensor]] = []

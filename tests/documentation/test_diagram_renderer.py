@@ -35,7 +35,9 @@ def simple_plain_output() -> str:
     )
 
 
-def test_generate_ascii_diagram_orders_rows_by_coordinates(simple_plain_output: str) -> None:
+def test_generate_ascii_diagram_orders_rows_by_coordinates(
+    simple_plain_output: str,
+) -> None:
     def factory(_: str) -> _FakeSource:
         return _FakeSource(_, plain_output=simple_plain_output)
 

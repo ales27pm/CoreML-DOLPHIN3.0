@@ -69,7 +69,9 @@ def test_fetch_metric_raises_on_http_error() -> None:
         fetch_metric("bad", session=session)
 
 
-def test_summarize_dashboard_fetches_all_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarize_dashboard_fetches_all_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payloads = deque(
         [
             _FakeResponse({"data": {"result": [{"value": ["0", "1"]}]}}),
@@ -78,7 +80,9 @@ def test_summarize_dashboard_fetches_all_metrics(monkeypatch: pytest.MonkeyPatch
         ]
     )
     session = _StubSession(payloads)
-    summary = summarize_dashboard(DEFAULT_QUERIES, session=session, url="http://example")
+    summary = summarize_dashboard(
+        DEFAULT_QUERIES, session=session, url="http://example"
+    )
     assert summary == {
         "http_requests_per_second": 1.0,
         "latency_p99": 2.0,

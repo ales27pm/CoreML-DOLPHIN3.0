@@ -7,7 +7,7 @@ from http import HTTPStatus
 from logging import getLogger
 from typing import Mapping, MutableMapping
 
-from flask import Flask, abort, jsonify
+from flask import Flask, abort, jsonify  # type: ignore[import-not-found,import-untyped]
 from pydantic import BaseModel, ValidationError
 
 LOGGER = getLogger(__name__)

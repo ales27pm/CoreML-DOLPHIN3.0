@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Sequence
 
-import graphviz
+import graphviz  # type: ignore[import-not-found,import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,9 @@ def _render(nodes: Sequence[DiagramNode], max_width: int) -> str:
         f"{'Label':<{_LABEL_WIDTH}} | "
         f"{'Position':>{_POSITION_WIDTH}}"
     )
-    separator = "-" * min(max_width, max(len(header), _NAME_WIDTH + _LABEL_WIDTH + _POSITION_WIDTH + 6))
+    separator = "-" * min(
+        max_width, max(len(header), _NAME_WIDTH + _LABEL_WIDTH + _POSITION_WIDTH + 6)
+    )
     lines = [header, separator]
     for node in nodes:
         row = node.format_row()
@@ -139,7 +141,9 @@ def generate_ascii_diagram(
             "Graphviz executable not found. Install Graphviz to enable rendering."
         ) from exc
     except graphviz.backend.CalledProcessError as exc:
-        raise DiagramRenderingError(f"Graphviz failed to render DOT source: {exc}") from exc
+        raise DiagramRenderingError(
+            f"Graphviz failed to render DOT source: {exc}"
+        ) from exc
     logger.debug("Graphviz plain output:\n%s", plain_output)
     nodes = _parse_plain_output(plain_output)
     ascii_art = _render(nodes, max_width)

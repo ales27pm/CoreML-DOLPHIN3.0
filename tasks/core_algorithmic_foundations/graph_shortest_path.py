@@ -47,7 +47,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - import is for type checking only
-    import networkx as nx  # type: ignore[import-not-found]
+    import networkx as nx  # type: ignore[import-not-found,import-untyped]
 
     NxDiGraph: TypeAlias = nx.DiGraph
 else:  # pragma: no cover - alias keeps runtime dependency optional

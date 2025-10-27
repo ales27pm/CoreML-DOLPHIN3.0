@@ -31,7 +31,9 @@ class HTTPTimeoutError(HTTPClientError):
 class HTTPStatusError(HTTPClientError):
     """Raised when the HTTP server responds with a non-success status code."""
 
-    def __init__(self, status_code: int, message: str, body: bytes | None = None) -> None:
+    def __init__(
+        self, status_code: int, message: str, body: bytes | None = None
+    ) -> None:
         super().__init__(f"HTTP {status_code}: {message}")
         self.status_code = status_code
         self.body = body
@@ -40,7 +42,9 @@ class HTTPStatusError(HTTPClientError):
 class _UrlLibResponse:
     """Lightweight response wrapper that mimics the requests.Response API."""
 
-    def __init__(self, body: bytes, status_code: int, headers: Mapping[str, str]) -> None:
+    def __init__(
+        self, body: bytes, status_code: int, headers: Mapping[str, str]
+    ) -> None:
         self._body = body
         self.status_code = status_code
         self.headers = headers
@@ -57,7 +61,9 @@ class _UrlLibResponse:
 class _UrlLibSession:
     """Minimal session implementation backed by urllib."""
 
-    def get(self, url: str, *, params: Mapping[str, Any], timeout: float) -> _UrlLibResponse:
+    def get(
+        self, url: str, *, params: Mapping[str, Any], timeout: float
+    ) -> _UrlLibResponse:
         query = parse.urlencode(params)
         delimiter = "&" if ("?" in url and query) else "?"
         full_url = f"{url}{delimiter}{query}" if query else url

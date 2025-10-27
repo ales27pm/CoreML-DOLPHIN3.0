@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coreml-dolphin"
+version = "0.1.0"
+description = "Research tasks and automation utilities for the CoreML-DOLPHIN3.0 workspace."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "CoreML Dolphin Maintainers" }]
+license = "LicenseRef-Proprietary"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/CoreML-DOLPHIN"
+Documentation = "https://github.com/CoreML-DOLPHIN/CoreML-DOLPHIN3.0"
+
+[tool.setuptools.packages.find]
+include = ["tasks*"]
+namespaces = true
+
+[tool.setuptools]
+py-modules = ["compliance_scanner", "dolphin2coreml_full", "tree_balance"]
+include-package-data = true

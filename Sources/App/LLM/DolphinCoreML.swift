@@ -157,6 +157,69 @@ public final class DolphinCoreML {
         return emb
     }
 
+    /// Convenience helper that evaluates ``encode`` for multiple sequences using ``MLBatchProvider``.
+    /// - Parameter batches: Sequence of (input IDs, attention mask) tuples with shape ``[1, seqLen]`` each.
+    /// - Returns: ``MLMultiArray`` embeddings in the same order as the input.
+    /// - Throws: ``NSError`` when Core ML fails to produce an embedding for any element.
+    ///
+    /// Example:
+    /// ```swift
+    /// let prompts: [String] = ["packet capture", "wireless audit"]
+    /// let requests = prompts.map { tokenizer.encodeToMultiArray($0, seqLen: dolphin.seqLen) }
+    /// let embeddings = try dolphin.encodeEmbeddingBatch(requests)
+    /// ```
+    public func encodeEmbeddingBatch(
+        _ batches: [(inputIds: MLMultiArray, attentionMask: MLMultiArray)]
+    ) throws -> [MLMultiArray] {
+        if batches.isEmpty {
+            return []
+        }
+
+        var providers: [MLFeatureProvider] = []
+        providers.reserveCapacity(batches.count)
+
+        for (index, batch) in batches.enumerated() {
+            if batch.inputIds.count != batch.attentionMask.count {
+                throw NSError(
+                    domain: "DolphinCoreML",
+                    code: -6,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "input_ids count (\(batch.inputIds.count)) does not match attention_mask count (\(batch.attentionMask.count)) for element \(index)."
+                    ]
+                )
+            }
+            let provider = try MLDictionaryFeatureProvider(
+                dictionary: [
+                    "input_ids": batch.inputIds,
+                    "attention_mask": batch.attentionMask,
+                ]
+            )
+            providers.append(provider)
+        }
+
+        let batchProvider = MLArrayBatchProvider(array: providers)
+        let options = MLPredictionOptions()
+        options.predictionFunctionName = "encode"
+        let results = try model.predictions(fromBatch: batchProvider, options: options)
+
+        var embeddings: [MLMultiArray] = []
+        embeddings.reserveCapacity(results.count)
+        for index in 0..<results.count {
+            let provider = results.featureProvider(at: index)
+            guard let embedding = provider.featureValue(for: "embedding")?.multiArrayValue else {
+                throw NSError(
+                    domain: "DolphinCoreML",
+                    code: -7,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Missing embedding in batched result at index \(index).",
+                    ]
+                )
+            }
+            embeddings.append(embedding)
+        }
+        return embeddings
+    }
+
     // MARK: - Convenience samplers
 
     /// Greedy sample argmax from logits [1, *, vocab] → Int32 token id.

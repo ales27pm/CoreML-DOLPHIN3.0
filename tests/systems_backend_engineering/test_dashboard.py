@@ -4,11 +4,11 @@ from collections import deque
 from typing import Any
 
 import pytest
-import requests
 
-from tasks.systems_backend_engineering import dashboard
 from tasks.systems_backend_engineering.dashboard import (
     DEFAULT_QUERIES,
+    HTTPStatusError,
+    HTTPTimeoutError,
     MetricFetchError,
     fetch_metric,
     summarize_dashboard,
@@ -25,7 +25,7 @@ class _FakeResponse:
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
-            raise requests.HTTPError(f"status: {self.status_code}", response=self)
+            raise HTTPStatusError(self.status_code, f"status: {self.status_code}")
 
 
 class _StubSession:
@@ -88,6 +88,6 @@ def test_summarize_dashboard_fetches_all_metrics(monkeypatch: pytest.MonkeyPatch
 
 
 def test_summarize_dashboard_propagates_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    session = _StubSession(deque([requests.Timeout("timeout")]))
+    session = _StubSession(deque([HTTPTimeoutError("timeout")]))
     with pytest.raises(MetricFetchError):
         summarize_dashboard({"latency": "demo"}, session=session)

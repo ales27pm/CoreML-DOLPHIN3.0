@@ -4,7 +4,7 @@ This repository contains the production pipeline for exporting
 **Dolphin3.0-Llama3.1-8B** to a multifunction Core ML `.mlpackage`. The tooling
 focuses exclusively on the original goals of the project:
 
-- Merge LoRA adapters into the base model using Unsloth prior to export.
+- Merge LoRA adapters into the base model using Unsloth before export.
 - Quantize the Core ML weights with 4-bit palettization and grouped-channel
   compression.
 - Attach an LLM2Vec encoder head so the resulting package serves both chat and
@@ -14,7 +14,7 @@ focuses exclusively on the original goals of the project:
 
 ## Repository Layout
 
-```
+```text
 dolphin2coreml_full.py   # End-to-end conversion script
 Sources/App/LLM/         # Swift runtime wrapper for chat + embeddings
 Sources/App/Bench/       # Optional benchmarking harness for Core ML packages
@@ -51,7 +51,7 @@ Key stages:
    converts them into a multifunction `mlprogram`.
 5. **4-bit quantization** – Executes palettization (group size 16 by default)
    followed by linear quantization, producing a compressed package ready for
-   Apple silicon.
+   Apple Silicon.
 6. **Optional validation** – When `--profile-validate` is set the script runs a
    sanity pass to confirm load/decode/embedding operations succeed before
    cleaning temporary artifacts.

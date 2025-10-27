@@ -17,12 +17,14 @@ def test_playbook_structure() -> None:
     with PLAYBOOK.open("r", encoding="utf-8") as handle:
         documents = list(yaml.safe_load_all(handle))
     assert documents, "Expected at least one play"
+    # documents[0] is the list of plays, documents[0][0] is the first play definition
     play = documents[0][0]
     assert play["become"] is True
     assert play["hosts"] == "all"
     tasks = play["tasks"]
     names = [task["name"] for task in tasks]
-    assert "Apply security updates" in names
+    assert "Apply security updates on Debian systems" in names
+    assert "Apply security updates on RedHat systems" in names
     assert any(task.get("notify") == "Restart host when required" for task in tasks)
 
 
@@ -32,10 +34,14 @@ def test_handler_reboot_configuration() -> None:
     play = playbook[0]
     handlers = play.get("handlers", [])
     reboot_handler = next(
-        handler
-        for handler in handlers
-        if handler["name"] == "Restart host when required"
+        (
+            handler
+            for handler in handlers
+            if handler["name"] == "Restart host when required"
+        ),
+        None,
     )
+    assert reboot_handler is not None, "Handler 'Restart host when required' not found"
     module_args = reboot_handler["ansible.builtin.reboot"]
     assert module_args["reboot_timeout"] == 600
     assert module_args["test_command"] == "whoami"

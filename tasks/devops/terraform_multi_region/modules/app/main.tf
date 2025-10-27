@@ -17,6 +17,10 @@ resource "aws_internet_gateway" "this" {
   tags   = merge(local.tags, { Name = "${var.service_name}-igw" })
 }
 
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.this.id
   cidr_block              = "10.42.1.0/24"
@@ -25,8 +29,12 @@ resource "aws_subnet" "public" {
   tags                    = merge(local.tags, { Name = "${var.service_name}-public" })
 }
 
-data "aws_availability_zones" "available" {
-  state = "available"
+resource "aws_subnet" "public_b" {
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = "10.42.2.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = data.aws_availability_zones.available.names[1]
+  tags                    = merge(local.tags, { Name = "${var.service_name}-public-b" })
 }
 
 resource "aws_route_table" "public" {
@@ -42,6 +50,11 @@ resource "aws_route" "public_internet" {
 
 resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -71,7 +84,8 @@ resource "aws_lb" "this" {
   name               = substr("${var.service_name}-${var.region}-alb", 0, 32)
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = [aws_subnet.public.id]
+  subnets            = [aws_subnet.public.id, aws_subnet.public_b.id]
+  drop_invalid_header_fields = true
   tags               = merge(local.tags, { Name = "${var.service_name}-alb" })
 }
 

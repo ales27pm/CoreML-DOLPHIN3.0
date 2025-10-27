@@ -24,11 +24,12 @@ module "primary" {
     aws = aws
   }
 
-  region           = var.primary_region
-  service_name     = var.service_name
-  environment      = var.environment
-  enable_failover  = false
-  health_check_fqdn = var.health_check_fqdn
+  region             = var.primary_region
+  service_name       = var.service_name
+  environment        = var.environment
+  enable_failover    = false
+  health_check_fqdn  = var.health_check_fqdn
+  tls_certificate_arn = var.tls_certificate_arn
 }
 
 module "secondary" {
@@ -37,11 +38,12 @@ module "secondary" {
     aws = aws.secondary
   }
 
-  region           = var.secondary_region
-  service_name     = "${var.service_name}-secondary"
-  environment      = var.environment
-  enable_failover  = true
-  health_check_fqdn = var.health_check_fqdn
+  region             = var.secondary_region
+  service_name       = "${var.service_name}-secondary"
+  environment        = var.environment
+  enable_failover    = true
+  health_check_fqdn  = var.health_check_fqdn
+  tls_certificate_arn = var.tls_certificate_arn
 
   depends_on = [module.primary]
 }

@@ -1,5 +1,7 @@
 package com.securityresearch.capture
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -7,6 +9,10 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -26,16 +32,19 @@ class PacketCaptureService : VpnService() {
     private val stopSignal = AtomicBoolean(false)
     private var captureThread: Thread? = null
     private var captureEngine: PacketCaptureEngine? = null
+    private var isForeground = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP_CAPTURE) {
             stopSignal.set(true)
             captureThread?.interrupt()
+            stopSelf()
             return START_NOT_STICKY
         }
 
         val config = PacketCaptureConfig.fromIntent(intent)
         Log.i(loggerTag, "Starting packet capture with config: $config")
+        ensureForeground()
         val vpnInterface = establishInterface(config)
         stopSignal.set(false)
         captureEngine = PacketCaptureEngine(config, stopSignal)
@@ -54,8 +63,38 @@ class PacketCaptureService : VpnService() {
         }
         captureThread = null
         captureEngine = null
+        if (isForeground) {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            isForeground = false
+        }
         Log.i(loggerTag, "Packet capture service destroyed")
         super.onDestroy()
+    }
+
+    private fun ensureForeground() {
+        if (isForeground) {
+            return
+        }
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            manager.getNotificationChannel(FOREGROUND_CHANNEL_ID) == null
+        ) {
+            val channel = NotificationChannel(
+                FOREGROUND_CHANNEL_ID,
+                "Packet Capture",
+                NotificationManager.IMPORTANCE_LOW,
+            )
+            channel.description = "Notifications for active packet capture sessions"
+            manager.createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
+            .setContentTitle("Packet capture running")
+            .setContentText("Capturing VPN traffic for analysis")
+            .setSmallIcon(android.R.drawable.stat_sys_data_connect)
+            .setOngoing(true)
+            .build()
+        startForeground(FOREGROUND_NOTIFICATION_ID, notification)
+        isForeground = true
     }
 
     private fun establishInterface(config: PacketCaptureConfig): ParcelFileDescriptor {
@@ -99,7 +138,7 @@ class PacketCaptureService : VpnService() {
         fun start(context: Context, config: PacketCaptureConfig) {
             val intent = Intent(context, PacketCaptureService::class.java)
             config.writeToIntent(intent)
-            context.startService(intent)
+            ContextCompat.startForegroundService(context, intent)
         }
 
         /**
@@ -108,8 +147,11 @@ class PacketCaptureService : VpnService() {
         fun stop(context: Context) {
             val intent = Intent(context, PacketCaptureService::class.java)
             intent.action = ACTION_STOP_CAPTURE
-            context.startService(intent)
+            ContextCompat.startForegroundService(context, intent)
         }
+
+        private const val FOREGROUND_CHANNEL_ID = "capture"
+        private const val FOREGROUND_NOTIFICATION_ID = 1
     }
 }
 
@@ -241,7 +283,7 @@ class PacketCaptureEngine(
  * Minimal PCAP writer that produces headers compatible with Wireshark.
  */
 class PcapWriter(private val file: File) : AutoCloseable {
-    private val output = file.outputStream()
+    private val output = BufferedOutputStream(file.outputStream(), 64 * 1024)
 
     init {
         writeHeader()
@@ -258,24 +300,23 @@ class PcapWriter(private val file: File) : AutoCloseable {
         header.writeInt32LE(12, length)
         output.write(header)
         output.write(data, 0, length)
-        output.flush()
     }
 
     private fun writeHeader() {
         val header = ByteArray(24)
-        header.writeInt32LE(0, 0xA1B2C3D4.toInt())
+        header.writeInt32LE(0, 0xD4C3B2A1.toInt())
         header.writeInt16LE(4, 2)
         header.writeInt16LE(6, 4)
         header.writeInt32LE(8, 0)
         header.writeInt32LE(12, 0)
         header.writeInt32LE(16, 65535)
-        header.writeInt32LE(20, 1) // LINKTYPE_ETHERNET
+        header.writeInt32LE(20, 101) // LINKTYPE_RAW
         output.write(header)
-        output.flush()
     }
 
     override fun close() {
         try {
+            output.flush()
             output.close()
         } catch (ex: IOException) {
             Log.w("PcapWriter", "Failed to close pcap output", ex)

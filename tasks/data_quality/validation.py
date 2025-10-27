@@ -97,7 +97,7 @@ def validate_dataset(
     *,
     dataset_name: str = "dataset",
     required_columns: Iterable[str] = ("price", "sku", "updated_at"),
-    max_staleness: pd.Timedelta = pd.Timedelta(days=1),
+    max_staleness: pd.Timedelta | None = None,
     strict: bool = True,
 ) -> DataQualityReport:
     """Validate a dataset and return a structured report.
@@ -121,6 +121,9 @@ def validate_dataset(
         Summary containing validation metadata and violations.
     """
 
+    if max_staleness is None:
+        max_staleness = pd.Timedelta(days=1)
+
     missing = [column for column in required_columns if column not in df.columns]
     violations: list[DataQualityViolation] = []
 
@@ -133,47 +136,62 @@ def validate_dataset(
             )
         )
     else:
-        negative_prices = df.index[df["price"].astype(float) < 0].tolist()
-        if negative_prices:
+        price_series = pd.to_numeric(df["price"], errors="coerce")
+        invalid_price_mask = price_series.isna() & df["price"].notna()
+        invalid_price_positions = tuple(idx for idx, flag in enumerate(invalid_price_mask) if flag)
+        if invalid_price_positions:
+            violations.append(
+                DataQualityViolation(
+                    code="invalid_price",
+                    column="price",
+                    message="Price values must be numeric",
+                    row_indices=invalid_price_positions,
+                )
+            )
+
+        negative_mask = price_series.lt(0, fill_value=False)
+        negative_positions = tuple(idx for idx, flag in enumerate(negative_mask) if flag)
+        if negative_positions:
             violations.append(
                 DataQualityViolation(
                     code="negative_price",
                     column="price",
                     message="Detected negative pricing values",
-                    row_indices=tuple(int(idx) for idx in negative_prices),
+                    row_indices=negative_positions,
                 )
             )
 
-        missing_sku = df.index[
-            df["sku"].isna() | (df["sku"].astype(str).str.strip() == "")
-        ].tolist()
-        if missing_sku:
+        sku_series = df["sku"]
+        sku_missing_mask = sku_series.isna() | (sku_series.astype(str).str.strip() == "")
+        missing_positions = tuple(idx for idx, flag in enumerate(sku_missing_mask) if flag)
+        if missing_positions:
             violations.append(
                 DataQualityViolation(
                     code="missing_sku",
                     column="sku",
                     message="Found records with missing SKU",
-                    row_indices=tuple(int(idx) for idx in missing_sku),
+                    row_indices=missing_positions,
                 )
             )
 
-        timestamps = _coerce_datetime(df["updated_at"])
-        staleness = timestamps.max() - timestamps.min()
-        if pd.isna(staleness) or staleness > max_staleness:
-            violations.append(
-                DataQualityViolation(
-                    code="stale_records",
-                    column="updated_at",
-                    message=(
-                        "Dataset contains stale records beyond allowed threshold "
-                        f"({max_staleness})."
-                    ),
+        if len(df) > 0:
+            timestamps = _coerce_datetime(df["updated_at"])
+            staleness = timestamps.max() - timestamps.min()
+            if pd.isna(staleness) or staleness > max_staleness:
+                violations.append(
+                    DataQualityViolation(
+                        code="stale_records",
+                        column="updated_at",
+                        message=(
+                            "Dataset contains stale records beyond allowed threshold "
+                            f"({max_staleness})."
+                        ),
+                    )
                 )
-            )
 
     report = DataQualityReport(
         dataset_name=dataset_name,
-        record_count=int(len(df)),
+        record_count=len(df),
         generated_at=datetime.now(tz=timezone.utc),
         violations=tuple(violations),
         metadata={"max_staleness": str(max_staleness)},

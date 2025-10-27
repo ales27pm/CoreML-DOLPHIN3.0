@@ -16,25 +16,56 @@
           - ansible_facts['os_family'] in ['Debian', 'RedHat']
         fail_msg: "Unsupported distribution for patch automation"
 
+    - name: Derive Debian security release codename
+      ansible.builtin.set_fact:
+        debian_security_release: "{{ ansible_facts.get('lsb', {}).get('codename') }}-security"
+      when:
+        - ansible_facts['os_family'] == 'Debian'
+        - ansible_facts.get('lsb', {}).get('codename') is defined
+
     - name: Record starting uptime
       ansible.builtin.command: uptime
       register: uptime_before
       changed_when: false
 
   tasks:
-    - name: Refresh package metadata cache
-      ansible.builtin.package:
+    - name: Refresh package metadata cache (APT)
+      ansible.builtin.apt:
         update_cache: true
+        cache_valid_time: 3600
+      when: ansible_facts['os_family'] == 'Debian'
 
-    - name: Apply security updates
-      ansible.builtin.package:
-        name: "*"
-        state: latest
+    - name: Refresh package metadata cache (YUM/DNF)
+      ansible.builtin.yum:
+        update_cache: true
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Apply security updates on Debian systems
+      ansible.builtin.apt:
+        upgrade: dist
+        only_upgrade: true
+        update_cache: false
+        default_release: "{{ debian_security_release | default(omit) }}"
+      when: ansible_facts['os_family'] == 'Debian'
       notify: Restart host when required
 
-    - name: Capture list of upgraded packages
-      ansible.builtin.command: apt list --upgradable
+    - name: Apply security updates on RedHat systems
+      ansible.builtin.yum:
+        name: "*"
+        state: latest
+        security: true
+      when: ansible_facts['os_family'] == 'RedHat'
+      notify: Restart host when required
+
+    - name: Capture list of upgraded packages (APT)
+      ansible.builtin.command: /usr/bin/apt list --upgradable
       when: ansible_facts['pkg_mgr'] == 'apt'
+      register: upgrade_report
+      changed_when: false
+
+    - name: Capture list of upgraded packages (YUM)
+      ansible.builtin.command: /usr/bin/yum updateinfo list security
+      when: ansible_facts['pkg_mgr'] in ['yum', 'dnf']
       register: upgrade_report
       changed_when: false
 

@@ -41,7 +41,9 @@ def test_validate_dataset_negative_price() -> None:
     df.loc[1, "price"] = -1
     with pytest.raises(DataQualityError) as exc:
         validate_dataset(df, dataset_name="catalogue")
-    assert exc.value.report.violations[0].code == "negative_price"
+    violation = exc.value.report.violations[0]
+    assert violation.code == "negative_price"
+    assert violation.row_indices == (1,)
 
 
 def test_validate_dataset_missing_sku() -> None:
@@ -60,6 +62,16 @@ def test_validate_dataset_staleness() -> None:
     with pytest.raises(DataQualityError) as exc:
         validate_dataset(df)
     assert exc.value.report.violations[0].code == "stale_records"
+
+
+def test_validate_dataset_invalid_price_type() -> None:
+    df = _base_dataframe()
+    df.loc[1, "price"] = "N/A"
+    with pytest.raises(DataQualityError) as exc:
+        validate_dataset(df)
+    violation = exc.value.report.violations[0]
+    assert violation.code == "invalid_price"
+    assert violation.row_indices == (1,)
 
 
 def test_validate_dataset_non_strict_returns_report() -> None:

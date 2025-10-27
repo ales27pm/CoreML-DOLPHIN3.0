@@ -280,7 +280,9 @@ Use this section to understand the narrative arc behind dashboard changes.
 
 ## Delivery Checklist
 
-- [ ] Tasks 34–50: no code currently exists—use the historical specifications below to scope future sessions.
+- [ ] Tasks 34: Not implemented yet
+- [x] Tasks 35–43: Implemented (see Status Dashboard)
+- [ ] Tasks 44–50: Not implemented yet — use historical specs below
 
 ## Session Journal Index
 

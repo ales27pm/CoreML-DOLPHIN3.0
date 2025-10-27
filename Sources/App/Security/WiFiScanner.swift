@@ -98,7 +98,7 @@ public enum WiFiScannerError: LocalizedError, Sendable {
 
 /// Production-ready Wi-Fi scanner that supports macOS and gracefully degrades on
 /// unsupported platforms.
-public final class WiFiScanner: @unchecked Sendable {
+public final class WiFiScanner {
     private let logger = Logger(subsystem: "com.securityresearch.wifi", category: "scanner")
 
     /// Creates a new scanner instance.
@@ -117,10 +117,7 @@ public final class WiFiScanner: @unchecked Sendable {
         includeHiddenNetworks: Bool = false
     ) throws -> [WiFiNetwork] {
 #if canImport(CoreWLAN)
-        guard let client = CWWiFiClient.shared() else {
-            logger.error("Unable to obtain shared CoreWLAN client")
-            throw WiFiScannerError.interfaceUnavailable(interfaceName)
-        }
+        let client = CWWiFiClient.shared()
 
         let interface: CWInterface?
         if let interfaceName {

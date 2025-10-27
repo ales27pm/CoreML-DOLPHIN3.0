@@ -2,6 +2,7 @@ package com.securityresearch.capture
 
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -14,7 +15,7 @@ class PacketCaptureEngineTest {
 
     @BeforeTest
     fun setUp() {
-        tempDir = createTempDir(prefix = "capture-test-")
+        tempDir = Files.createTempDirectory("capture-test-").toFile()
     }
 
     @AfterTest
@@ -34,8 +35,8 @@ class PacketCaptureEngineTest {
 
         assertTrue(output.exists(), "pcap output should exist")
         val bytes = output.readBytes()
-        // File must contain header (24 bytes) + at least one frame header (16 bytes) + payload
-        assertTrue(bytes.size >= 24 + 16 + payload.size, "pcap output should include payload")
+        val expectedMinimum = PCAP_FILE_HEADER_SIZE + PCAP_FRAME_HEADER_SIZE + payload.size
+        assertTrue(bytes.size >= expectedMinimum, "pcap output should include payload")
     }
 
     @Test
@@ -56,5 +57,10 @@ class PacketCaptureEngineTest {
 
         assertTrue(output.exists(), "pcap output should be created even when stopped early")
         assertEquals(true, stopSignal.get())
+    }
+
+    companion object {
+        private const val PCAP_FILE_HEADER_SIZE = 24
+        private const val PCAP_FRAME_HEADER_SIZE = 16
     }
 }

@@ -1,27 +1,31 @@
-# CoreML Dolphin 3.0 Engineering Handbook
+# CoreML Dolphin 3.0 Conversion Toolkit
 
-This repository packages everything required to export **Dolphin3.0-Llama3.1-8B**
-into a multifunction Core ML `.mlpackage`, integrate the model inside Apple
-platform apps, and verify runtime performance. The codebase is production-ready:
-it contains the full Python conversion pipeline, Swift runtime bindings, a
-benchmark harness, cross-language task implementations, and an automation layer
-that keeps documentation synchronized with every engineering session.
+This repository contains the production pipeline for exporting
+**Dolphin3.0-Llama3.1-8B** to a multifunction Core ML `.mlpackage`. The tooling
+focuses exclusively on the original goals of the project:
 
-## Platform Overview
+- Merge LoRA adapters into the base model using Unsloth before export.
+- Quantize the Core ML weights with 4-bit palettization and grouped-channel
+  compression.
+- Attach an LLM2Vec encoder head so the resulting package serves both chat and
+  embedding workloads.
+- Ship a Swift runtime wrapper that wires the Core ML model into Apple
+  applications.
 
-- **Single-command export:** `dolphin2coreml_full.py` orchestrates dependency
-  bootstrapping, LoRA merging, tokenizer validation, Core ML conversion,
-  palettization/compression, and optional evaluation loops.
-- **Multifunction runtime:** the exported `.mlpackage` exposes `init`, `decode`,
-  and `encode_for_llm2vec` entry points for chat + embedding workloads.
-- **Swift bindings:** `Sources/App/LLM/DolphinCoreML.swift` wraps the model with
-  compute-unit selection, KV-cache streaming, greedy sampling, and metadata
-  helpers tuned for iOS 18 / macOS 15.
-- **Benchmark harness:** `Sources/App/Bench/BenchmarkHarness.swift` provides
-  deterministic latency profiling with warmup control, tokenizer abstractions,
-  and CSV export for regression monitoring.
+## Repository Layout
 
-## Conversion Pipeline
+```text
+dolphin2coreml_full.py   # End-to-end conversion script
+Sources/App/LLM/         # Swift runtime wrapper for chat + embeddings
+Sources/App/Bench/       # Optional benchmarking harness for Core ML packages
+requirements-dev.txt     # Lightweight development dependencies
+pyproject.toml           # Packaging metadata for the conversion script
+```
+
+## Conversion Workflow
+
+Run the pipeline to produce a compressed `.mlpackage` that exposes `init`,
+`decode`, and `encode_for_llm2vec` entry points.
 
 ```bash
 python dolphin2coreml_full.py \
@@ -35,148 +39,63 @@ python dolphin2coreml_full.py \
   --clean-tmp
 ```
 
-Key behaviours:
+Key stages:
 
-1. Resolves Python dependencies with `ensure_packages`, ensuring deterministic
-   environments for CI and local runs.
-2. Validates tokenizer compatibility and sequence-length limits before
-   exporting the model graph.
-3. Applies 4-bit palettization with optional joint compression and writes the
-   compressed package to disk.
-4. Optionally benchmarks the converted model to confirm regression budgets.
+1. **Dependency bootstrap** – Ensures `torch`, `transformers`, `coremltools`,
+   `peft`, `llm2vec`, and related packages are available before conversion.
+2. **Unsloth LoRA merge** – Applies the LoRA adapters to the base weights so the
+   merged checkpoint exactly mirrors the fine-tuned Dolphin3.0 model.
+3. **Tokenizer + config validation** – Checks compatibility and verifies the
+   requested sequence length is supported by the target architecture.
+4. **Core ML export** – Builds PyTorch wrapper modules for init/decode/encode and
+   converts them into a multifunction `mlprogram`.
+5. **4-bit quantization** – Executes palettization (group size 16 by default)
+   followed by linear quantization, producing a compressed package ready for
+   Apple Silicon.
+6. **Optional validation** – When `--profile-validate` is set the script runs a
+   sanity pass to confirm load/decode/embedding operations succeed before
+   cleaning temporary artifacts.
 
-## Runtime Integration
+## Swift Runtime Integration
 
-1. Add `DolphinCoreML.swift` to your Xcode target and ship the `.mlpackage`
-   inside the application bundle.
-2. Instantiate the wrapper with the exported metadata:
+Use the Swift wrapper under `Sources/App/LLM/` to integrate the exported package
+inside an iOS or macOS application.
 
-   ```swift
-   let dolphin = try DolphinCoreML(
-       modelURL: url,
-       computeUnits: .all,
-       metadata: (vocabSize: 32000, hiddenSize: 4096, numLayers: 32,
-                  numHeads: 32, headDim: 128, seqLen: 2048)
-   )
-   ```
+```swift
+let dolphin = try DolphinCoreML(
+    modelURL: bundledModelURL,
+    computeUnits: .all,
+    metadata: (vocabSize: 32000, hiddenSize: 4096, numLayers: 32,
+               numHeads: 32, headDim: 128, seqLen: 2048)
+)
 
-3. Use `initPass` + `decodeStep` for streaming chat inference, and
-   `encodeEmbedding` for LLM2Vec workloads. The helper guarantees Float16/Float32
-   compatibility and low-allocation cache updates.
-4. Run the benchmark harness inside your app to capture `init`, per-token, and
-   embedding latency using device-appropriate compute units.
-
-## Documentation System
-
-The repository now uses a manifest-driven documentation architecture. The
-manifest (`docs/documentation_manifest.json`) declares every markdown file the
-finalizer manages, the headers used for session journaling, retention limits,
-and optional templates for auto-created files. The automation layer keeps the
-following artefacts in sync:
-
-- **README timeline:** Short-form view of the last three sessions.
-- **Codex Master Task Ledger:** Operational status dashboard and canonical task
-  specifications.
-- **docs/history/SESSION_LOG.md:** Full chronological record for every session.
-- **docs/ROADMAP.md:** Executive roadmap snapshot derived from the Codex
-  dashboard.
-- **tasks/SESSION_NOTES.md:** Long-form engineering notes and git status
-  summaries.
-
-## Automation Playbooks
-
-Run the session finalizer whenever you finish a work block:
-
-```bash
-python tools/session_finalize.py \
-  --session-name "Session 2025-10-27" \
-  --summary "Refined documentation automation" \
-  --note "manage_agents synced" \
-  --include-git-status
+let initResult = try dolphin.initPass(promptTokens: prompt)
+let decodeResult = try dolphin.decodeStep(previous: initResult, nextToken: token)
+let embedding = try dolphin.encodeEmbedding(text: "security research prompt")
 ```
 
-The command will:
+The wrapper streams KV-cache updates, supports Float16 and Float32 logits, and
+propagates descriptive `NSError` payloads when Core ML outputs are missing. The
+optional benchmarking harness in `Sources/App/Bench/` measures init, per-token,
+and embedding latencies with warm-up control for regression tracking.
 
-1. Load `docs/documentation_manifest.json` to determine which files require
-   updates and create templated history files if they are missing.
-2. Synchronize scoped `AGENTS.md` instructions via `tools/manage_agents.py`.
-3. Append structured entries to the README timeline, Codex ledger, canonical
-   session log, and session notes while pruning the README to the configured
-   retention window.
-4. Regenerate `docs/ROADMAP.md` using the latest `## Status Dashboard` section in
-   the ledger.
-5. Emit a detailed report summarizing which documents changed.
+## Development Environment
 
-Use `python tools/manage_agents.py sync` after editing any manifest-controlled
-`AGENTS.md` file to keep scoped guidance authoritative.
+Install the lightweight helper dependencies for linting or local validation:
 
-## Build & Validation Checklist
+```bash
+python -m pip install -r requirements-dev.txt
+```
 
-- `python -m pytest` — Python task validation.
-- `cargo test` and `cargo bench -p parallel_csv_reader parallel_csv` — Rust
-  artefacts and benchmarks.
-- `go test ./...` within `tasks/multi_language_cross_integration/go_dot` — Go
-  vector math module validation.
-- `npm install && npm run lint && npm test` — TypeScript utilities and Vitest
-  coverage.
+The conversion script installs heavy dependencies (PyTorch, Core ML Tools,
+Transformers, Unsloth, LLM2Vec) on demand. Use `python -m compileall` to perform
+a quick syntax check before committing changes:
 
-Run the commands relevant to your change before finalizing a session.
+```bash
+python -m compileall dolphin2coreml_full.py Sources/App/LLM Sources/App/Bench
+```
 
-## Session Timeline
+## License
 
-<!-- session-log:session-2025-10-30:2025-10-27T00:12:19+00:00 -->
-
-### Session 2025-10-30 (2025-10-27T00:12:19+00:00)
-
-**Summary:** Implemented tasks 18-23 platform automation
-
-**Notes:**
-
-- git status changes:
-- M Codex_Master_Task_Results.md
-- M package-lock.json
-- M package.json
-- M requirements-dev.txt
-- ?? .github/
-- ?? tasks/systems_backend_engineering/Dockerfile
-- ?? tasks/systems_backend_engineering/**init**.py
-- ?? tasks/systems_backend_engineering/deployment.yaml
-- ?? tasks/systems_backend_engineering/fastapi_cache.py
-- ?? tasks/systems_backend_engineering/jwtMiddleware.ts
-- ?? tasks/systems_backend_engineering/metrics_app.py
-- ?? tests/systems_backend_engineering/
-- ?? tests_ts/systems_backend_engineering/jwtMiddleware.test.ts
-
-<!-- session-log:session-2025-10-30:2025-10-27T01:41:27+00:00 -->
-
-### Session 2025-10-30 (2025-10-27T01:41:27+00:00)
-
-**Summary:** Implemented tasks 18-23 platform automation
-
-**Notes:**
-
-- git status changes:
-- M .github/workflows/ci.yml
-- M package-lock.json
-- M package.json
-- M requirements-dev.txt
-- M tasks/systems_backend_engineering/Dockerfile
-- M tasks/systems_backend_engineering/fastapi_cache.py
-- M tasks/systems_backend_engineering/jwtMiddleware.ts
-- M tasks/systems_backend_engineering/metrics_app.py
-- M tests_ts/systems_backend_engineering/jwtMiddleware.test.ts
-- ?? tasks/systems_backend_engineering/requirements.txt
-
-<!-- session-log:session-2025-10-31:2025-10-27T20:36:41+00:00 -->
-
-### Session 2025-10-31 (2025-10-27T20:36:41+00:00)
-
-**Summary:** Reconciled tasks 38-43 documentation and guidance
-
-**Notes:**
-
-- Refreshed AGENTS scopes for security modules
-- git status changes:
-- M AGENTS.md
-- ?? Sources/App/Security/AGENTS.md
-- ?? tasks/mobile_security/AGENTS.md
+The tooling is provided for legitimate research and application development.
+Refer to the accompanying license information for usage guidelines.

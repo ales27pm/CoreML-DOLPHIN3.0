@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coreml-dolphin"
-version = "0.1.0"
-description = "Research tasks and automation utilities for the CoreML-DOLPHIN3.0 workspace."
+version = "0.2.0"
+description = "Core ML conversion pipeline for Dolphin3.0-Llama3.1-8B."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "CoreML Dolphin Maintainers" }]
@@ -21,12 +21,6 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/CoreML-DOLPHIN"
-Documentation = "https://github.com/CoreML-DOLPHIN/CoreML-DOLPHIN3.0"
-
-[tool.setuptools.packages.find]
-include = ["tasks*"]
-namespaces = true
 
 [tool.setuptools]
-py-modules = ["compliance_scanner", "dolphin2coreml_full", "tree_balance"]
-include-package-data = true
+py-modules = ["dolphin2coreml_full"]

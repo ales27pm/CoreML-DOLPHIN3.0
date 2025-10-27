@@ -21,7 +21,7 @@ import logging
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Sequence
+from typing import Callable, Sequence
 
 import graphviz  # type: ignore[import-not-found,import-untyped]
 
@@ -31,6 +31,10 @@ DEFAULT_MAX_WIDTH = 80
 _NAME_WIDTH = 18
 _LABEL_WIDTH = 32
 _POSITION_WIDTH = 18
+_TABLE_SEPARATOR_PADDING = 6
+_MIN_TABLE_WIDTH = (
+    _NAME_WIDTH + _LABEL_WIDTH + _POSITION_WIDTH + _TABLE_SEPARATOR_PADDING
+)
 
 
 class DiagramRenderingError(RuntimeError):
@@ -51,7 +55,18 @@ class DiagramNode:
     def format_row(self) -> str:
         """Render the node into an ASCII table row."""
 
-        position = f"({self.x:.2f}, {self.y:.2f})"
+        decimals = 2
+        while decimals > 0:
+            position = f"({self.x:.{decimals}f}, {self.y:.{decimals}f})"
+            if len(position) <= _POSITION_WIDTH:
+                break
+            decimals -= 1
+        else:
+            position = f"({self.x:.0f}, {self.y:.0f})"
+
+        if len(position) > _POSITION_WIDTH:
+            position = _truncate(position, _POSITION_WIDTH)
+
         label = _truncate(self.label, _LABEL_WIDTH)
         return (
             f"{self.name:<{_NAME_WIDTH}} | "
@@ -68,7 +83,7 @@ def _truncate(value: str, limit: int) -> str:
     return value[: limit - 1] + "…"
 
 
-def _parse_plain_output(plain_output: str) -> List[DiagramNode]:
+def _parse_plain_output(plain_output: str) -> list[DiagramNode]:
     nodes: list[DiagramNode] = []
     for raw_line in plain_output.splitlines():
         if not raw_line.startswith("node "):
@@ -106,9 +121,12 @@ def _render(nodes: Sequence[DiagramNode], max_width: int) -> str:
         f"{'Label':<{_LABEL_WIDTH}} | "
         f"{'Position':>{_POSITION_WIDTH}}"
     )
-    separator = "-" * min(
-        max_width, max(len(header), _NAME_WIDTH + _LABEL_WIDTH + _POSITION_WIDTH + 6)
-    )
+    content_width = max(len(header), _MIN_TABLE_WIDTH)
+    if content_width > max_width:
+        raise DiagramRenderingError(
+            f"max_width {max_width} is insufficient for table layout (requires {content_width})"
+        )
+    separator = "-" * content_width
     lines = [header, separator]
     for node in nodes:
         row = node.format_row()
@@ -131,8 +149,8 @@ def generate_ascii_diagram(
 ) -> str:
     """Render ``dot_source`` into an ASCII table constrained by ``max_width``."""
 
-    if max_width < 20:
-        raise ValueError("max_width must be at least 20 characters")
+    if max_width < _MIN_TABLE_WIDTH:
+        raise ValueError(f"max_width must be at least {_MIN_TABLE_WIDTH} characters")
     factory = source_factory or graphviz.Source
     try:
         plain_output = factory(dot_source).pipe(format="plain").decode("utf-8")
@@ -227,7 +245,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_width=args.max_width,
         )
     except (DiagramRenderingError, OSError) as exc:
-        logger.error("Failed to render diagram: %s", exc)
+        logger.exception("Failed to render diagram: %s", exc)
         return 1
     ascii_art = output_path.read_text(encoding="utf-8")
     if args.json:

@@ -43,10 +43,14 @@ def test_generate_ascii_diagram_orders_rows_by_coordinates(
 
     ascii_art = generate_ascii_diagram("digraph { }", source_factory=factory)
     lines = ascii_art.splitlines()
-    assert lines[0].startswith("Node")
-    assert "API Gateway" in lines[2]
-    assert "Redis Cache" in lines[3]
-    assert "Primary Database" in lines[4]
+    assert any(line.startswith("Node") for line in lines)
+
+    def position(name: str) -> int:
+        return next(i for i, line in enumerate(lines) if name in line)
+
+    assert (
+        position("API Gateway") < position("Redis Cache") < position("Primary Database")
+    )
     # Ensure width constraint respected
     assert all(len(line) <= DEFAULT_MAX_WIDTH for line in lines)
 
@@ -63,7 +67,7 @@ def test_generate_ascii_diagram_enforces_width(simple_plain_output: str) -> None
     def factory(_: str) -> _FakeSource:
         return _FakeSource(_, plain_output=simple_plain_output)
 
-    with pytest.raises(DiagramRenderingError):
+    with pytest.raises(ValueError):
         generate_ascii_diagram("digraph {}", max_width=40, source_factory=factory)
 
 

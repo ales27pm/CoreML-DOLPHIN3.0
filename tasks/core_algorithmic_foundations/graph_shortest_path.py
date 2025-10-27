@@ -223,7 +223,7 @@ def build_networkx_graph(graph: Union[GraphInput, WeightedGraph]) -> NxDiGraph:
     """
 
     try:
-        import networkx as nx  # type: ignore[import-not-found]
+        import networkx as nx  # type: ignore[import-not-found,import-untyped]
     except ImportError as exc:  # pragma: no cover - exercised via tests when missing
         raise ModuleNotFoundError(
             "NetworkX is required for visualization support. Install it via 'pip install networkx'."
@@ -270,7 +270,7 @@ def visualize_shortest_paths(
     """
 
     try:
-        import networkx as nx  # type: ignore[import-not-found]
+        import networkx as nx  # type: ignore[import-not-found,import-untyped]
     except ImportError as exc:  # pragma: no cover - exercised via tests when missing
         raise ModuleNotFoundError(
             "NetworkX is required for visualization support. Install it via 'pip install networkx'."

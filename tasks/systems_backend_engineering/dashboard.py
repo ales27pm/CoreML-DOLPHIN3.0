@@ -50,7 +50,11 @@ class _UrlLibResponse:
         self.headers = headers
 
     def json(self) -> Any:
-        text = self._body.decode("utf-8")
+        ctype = self.headers.get("Content-Type", "")
+        encoding = "utf-8"
+        if "charset=" in ctype.lower():
+            encoding = ctype.split("charset=", 1)[1].split(";", 1)[0].strip() or "utf-8"
+        text = self._body.decode(encoding, errors="replace")
         return json.loads(text)
 
     def raise_for_status(self) -> None:
@@ -64,6 +68,9 @@ class _UrlLibSession:
     def get(
         self, url: str, *, params: Mapping[str, Any], timeout: float
     ) -> _UrlLibResponse:
+        parsed = parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Unsupported URL scheme: {parsed.scheme!r}")
         query = parse.urlencode(params)
         delimiter = "&" if ("?" in url and query) else "?"
         full_url = f"{url}{delimiter}{query}" if query else url
@@ -180,7 +187,7 @@ def main() -> None:  # pragma: no cover - CLI convenience
     try:
         metrics = summarize_dashboard()
     except MetricFetchError as exc:
-        logger.error("Dashboard summarization failed: %s", exc)
+        logger.exception("Dashboard summarization failed: %s", exc)
         raise SystemExit(1) from exc
     print(json.dumps(metrics, indent=2))
 

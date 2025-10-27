@@ -51,7 +51,7 @@ def test_fetch_metric_success_returns_float() -> None:
     payload = {"data": {"result": [{"metric": {}, "value": ["1730000000", "123.4"]}]}}
     session = _StubSession(deque([_FakeResponse(payload)]))
     value = fetch_metric("demo_query", session=session, url="http://example")
-    assert pytest.approx(value) == 123.4
+    assert value == pytest.approx(123.4)
     assert session.calls[0]["params"]["query"] == "demo_query"
     assert not session.closed
 
@@ -69,9 +69,7 @@ def test_fetch_metric_raises_on_http_error() -> None:
         fetch_metric("bad", session=session)
 
 
-def test_summarize_dashboard_fetches_all_metrics(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_summarize_dashboard_fetches_all_metrics() -> None:
     payloads = deque(
         [
             _FakeResponse({"data": {"result": [{"value": ["0", "1"]}]}}),
@@ -91,7 +89,7 @@ def test_summarize_dashboard_fetches_all_metrics(
     assert len(session.calls) == len(DEFAULT_QUERIES)
 
 
-def test_summarize_dashboard_propagates_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarize_dashboard_propagates_errors() -> None:
     session = _StubSession(deque([HTTPTimeoutError("timeout")]))
     with pytest.raises(MetricFetchError):
         summarize_dashboard({"latency": "demo"}, session=session)

@@ -4,7 +4,13 @@ from pathlib import Path
 
 import yaml
 
-PLAYBOOK = Path(__file__).resolve().parents[2] / "tasks" / "devops" / "ansible" / "patch_management.yml"
+PLAYBOOK = (
+    Path(__file__).resolve().parents[2]
+    / "tasks"
+    / "devops"
+    / "ansible"
+    / "patch_management.yml"
+)
 
 
 def test_playbook_structure() -> None:
@@ -25,7 +31,11 @@ def test_handler_reboot_configuration() -> None:
         playbook = yaml.safe_load(handle)
     play = playbook[0]
     handlers = play.get("handlers", [])
-    reboot_handler = next(handler for handler in handlers if handler["name"] == "Restart host when required")
+    reboot_handler = next(
+        handler
+        for handler in handlers
+        if handler["name"] == "Restart host when required"
+    )
     module_args = reboot_handler["ansible.builtin.reboot"]
     assert module_args["reboot_timeout"] == 600
     assert module_args["test_command"] == "whoami"

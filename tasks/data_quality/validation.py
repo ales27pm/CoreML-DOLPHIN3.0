@@ -83,7 +83,7 @@ def _coerce_datetime(series: pd.Series) -> pd.Series:
                 violations=(
                     DataQualityViolation(
                         code="invalid_datetime",
-                        column=series.name or "updated_at",
+                        column=str(series.name or "updated_at"),
                         message=str(exc),
                         row_indices=tuple(),
                     ),
@@ -144,7 +144,9 @@ def validate_dataset(
                 )
             )
 
-        missing_sku = df.index[df["sku"].isna() | (df["sku"].astype(str).str.strip() == "")].tolist()
+        missing_sku = df.index[
+            df["sku"].isna() | (df["sku"].astype(str).str.strip() == "")
+        ].tolist()
         if missing_sku:
             violations.append(
                 DataQualityViolation(
@@ -181,7 +183,9 @@ def validate_dataset(
         logger.info("Data quality validation passed for %s", dataset_name)
     else:
         logger.warning(
-            "Data quality validation failed for %s with %d violations", dataset_name, len(violations)
+            "Data quality validation failed for %s with %d violations",
+            dataset_name,
+            len(violations),
         )
         if strict:
             raise DataQualityError(report)

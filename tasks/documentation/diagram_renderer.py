@@ -21,7 +21,7 @@ import logging
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol, Sequence, runtime_checkable
+from typing import Callable, Protocol, Sequence, runtime_checkable, cast
 
 try:  # pragma: no cover - import guard for optional dependency
     import graphviz  # type: ignore[import-not-found,import-untyped]
@@ -175,24 +175,51 @@ def generate_ascii_diagram(
         raise DiagramRenderingError(f"Failed to build Graphviz source: {exc}") from exc
 
     if not isinstance(pipeable, _SupportsPipe):  # pragma: no cover - defensive
-        raise DiagramRenderingError("Provided source_factory returned unsupported object")
+        raise DiagramRenderingError(
+            "Provided source_factory returned unsupported object"
+        )
 
     try:
         plain_output_bytes = pipeable.pipe(format="plain")
     except Exception as exc:
         if graphviz is not None:
             backend = getattr(graphviz, "backend", None)
-            executable_not_found = getattr(backend, "ExecutableNotFound", tuple())
-            called_process_error = getattr(backend, "CalledProcessError", tuple())
-            if isinstance(exc, executable_not_found):
+            executable_not_found: tuple[type[BaseException], ...] = tuple()
+            called_process_error: tuple[type[BaseException], ...] = tuple()
+            if backend is not None:
+                raw_executable_not_found: object = getattr(
+                    backend, "ExecutableNotFound", tuple()
+                )
+                raw_called_process_error: object = getattr(
+                    backend, "CalledProcessError", tuple()
+                )
+                if isinstance(raw_executable_not_found, type) and issubclass(
+                    raw_executable_not_found, BaseException
+                ):
+                    executable_not_found = (raw_executable_not_found,)
+                elif isinstance(raw_executable_not_found, tuple):
+                    executable_not_found = cast(
+                        tuple[type[BaseException], ...], raw_executable_not_found
+                    )
+                if isinstance(raw_called_process_error, type) and issubclass(
+                    raw_called_process_error, BaseException
+                ):
+                    called_process_error = (raw_called_process_error,)
+                elif isinstance(raw_called_process_error, tuple):
+                    called_process_error = cast(
+                        tuple[type[BaseException], ...], raw_called_process_error
+                    )
+            if executable_not_found and isinstance(exc, executable_not_found):
                 raise DiagramRenderingError(
                     "Graphviz executable not found. Install Graphviz to enable rendering."
                 ) from exc
-            if isinstance(exc, called_process_error):
+            if called_process_error and isinstance(exc, called_process_error):
                 raise DiagramRenderingError(
                     f"Graphviz failed to render DOT source: {exc}"
                 ) from exc
-        raise DiagramRenderingError(f"Graphviz failed to render DOT source: {exc}") from exc
+        raise DiagramRenderingError(
+            f"Graphviz failed to render DOT source: {exc}"
+        ) from exc
 
     if not isinstance(plain_output_bytes, (bytes, bytearray)):
         raise DiagramRenderingError("Graphviz plain output must be bytes")

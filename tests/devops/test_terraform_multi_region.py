@@ -5,7 +5,9 @@ from pathlib import Path
 import hcl2
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2] / "tasks" / "devops" / "terraform_multi_region"
+ROOT = (
+    Path(__file__).resolve().parents[2] / "tasks" / "devops" / "terraform_multi_region"
+)
 
 
 def _load_hcl(path: Path) -> dict:
@@ -37,7 +39,9 @@ def test_module_outputs_expose_health_checks() -> None:
     assert "health_check_ids" in outputs
 
 
-@pytest.mark.parametrize("variable", ["primary_region", "secondary_region", "service_name"])
+@pytest.mark.parametrize(
+    "variable", ["primary_region", "secondary_region", "service_name"]
+)
 def test_variables_defined(variable: str) -> None:
     raw_variables = _load_hcl(ROOT / "variables.tf").get("variable", [])
     flattened: dict[str, dict] = {}

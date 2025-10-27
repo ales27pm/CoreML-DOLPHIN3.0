@@ -19,7 +19,11 @@ def _base_dataframe() -> pd.DataFrame:
         {
             "price": [9.99, 12.5, 0.0],
             "sku": ["A-1", "B-2", "C-3"],
-            "updated_at": [now, now - timedelta(minutes=5), now - timedelta(minutes=10)],
+            "updated_at": [
+                now,
+                now - timedelta(minutes=5),
+                now - timedelta(minutes=10),
+            ],
         }
     )
 

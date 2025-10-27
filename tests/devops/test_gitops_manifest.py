@@ -4,7 +4,13 @@ from pathlib import Path
 
 import yaml
 
-APPLICATION = Path(__file__).resolve().parents[2] / "tasks" / "devops" / "gitops" / "backend-application.yaml"
+APPLICATION = (
+    Path(__file__).resolve().parents[2]
+    / "tasks"
+    / "devops"
+    / "gitops"
+    / "backend-application.yaml"
+)
 
 
 def test_manifest_contains_required_fields() -> None:

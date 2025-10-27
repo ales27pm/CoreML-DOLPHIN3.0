@@ -113,7 +113,9 @@ function normaliseOptions(options: JwtMiddlewareOptions): {
   } = options;
 
   const algorithms = Array.isArray(verify.algorithms)
-    ? verify.algorithms.filter((alg) => typeof alg === "string" && alg.trim() !== "")
+    ? verify.algorithms.filter(
+        (alg) => typeof alg === "string" && alg.trim() !== "",
+      )
     : [];
 
   return {

@@ -24,7 +24,10 @@ describe("JWT middleware", () => {
 
   it("attaches the decoded payload to the request on success", async () => {
     const app = express();
-    const middleware = createJwtMiddleware(secret, { logger, algorithms: ["HS256"] });
+    const middleware = createJwtMiddleware(secret, {
+      logger,
+      algorithms: ["HS256"],
+    });
 
     app.get("/secure", middleware, (req, res) => {
       const auth = (req as AuthenticatedRequest)
@@ -104,7 +107,7 @@ describe("JWT middleware", () => {
         code: "invalid_token",
       },
     );
-});
+  });
 
   it("rejects tokens signed with a disallowed algorithm", async () => {
     const app = express();

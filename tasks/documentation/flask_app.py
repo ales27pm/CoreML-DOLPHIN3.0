@@ -7,7 +7,7 @@ from http import HTTPStatus
 from logging import getLogger
 from typing import Mapping, MutableMapping
 
-from flask import Flask, abort, jsonify
+from flask import Flask, abort, jsonify  # type: ignore[import-not-found,import-untyped]
 from pydantic import BaseModel, ValidationError
 
 LOGGER = getLogger(__name__)
@@ -69,7 +69,10 @@ def create_app(initial_data: Mapping[int, Item] | None = None) -> Flask:
                 "Item payload failed validation",
                 extra={"item_id": item_id},
             )
-            abort(HTTPStatus.INTERNAL_SERVER_ERROR, description=str(exc))
+            abort(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                description="Internal server error",
+            )
         return jsonify(payload)
 
     return app

@@ -34,7 +34,18 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, MutableMapping, Sequence
+from typing import (
+    Iterable,
+    Mapping,
+    MutableMapping,
+    Sequence,
+    SupportsFloat,
+    SupportsIndex,
+    TypeAlias,
+    cast,
+)
+
+NumericLike: TypeAlias = SupportsFloat | SupportsIndex | str
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +63,9 @@ class SnapshotEntry:
         return {"digest": self.digest, "response": self.response}
 
     @classmethod
-    def from_mapping(cls, prompt: str, mapping: Mapping[str, object]) -> "SnapshotEntry":
+    def from_mapping(
+        cls, prompt: str, mapping: Mapping[str, object]
+    ) -> "SnapshotEntry":
         """Validate *mapping* and return a populated entry.
 
         Parameters
@@ -66,16 +79,18 @@ class SnapshotEntry:
         digest = mapping.get("digest")
         response = mapping.get("response")
         if not isinstance(digest, str) or not digest:
-            raise ValueError(f"Snapshot for prompt '{prompt}' is missing a digest string")
+            raise ValueError(
+                f"Snapshot for prompt '{prompt}' is missing a digest string"
+            )
         if not isinstance(response, list):
             raise ValueError(
                 f"Snapshot for prompt '{prompt}' must include a list response payload"
             )
-        normalised = _normalise_response(response)
+        normalised = _normalise_response(cast(Iterable[NumericLike], response))
         return cls(digest=digest, response=normalised)
 
 
-def _normalise_response(values: Iterable[object]) -> list[float]:
+def _normalise_response(values: Iterable[NumericLike]) -> list[float]:
     """Return *values* as a list of floats with strict validation."""
 
     normalised: list[float] = []
@@ -96,8 +111,7 @@ def _mean_squared_error(a: Sequence[float], b: Sequence[float]) -> float:
 
     if len(a) != len(b):
         raise ValueError(
-            "Cannot compare responses with differing lengths: "
-            f"{len(a)} != {len(b)}"
+            "Cannot compare responses with differing lengths: " f"{len(a)} != {len(b)}"
         )
     if not a:
         return 0.0
@@ -123,7 +137,9 @@ class RegressionGuard:
         Number of spaces used when serialising JSON snapshots.
     """
 
-    def __init__(self, snapshot_path: Path, *, tolerance: float = 1e-3, indent: int = 2) -> None:
+    def __init__(
+        self, snapshot_path: Path, *, tolerance: float = 1e-3, indent: int = 2
+    ) -> None:
         if tolerance < 0:
             raise ValueError("tolerance must be non-negative")
         if indent < 0:
@@ -154,7 +170,7 @@ class RegressionGuard:
                     )
                 self._snapshots[prompt] = SnapshotEntry.from_mapping(prompt, payload)
 
-    def record(self, prompt: str, response: Iterable[object]) -> SnapshotEntry:
+    def record(self, prompt: str, response: Iterable[NumericLike]) -> SnapshotEntry:
         """Store *response* as the new baseline for *prompt*.
 
         Returns the :class:`SnapshotEntry` that was persisted to disk.
@@ -173,7 +189,7 @@ class RegressionGuard:
         )
         return entry
 
-    def verify(self, prompt: str, response: Iterable[object]) -> None:
+    def verify(self, prompt: str, response: Iterable[NumericLike]) -> None:
         """Validate *response* against the stored snapshot for *prompt*.
 
         Raises :class:`ValueError` when the response deviates beyond the allowed
@@ -189,14 +205,16 @@ class RegressionGuard:
 
         if digest == baseline.digest:
             logger.info(
-                "Regression guard verified snapshot", extra={"prompt": prompt, "digest": digest}
+                "Regression guard verified snapshot",
+                extra={"prompt": prompt, "digest": digest},
             )
             return
 
         mse = _mean_squared_error(baseline.response, normalised)
         if mse > self.tolerance:
             logger.error(
-                "Model regression detected", extra={"prompt": prompt, "mse": mse, "digest": digest}
+                "Model regression detected",
+                extra={"prompt": prompt, "mse": mse, "digest": digest},
             )
             raise ValueError(
                 f"Model regression detected for prompt '{prompt}' (MSE={mse:.6f})"
@@ -213,7 +231,9 @@ class RegressionGuard:
         return prompt in self._snapshots
 
     def _write_snapshots(self) -> None:
-        data = {prompt: entry.to_dict() for prompt, entry in sorted(self._snapshots.items())}
+        data = {
+            prompt: entry.to_dict() for prompt, entry in sorted(self._snapshots.items())
+        }
         self.snapshot_path.parent.mkdir(parents=True, exist_ok=True)
         self.snapshot_path.write_text(
             json.dumps(data, indent=self.indent, sort_keys=True) + "\n",

@@ -159,19 +159,23 @@ def test_session_finalizer_reports_changes(tmp_path: Path, monkeypatch) -> None:
 
     codex = tmp_path / "Codex_Master_Task_Results.md"
     codex.write_text(
-        "\n".join([
-            "# Codex",
-            "",
-            "## Status Dashboard",
-            "",
-            "| Task | Status |",
-            "| ---- | ------ |",
-            "| Hardening | 🔄 In Progress |",
-        ]),
+        "\n".join(
+            [
+                "# Codex",
+                "",
+                "## Status Dashboard",
+                "",
+                "| Task | Status |",
+                "| ---- | ------ |",
+                "| Hardening | 🔄 In Progress |",
+            ]
+        ),
         encoding="utf-8",
     )
 
-    roadmap = RoadmapMaintainer(codex_path=codex, roadmap_path=tmp_path / "docs" / "ROADMAP.md")
+    roadmap = RoadmapMaintainer(
+        codex_path=codex, roadmap_path=tmp_path / "docs" / "ROADMAP.md"
+    )
 
     calls: list[tuple[Path, bool]] = []
 
@@ -205,13 +209,15 @@ def test_session_finalizer_reports_changes(tmp_path: Path, monkeypatch) -> None:
 def test_roadmap_maintainer_reports_no_change(tmp_path: Path) -> None:
     codex = tmp_path / "Codex_Master_Task_Results.md"
     codex.write_text(
-        "\n".join([
-            "# Codex",
-            "",
-            "## Status Dashboard",
-            "",
-            "| Task | Status |",
-        ]),
+        "\n".join(
+            [
+                "# Codex",
+                "",
+                "## Status Dashboard",
+                "",
+                "| Task | Status |",
+            ]
+        ),
         encoding="utf-8",
     )
 
@@ -238,18 +244,18 @@ def test_load_documentation_manifest_reads_templates(tmp_path: Path) -> None:
     manifest_path.write_text(
         (
             "{\n"
-            "  \"version\": 1,\n"
-            "  \"documents\": [\n"
+            '  "version": 1,\n'
+            '  "documents": [\n'
             "    {\n"
-            "      \"path\": \"README.md\",\n"
-            "      \"header\": \"## Session Timeline\",\n"
-            "      \"limit\": 2\n"
+            '      "path": "README.md",\n'
+            '      "header": "## Session Timeline",\n'
+            '      "limit": 2\n'
             "    },\n"
             "    {\n"
-            "      \"path\": \"docs/history/SESSION_LOG.md\",\n"
-            "      \"header\": \"## Session Log\",\n"
-            "      \"ensure_exists\": true,\n"
-            "      \"template_path\": \"docs/templates/example.md\"\n"
+            '      "path": "docs/history/SESSION_LOG.md",\n'
+            '      "header": "## Session Log",\n'
+            '      "ensure_exists": true,\n'
+            '      "template_path": "docs/templates/example.md"\n'
             "    }\n"
             "  ]\n"
             "}\n"

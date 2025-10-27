@@ -55,7 +55,10 @@ def test_benchmark_measures_average_latency(monkeypatch: pytest.MonkeyPatch) -> 
     def fake_perf_counter() -> float:
         return timings.pop(0)
 
-    monkeypatch.setattr("tasks.core_algorithmic_foundations.trie_autocomplete.time.perf_counter", fake_perf_counter)
+    monkeypatch.setattr(
+        "tasks.core_algorithmic_foundations.trie_autocomplete.time.perf_counter",
+        fake_perf_counter,
+    )
 
     duration = benchmark(trie, ["alpha", "beta"])
     assert duration == pytest.approx(0.5)
@@ -99,4 +102,3 @@ def test_deserialization_rejects_invalid_child_keys() -> None:
     )
     with pytest.raises(TypeError):
         Trie.from_json(payload)
-

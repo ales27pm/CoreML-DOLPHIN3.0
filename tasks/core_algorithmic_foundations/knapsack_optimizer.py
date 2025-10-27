@@ -60,7 +60,9 @@ class AlgorithmProfile:
         ]
 
 
-def _validate_inputs(capacity: int, weights: Sequence[int], values: Sequence[int]) -> None:
+def _validate_inputs(
+    capacity: int, weights: Sequence[int], values: Sequence[int]
+) -> None:
     """Validate knapsack inputs raising :class:`KnapsackInputError` when invalid."""
 
     if not isinstance(capacity, int):
@@ -81,7 +83,9 @@ def _validate_inputs(capacity: int, weights: Sequence[int], values: Sequence[int
                 raise KnapsackInputError(f"{label} must contain non-negative integers")
 
 
-def knapsack_top_down(capacity: int, weights: Sequence[int], values: Sequence[int]) -> int:
+def knapsack_top_down(
+    capacity: int, weights: Sequence[int], values: Sequence[int]
+) -> int:
     """Solve the 0/1 knapsack problem using memoised recursion."""
 
     _validate_inputs(capacity, weights, values)
@@ -102,7 +106,9 @@ def knapsack_top_down(capacity: int, weights: Sequence[int], values: Sequence[in
     return solve(0, capacity)
 
 
-def knapsack_bottom_up(capacity: int, weights: Sequence[int], values: Sequence[int]) -> int:
+def knapsack_bottom_up(
+    capacity: int, weights: Sequence[int], values: Sequence[int]
+) -> int:
     """Solve the 0/1 knapsack problem using an iterative dynamic program."""
 
     _validate_inputs(capacity, weights, values)
@@ -261,7 +267,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:  # pragma: no cover - CLI guard
             parser.error(f"Failed to parse integer payloads: {exc}")
         if len(weights) != len(values):  # pragma: no cover - CLI guard
-            parser.error("--weights and --values must contain the same number of entries")
+            parser.error(
+                "--weights and --values must contain the same number of entries"
+            )
     else:
         weights = default_weights
         values = default_values

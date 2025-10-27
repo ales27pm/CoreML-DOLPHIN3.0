@@ -165,4 +165,7 @@ def test_validation_rejects_low_throughput() -> None:
         """
     )
     result = run_swift_script(script)
-    assert result.stdout.strip() == "Iteration 0 produced 30.00 tok/s below the minimum of 33.0."
+    assert (
+        result.stdout.strip()
+        == "Iteration 0 produced 30.00 tok/s below the minimum of 33.0."
+    )

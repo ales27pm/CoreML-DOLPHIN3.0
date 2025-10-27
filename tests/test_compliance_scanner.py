@@ -78,14 +78,16 @@ def test_cli_success(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    exit_code = main([
-        "--input",
-        str(resources),
-        "--output",
-        str(report),
-        "--log-level",
-        "DEBUG",
-    ])
+    exit_code = main(
+        [
+            "--input",
+            str(resources),
+            "--output",
+            str(report),
+            "--log-level",
+            "DEBUG",
+        ]
+    )
     assert exit_code == 0
     assert report.exists()
 
@@ -94,18 +96,22 @@ def test_cli_failure_on_noncompliant(tmp_path: Path) -> None:
     resources = tmp_path / "resources.json"
     report = tmp_path / "report.json"
     resources.write_text(
-        json.dumps([
-            {"id": "svc", "encrypted": True, "availability_zones": 1},
-        ]),
+        json.dumps(
+            [
+                {"id": "svc", "encrypted": True, "availability_zones": 1},
+            ]
+        ),
         encoding="utf-8",
     )
-    exit_code = main([
-        "--input",
-        str(resources),
-        "--output",
-        str(report),
-        "--fail-on-noncompliant",
-    ])
+    exit_code = main(
+        [
+            "--input",
+            str(resources),
+            "--output",
+            str(report),
+            "--fail-on-noncompliant",
+        ]
+    )
     assert exit_code == 3
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert payload["multi_az"] is False

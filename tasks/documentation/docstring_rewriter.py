@@ -67,19 +67,25 @@ class DocstringPlanner(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
         docstring = build_class_docstring(node)
-        if docstring and self._plan_docstring(node, node.body, docstring, self._indent_for(node)):
+        if docstring and self._plan_docstring(
+            node, node.body, docstring, self._indent_for(node)
+        ):
             self.classes_updated += 1
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
         docstring = build_function_docstring(node)
-        if docstring and self._plan_docstring(node, node.body, docstring, self._indent_for(node)):
+        if docstring and self._plan_docstring(
+            node, node.body, docstring, self._indent_for(node)
+        ):
             self.functions_updated += 1
         self.generic_visit(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # noqa: N802
         docstring = build_function_docstring(node)
-        if docstring and self._plan_docstring(node, node.body, docstring, self._indent_for(node)):
+        if docstring and self._plan_docstring(
+            node, node.body, docstring, self._indent_for(node)
+        ):
             self.functions_updated += 1
         self.generic_visit(node)
 
@@ -91,19 +97,26 @@ class DocstringPlanner(ast.NodeVisitor):
         value: str,
         indent: str,
     ) -> bool:
-        if body and _is_string_expr(body[0]):
-            current = body[0].value.value  # type: ignore[assignment]
-            if current == value:
-                return False
-            start = self._to_offset(body[0].lineno, body[0].col_offset)
-            end = self._to_offset(body[0].end_lineno, body[0].end_col_offset)
-            replacement = format_docstring_literal(value, indent)
-            self.rewrites.append(TextEdit(start=start, end=end, replacement=replacement))
-            return True
+        if body:
+            current = _string_literal(body[0])
+            if current is not None:
+                if current == value:
+                    return False
+                start = self._to_offset(body[0].lineno, body[0].col_offset)
+                end = self._to_offset(body[0].end_lineno, body[0].end_col_offset)
+                replacement = format_docstring_literal(value, indent)
+                self.rewrites.append(
+                    TextEdit(start=start, end=end, replacement=replacement)
+                )
+                return True
 
         insertion_offset = self._insertion_offset(node, body, indent)
         replacement = self._insertion_text(value, indent, body)
-        self.rewrites.append(TextEdit(start=insertion_offset, end=insertion_offset, replacement=replacement))
+        self.rewrites.append(
+            TextEdit(
+                start=insertion_offset, end=insertion_offset, replacement=replacement
+            )
+        )
         return True
 
     def _indent_for(self, node: ast.AST) -> str:
@@ -144,13 +157,17 @@ class DocstringPlanner(ast.NodeVisitor):
             break
         return position
 
-    def _insertion_offset(self, node: ast.AST, body: List[ast.stmt], indent: str) -> int:
+    def _insertion_offset(
+        self, node: ast.AST, body: List[ast.stmt], indent: str
+    ) -> int:
         if isinstance(node, ast.Module):
             return self._module_insert_offset()
         if body:
             target = body[0]
             return self._to_offset(target.lineno, target.col_offset)
-        return self._to_offset(getattr(node, "end_lineno", None), getattr(node, "end_col_offset", None))
+        return self._to_offset(
+            getattr(node, "end_lineno", None), getattr(node, "end_col_offset", None)
+        )
 
     def _insertion_text(self, value: str, indent: str, body: List[ast.stmt]) -> str:
         literal = format_docstring_literal(value, indent)
@@ -161,12 +178,16 @@ class DocstringPlanner(ast.NodeVisitor):
         return literal + "\n"
 
 
+def _string_literal(node: ast.stmt) -> str | None:
+    if isinstance(node, ast.Expr):
+        value = node.value
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            return value.value
+    return None
+
+
 def _is_string_expr(node: ast.stmt) -> bool:
-    return (
-        isinstance(node, ast.Expr)
-        and isinstance(getattr(node, "value", None), ast.Constant)
-        and isinstance(node.value.value, str)
-    )
+    return _string_literal(node) is not None
 
 
 def build_module_docstring(module: ast.Module) -> str:
@@ -247,22 +268,34 @@ class ParameterDoc:
         return f"{self.name} ({annotation}): {description}"
 
 
-def iter_parameters(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterable[ParameterDoc]:
+def iter_parameters(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> Iterable[ParameterDoc]:
     """Yield metadata for function parameters."""
 
     skip = {"self", "cls"}
     for arg in node.args.posonlyargs:
         if arg.arg not in skip:
-            yield ParameterDoc(arg.arg, annotation_to_str(arg.annotation), "positional-only")
+            yield ParameterDoc(
+                arg.arg, annotation_to_str(arg.annotation), "positional-only"
+            )
     for arg in node.args.args:
         if arg.arg not in skip:
             yield ParameterDoc(arg.arg, annotation_to_str(arg.annotation), "positional")
     if node.args.vararg is not None:
-        yield ParameterDoc(node.args.vararg.arg, annotation_to_str(node.args.vararg.annotation), "var-positional")
+        yield ParameterDoc(
+            node.args.vararg.arg,
+            annotation_to_str(node.args.vararg.annotation),
+            "var-positional",
+        )
     for arg in node.args.kwonlyargs:
         yield ParameterDoc(arg.arg, annotation_to_str(arg.annotation), "keyword-only")
     if node.args.kwarg is not None:
-        yield ParameterDoc(node.args.kwarg.arg, annotation_to_str(node.args.kwarg.annotation), "var-keyword")
+        yield ParameterDoc(
+            node.args.kwarg.arg,
+            annotation_to_str(node.args.kwarg.annotation),
+            "var-keyword",
+        )
 
 
 def annotation_to_str(annotation: ast.expr | None) -> str | None:
@@ -316,11 +349,14 @@ def compute_line_offsets(source: str) -> List[int]:
 
 # -- CLI plumbing -------------------------------------------------------------
 
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
 
     parser = argparse.ArgumentParser(description="Rewrite docstrings into Google style")
-    parser.add_argument("paths", nargs="+", type=Path, help="Files or directories to rewrite")
+    parser.add_argument(
+        "paths", nargs="+", type=Path, help="Files or directories to rewrite"
+    )
     parser.add_argument(
         "--quiet",
         action="store_true",
@@ -337,7 +373,17 @@ def expand_targets(paths: Sequence[Path]) -> List[Path]:
         if not path.exists():
             raise FileNotFoundError(f"Path does not exist: {path}")
         if path.is_dir():
-            ignored = {"venv", ".venv", "node_modules", ".git", "build", "dist", ".tox", ".mypy_cache", ".pytest_cache"}
+            ignored = {
+                "venv",
+                ".venv",
+                "node_modules",
+                ".git",
+                "build",
+                "dist",
+                ".tox",
+                ".mypy_cache",
+                ".pytest_cache",
+            }
             for candidate in path.rglob("*.py"):
                 if any(part in ignored for part in candidate.parts):
                     continue
@@ -361,7 +407,9 @@ def rewrite_file(path: Path) -> RewriteReport:
     rewritten = source
     if planner.rewrites:
         for edit in sorted(planner.rewrites, key=lambda item: item.start, reverse=True):
-            rewritten = rewritten[: edit.start] + edit.replacement + rewritten[edit.end :]
+            rewritten = (
+                rewritten[: edit.start] + edit.replacement + rewritten[edit.end :]
+            )
         path.write_text(rewritten, encoding="utf-8")
     return RewriteReport(
         path=path,

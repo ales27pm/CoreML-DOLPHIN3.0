@@ -38,7 +38,9 @@ class EmbeddingComparisonResult:
 class InMemoryEmbeddingModel:
     """Simple embedding model backed by a dictionary of vectors."""
 
-    def __init__(self, embeddings: Mapping[str, Sequence[float]], *, normalise: bool = True) -> None:
+    def __init__(
+        self, embeddings: Mapping[str, Sequence[float]], *, normalise: bool = True
+    ) -> None:
         if not embeddings:
             raise ValueError("Embeddings mapping cannot be empty")
         self._embeddings = {
@@ -92,7 +94,10 @@ def evaluate_embeddings(
         similarity = _cosine_similarity(vector_a, vector_b)
         similarities.append(similarity)
         logger.debug(
-            "Sentence pair '%s'/'%s' similarity: %.6f", sentence_a, sentence_b, similarity
+            "Sentence pair '%s'/'%s' similarity: %.6f",
+            sentence_a,
+            sentence_b,
+            similarity,
         )
 
     if not similarities:
@@ -115,8 +120,14 @@ def load_sts_dataset(path: Path) -> List[Tuple[str, str]]:
     pairs: List[Tuple[str, str]] = []
     with path.open("r", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
-        if not reader.fieldnames or "sentence_a" not in reader.fieldnames or "sentence_b" not in reader.fieldnames:
-            raise ValueError("Dataset must contain 'sentence_a' and 'sentence_b' columns")
+        if (
+            not reader.fieldnames
+            or "sentence_a" not in reader.fieldnames
+            or "sentence_b" not in reader.fieldnames
+        ):
+            raise ValueError(
+                "Dataset must contain 'sentence_a' and 'sentence_b' columns"
+            )
         for row in reader:
             sentence_a = row.get("sentence_a", "").strip()
             sentence_b = row.get("sentence_b", "").strip()
@@ -131,7 +142,9 @@ def load_sts_dataset(path: Path) -> List[Tuple[str, str]]:
 def _load_embeddings(path: Path) -> Mapping[str, Sequence[float]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, MutableMapping):
-        raise ValueError("Embeddings JSON must be an object mapping sentences to vectors")
+        raise ValueError(
+            "Embeddings JSON must be an object mapping sentences to vectors"
+        )
     embeddings: dict[str, Sequence[float]] = {}
     for key, value in payload.items():
         if not isinstance(value, Sequence):
@@ -141,17 +154,27 @@ def _load_embeddings(path: Path) -> Mapping[str, Sequence[float]]:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Compare embedding models via cosine similarity")
-    parser.add_argument("--dataset", type=Path, required=True, help="Path to STS dataset (CSV)")
-    parser.add_argument("--model-a", type=Path, required=True, help="JSON embeddings for model A")
-    parser.add_argument("--model-b", type=Path, required=True, help="JSON embeddings for model B")
+    parser = argparse.ArgumentParser(
+        description="Compare embedding models via cosine similarity"
+    )
+    parser.add_argument(
+        "--dataset", type=Path, required=True, help="Path to STS dataset (CSV)"
+    )
+    parser.add_argument(
+        "--model-a", type=Path, required=True, help="JSON embeddings for model A"
+    )
+    parser.add_argument(
+        "--model-b", type=Path, required=True, help="JSON embeddings for model B"
+    )
     parser.add_argument(
         "--threshold",
         type=float,
         default=0.98,
         help="Minimum average similarity expected (default: 0.98)",
     )
-    parser.add_argument("--output", type=Path, help="Optional JSON file for summary statistics")
+    parser.add_argument(
+        "--output", type=Path, help="Optional JSON file for summary statistics"
+    )
     parser.add_argument(
         "--log-level",
         default="INFO",
@@ -171,7 +194,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         embeddings_b = _load_embeddings(args.model_b)
         model_a = InMemoryEmbeddingModel(embeddings_a)
         model_b = InMemoryEmbeddingModel(embeddings_b)
-        result = evaluate_embeddings(model_a, model_b, dataset, minimum_similarity=args.threshold)
+        result = evaluate_embeddings(
+            model_a, model_b, dataset, minimum_similarity=args.threshold
+        )
     except Exception as exc:  # noqa: BLE001
         logger.error("Embedding comparison failed: %s", exc)
         return 2

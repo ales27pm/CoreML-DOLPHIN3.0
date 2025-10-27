@@ -29,7 +29,9 @@ def test_compare_memory_returns_expected_reduction() -> None:
     assert result.reduction >= 0.8
 
 
-def test_compare_memory_raises_on_insufficient_reduction(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compare_memory_raises_on_insufficient_reduction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def _mock_run_with_peak(func, limit: int) -> tuple[int, int]:
         return func(limit), 100
 
@@ -42,7 +44,12 @@ def test_compare_memory_raises_on_insufficient_reduction(monkeypatch: pytest.Mon
 
 
 def test_cli_json_output() -> None:
-    script = Path(__file__).parents[2] / "tasks" / "code_quality_refactoring" / "lazy_pipeline.py"
+    script = (
+        Path(__file__).parents[2]
+        / "tasks"
+        / "code_quality_refactoring"
+        / "lazy_pipeline.py"
+    )
     completed = subprocess.run(
         [sys.executable, str(script), "--limit", "1000", "--output-format", "json"],
         check=False,

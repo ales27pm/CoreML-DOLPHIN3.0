@@ -19,15 +19,20 @@ with comprehensive error handling and logging.
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.util
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 import numpy as np
 import shlex
+import statistics
+import textwrap
+import time
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +51,68 @@ except ImportError:  # pragma: no cover - executed only when dependency missing
     from rich.table import Table
 
 console = Console()
+
+
+def _module_available(name: str) -> bool:
+    """Return True when the module can be imported."""
+
+    return importlib.util.find_spec(name) is not None
+
+
+def ensure_packages(packages: Iterable[str]) -> None:
+    """Ensure that the required Python packages are available."""
+
+    to_install: List[str] = []
+    for pkg in packages:
+        module_name = pkg.split("==")[0].split(">=")[0].replace("-", "_")
+        if not _module_available(module_name):
+            to_install.append(pkg)
+    if to_install:
+        console.print(
+            Panel.fit(
+                f"[bold yellow]Installing dependencies:[/] {' '.join(to_install)}",
+                border_style="yellow",
+            )
+        )
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q", *to_install],
+            check=True,
+        )
+
+
+try:  # pragma: no cover - fallback when optional deps are missing
+    import torch
+except ImportError:  # pragma: no cover
+    ensure_packages(["torch>=2.0.0"])
+    import torch
+
+try:  # pragma: no cover
+    import coremltools as ct
+except ImportError:  # pragma: no cover
+    ensure_packages(["coremltools>=8.0.0"])
+    import coremltools as ct
+
+try:  # pragma: no cover
+    from huggingface_hub import snapshot_download
+except ImportError:  # pragma: no cover
+    ensure_packages(["huggingface_hub"])
+    from huggingface_hub import snapshot_download
+
+try:  # pragma: no cover
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+except ImportError:  # pragma: no cover
+    ensure_packages([
+        "transformers>=4.44.0",
+        "accelerate",
+        "sentencepiece",
+        "tokenizers",
+    ])
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+
+
+# Optional packages are installed on demand later in the workflow.
+HAS_UNSLOTH = _module_available("unsloth")
+HAS_LLM2VEC = _module_available("llm2vec")
 
 
 # ---------------------------------------------------------------------------
@@ -68,61 +135,209 @@ def sh(command: Sequence[str], *, check: bool = True) -> ShellResult:
     return ShellResult(returncode=result.returncode, command=pretty)
 
 
-def ensure_packages(packages: Iterable[str]) -> None:
-    """Ensure that the required Python packages are available."""
+@dataclass(frozen=True)
+class GoldenPrompt:
+    """Representative prompt exercised during deterministic validation."""
 
-    to_install: List[str] = []
-    for pkg in packages:
-        module_name = pkg.split("==")[0].split(">=")[0].replace("-", "_")
-        try:
-            __import__(module_name)
-        except ImportError:
-            to_install.append(pkg)
-    if to_install:
-        console.print(
-            Panel.fit(
-                f"[bold yellow]Installing dependencies:[/] {' '.join(to_install)}",
-                border_style="yellow",
-            )
-        )
-        sh([sys.executable, "-m", "pip", "install", "-q", *to_install])
+    prompt: str
+    max_new_tokens: int = 32
 
 
-# Ensure core dependencies are present before importing heavy modules.
-ensure_packages(
-    [
-        "torch>=2.0.0",
-        "transformers>=4.44.0",
-        "accelerate",
-        "huggingface_hub",
-        "sentencepiece",
-        "tokenizers",
-        "peft",
-        "coremltools>=8.0.0",
-        "numpy",
-    ]
+GOLDEN_PROMPTS: Sequence[GoldenPrompt] = (
+    GoldenPrompt(
+        "You are Dolphin, a helpful AI assistant. Explain why deterministic validation matters when exporting Core ML models.",
+        max_new_tokens=32,
+    ),
+    GoldenPrompt(
+        "List three legitimate uses for packet capture during ethical security research and mention one required safeguard.",
+        max_new_tokens=32,
+    ),
+    GoldenPrompt(
+        "Summarize the Dolphin 3.0 Core ML export workflow in under sixty words.",
+        max_new_tokens=32,
+    ),
 )
 
-# Optional packages are installed on demand later in the workflow.
-try:  # pragma: no cover - best effort dependency management
-    import unsloth  # type: ignore
 
-    HAS_UNSLOTH = True
-except ImportError:  # pragma: no cover
-    HAS_UNSLOTH = False
+def _prepare_prompt_arrays(
+    tokenizer: "AutoTokenizer", prompt: str, seq_len: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+    """Return padded input IDs, mask, trimmed prompt IDs, and prompt length."""
 
-try:  # pragma: no cover
-    import llm2vec  # type: ignore
+    encoded = tokenizer(
+        prompt,
+        return_tensors="np",
+        truncation=True,
+        max_length=seq_len,
+        add_special_tokens=True,
+    )
+    ids = encoded["input_ids"].astype(np.int32, copy=False)
+    mask = encoded["attention_mask"].astype(np.int32, copy=False)
 
-    HAS_LLM2VEC = True
-except ImportError:  # pragma: no cover
-    HAS_LLM2VEC = False
+    prompt_len = int(mask.sum())
+    if prompt_len == 0:
+        raise ValueError("Prompt tokenization produced an empty sequence.")
 
-import torch
-from huggingface_hub import snapshot_download
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+    padded_ids = np.zeros((1, seq_len), dtype=np.int32)
+    padded_mask = np.zeros((1, seq_len), dtype=np.int32)
+    usable = min(seq_len, ids.shape[1])
+    padded_ids[0, :usable] = ids[0, :usable]
+    padded_mask[0, :usable] = mask[0, :usable]
 
-import coremltools as ct
+    effective_len = min(prompt_len, seq_len)
+    return (
+        padded_ids,
+        padded_mask,
+        ids[:, :effective_len],
+        effective_len,
+    )
+
+
+def _torch_device(module: torch.nn.Module) -> torch.device:
+    try:
+        return next(module.parameters()).device
+    except StopIteration:  # pragma: no cover - defensive branch
+        return torch.device("cpu")
+
+
+def _run_reference_decode(
+    model: torch.nn.Module,
+    tokenizer: "AutoTokenizer",
+    trimmed_prompt: np.ndarray,
+    prompt_len: int,
+    max_new_tokens: int,
+) -> Dict[str, Any]:
+    """Generate deterministic tokens using PyTorch as the golden reference."""
+
+    device = _torch_device(model)
+    torch_input = torch.from_numpy(trimmed_prompt[:, :prompt_len]).to(
+        device=device, dtype=torch.long
+    )
+    attention_mask = torch.ones_like(torch_input, dtype=torch.long)
+
+    pad_token = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
+    eos_id = tokenizer.eos_token_id
+    if pad_token is None:
+        raise ValueError("Tokenizer is missing both pad and EOS token IDs for generation.")
+
+    torch.manual_seed(0)
+    with torch.no_grad():
+        generated = model.generate(
+            input_ids=torch_input,
+            attention_mask=attention_mask,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            pad_token_id=pad_token,
+            eos_token_id=eos_id,
+        )
+
+    new_tokens = generated[0, prompt_len : prompt_len + max_new_tokens].tolist()
+    golden_text = tokenizer.decode(new_tokens, skip_special_tokens=True)
+    return {"tokens": new_tokens, "text": golden_text}
+
+
+def _trim_coreml_cache(array: np.ndarray) -> np.ndarray:
+    if array.ndim != 4:
+        raise ValueError(f"Expected rank-4 KV cache tensor, received rank {array.ndim}.")
+    if array.shape[2] <= 1:
+        raise ValueError("KV cache tensor does not have enough timesteps to trim.")
+    return np.ascontiguousarray(array[:, :, 1:, :])
+
+
+def _run_coreml_decode(
+    mlmodel: "ct.models.MLModel",
+    tokenizer: "AutoTokenizer",
+    padded_ids: np.ndarray,
+    padded_mask: np.ndarray,
+    prompt_len: int,
+    seq_len: int,
+    num_layers: int,
+    max_new_tokens: int,
+    eos_token_id: int | None,
+) -> Dict[str, Any]:
+    """Run deterministic decode against the Core ML model and collect metrics."""
+
+    if seq_len <= 0:
+        raise ValueError("Sequence length must be positive for validation.")
+
+    init_start = time.perf_counter()
+    init_out = mlmodel.predict(
+        {"input_ids": padded_ids, "attention_mask": padded_mask},
+        function_name="init",
+    )
+    init_ms = (time.perf_counter() - init_start) * 1000.0
+
+    past_k = [
+        np.ascontiguousarray(init_out[f"past_k_{layer}"])
+        for layer in range(num_layers)
+    ]
+    past_v = [
+        np.ascontiguousarray(init_out[f"past_v_{layer}"])
+        for layer in range(num_layers)
+    ]
+
+    logits = init_out["logits"]
+    generated: List[int] = []
+    decode_latencies: List[float] = []
+    residency_samples: List[float] = []
+    evicted_tokens = 0
+    total_context = prompt_len
+
+    for step in range(max_new_tokens):
+        if logits.ndim != 3:
+            raise ValueError("Logits tensor must be rank-3 during validation.")
+        if logits.shape[1] == seq_len:
+            token_logits = logits[0, min(max(prompt_len, 1), seq_len) - 1, :]
+        else:
+            token_logits = logits[0, -1, :]
+        next_token = int(np.argmax(token_logits))
+        generated.append(next_token)
+
+        overflow_before = max(0, total_context - seq_len)
+        total_context += 1
+        overflow_after = max(0, total_context - seq_len)
+        residency_samples.append(min(1.0, total_context / seq_len))
+        if overflow_after > overflow_before:
+            evicted_tokens += overflow_after - overflow_before
+
+        if eos_token_id is not None and next_token == eos_token_id:
+            break
+
+        if step == max_new_tokens - 1:
+            break
+
+        decode_inputs: Dict[str, Any] = {
+            "input_ids": np.array([[next_token]], dtype=np.int32),
+            "attention_mask": np.ones((1, 1), dtype=np.int32),
+        }
+        for layer in range(num_layers):
+            decode_inputs[f"in_k_{layer}"] = past_k[layer]
+            decode_inputs[f"in_v_{layer}"] = past_v[layer]
+
+        decode_start = time.perf_counter()
+        decode_out = mlmodel.predict(decode_inputs, function_name="decode")
+        decode_ms = (time.perf_counter() - decode_start) * 1000.0
+        decode_latencies.append(decode_ms)
+
+        past_k = [
+            _trim_coreml_cache(np.ascontiguousarray(decode_out[f"out_k_{layer}"]))
+            for layer in range(num_layers)
+        ]
+        past_v = [
+            _trim_coreml_cache(np.ascontiguousarray(decode_out[f"out_v_{layer}"]))
+            for layer in range(num_layers)
+        ]
+        logits = decode_out["logits"]
+
+    decoded_text = tokenizer.decode(generated, skip_special_tokens=True)
+    return {
+        "tokens": generated,
+        "text": decoded_text,
+        "init_ms": init_ms,
+        "decode_ms": decode_latencies,
+        "residency": residency_samples,
+        "evicted": evicted_tokens,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -242,9 +457,9 @@ def ensure_unsloth() -> None:
     if HAS_UNSLOTH:
         return
     ensure_packages(["unsloth"])
-    import unsloth as _unsloth  # pragma: no cover
-
-    HAS_UNSLOTH = True
+    HAS_UNSLOTH = _module_available("unsloth")
+    if not HAS_UNSLOTH:
+        raise RuntimeError("Unsloth installation did not make the module importable.")
 
 
 def ensure_llm2vec() -> None:
@@ -252,9 +467,9 @@ def ensure_llm2vec() -> None:
     if HAS_LLM2VEC:
         return
     ensure_packages(["llm2vec"])
-    import llm2vec as _llm2vec  # pragma: no cover
-
-    HAS_LLM2VEC = True
+    HAS_LLM2VEC = _module_available("llm2vec")
+    if not HAS_LLM2VEC:
+        raise RuntimeError("LLM2Vec installation did not make the module importable.")
 
 
 # ---------------------------------------------------------------------------
@@ -343,11 +558,16 @@ def main(argv: Sequence[str]) -> int:
     console.print(
         Panel.fit(f"[bold green]Merging LoRA adapters from: {args.lora_checkpoint}")
     )
-    from peft import PeftModel  # imported lazily to avoid unnecessary dependency during help
+    try:
+        from peft import PeftModel  # imported lazily to avoid unnecessary dependency during help
+    except ImportError:  # pragma: no cover
+        ensure_packages(["peft"])
+        from peft import PeftModel
 
     lora_model = PeftModel.from_pretrained(model, args.lora_checkpoint)
     merged_model = lora_model.merge_and_unload()
     model = merged_model
+    model.eval()
     console.print("[green]LoRA merged successfully.")
 
     # ------------------------------------------------------------------
@@ -393,7 +613,7 @@ def main(argv: Sequence[str]) -> int:
             self,
             input_ids: torch.Tensor,
             attention_mask: torch.Tensor,
-        ) -> Tuple[torch.Tensor, torch.Tensor, *Tuple[torch.Tensor, ...]]:
+        ) -> Tuple[torch.Tensor, ...]:
             input_ids = input_ids.long()
             attention_mask = attention_mask.long()
             out = self.base(
@@ -422,7 +642,7 @@ def main(argv: Sequence[str]) -> int:
             input_ids: torch.Tensor,
             attention_mask: torch.Tensor,
             *flat_past: torch.Tensor,
-        ) -> Tuple[torch.Tensor, torch.Tensor, *Tuple[torch.Tensor, ...]]:
+        ) -> Tuple[torch.Tensor, ...]:
             input_ids = input_ids.long()
             attention_mask = attention_mask.long()
             past: List[Tuple[torch.Tensor, torch.Tensor]] = []
@@ -616,54 +836,137 @@ def main(argv: Sequence[str]) -> int:
     # ------------------------------------------------------------------
     # Step 10: Optional validation
     # ------------------------------------------------------------------
+    validation_failed = False
+
     if args.profile_validate:
-        console.print(Panel.fit("[bold green]Running quick validation…"))
+        console.print(Panel.fit("[bold green]Running deterministic validation suite…"))
         try:
             mlmodel = ct.models.MLModel(
                 str(out_path),
                 compute_units=resolve_compute_units(args.compute_units),
             )
-            torch_input_ids = torch.randint(
-                low=0,
-                high=tokenizer.vocab_size,
-                size=(batch, seq_len),
-                dtype=torch.long,
-            )
-            torch_mask = torch.ones((batch, seq_len), dtype=torch.long)
-            with torch.no_grad():
-                reference = model(
-                    torch_input_ids,
-                    attention_mask=torch_mask,
-                    use_cache=True,
-                    return_dict=True,
-                    output_hidden_states=True,
-                )
-            coreml_result = mlmodel.predict(
-                {
-                    "input_ids": torch_input_ids.numpy().astype(np.int32),
-                    "attention_mask": torch_mask.numpy().astype(np.int32),
-                },
-                function_name="init",
-            )
 
-            table = Table(title="Validation Summary")
-            table.add_column("Output", justify="left")
-            table.add_column("PyTorch shape", justify="left")
-            table.add_column("Core ML shape", justify="left")
-            table.add_row(
-                "logits",
-                str(tuple(reference.logits.shape)),
-                str(tuple(coreml_result["logits"].shape)),
-            )
-            table.add_row(
-                "last_hidden",
-                str(tuple(reference.hidden_states[-1].shape)),
-                str(tuple(coreml_result["last_hidden"].shape)),
-            )
-            console.print(table)
-            console.print(
-                "[green]Validation run complete. Inspect numerical fidelity as needed."
-            )
+            transcript_rows: List[Dict[str, Any]] = []
+            decode_lat_all: List[float] = []
+            residency_all: List[float] = []
+            total_evicted = 0
+            all_match = True
+
+            for golden in GOLDEN_PROMPTS:
+                padded_ids, padded_mask, trimmed_prompt, effective_len = _prepare_prompt_arrays(
+                    tokenizer, golden.prompt, seq_len
+                )
+                reference = _run_reference_decode(
+                    model, tokenizer, trimmed_prompt, effective_len, golden.max_new_tokens
+                )
+                coreml_metrics = _run_coreml_decode(
+                    mlmodel,
+                    tokenizer,
+                    padded_ids,
+                    padded_mask,
+                    effective_len,
+                    seq_len,
+                    num_layers,
+                    golden.max_new_tokens,
+                    tokenizer.eos_token_id,
+                )
+                match = reference["tokens"] == coreml_metrics["tokens"]
+                if not match:
+                    all_match = False
+
+                transcript_rows.append(
+                    {
+                        "prompt": golden.prompt,
+                        "reference": reference,
+                        "coreml": coreml_metrics,
+                        "match": match,
+                    }
+                )
+                decode_lat_all.extend(coreml_metrics["decode_ms"])
+                residency_all.extend(coreml_metrics["residency"])
+                total_evicted += coreml_metrics["evicted"]
+
+            transcript_table = Table(title="Golden Transcript Comparison")
+            transcript_table.add_column("Prompt", justify="left")
+            transcript_table.add_column("PyTorch", justify="left")
+            transcript_table.add_column("Core ML", justify="left")
+            transcript_table.add_column("Match", justify="center")
+
+            metrics_table = Table(title="Core ML Decode Latency & KV Residency")
+            metrics_table.add_column("Prompt", justify="left")
+            metrics_table.add_column("Init ms", justify="right")
+            metrics_table.add_column("Avg ms/token", justify="right")
+            metrics_table.add_column("p50 ms", justify="right")
+            metrics_table.add_column("p90 ms", justify="right")
+            metrics_table.add_column("p99 ms", justify="right")
+            metrics_table.add_column("Final residency %", justify="right")
+            metrics_table.add_column("Evicted tokens", justify="right")
+
+            def _percentile(values: Sequence[float], percentile: float) -> float:
+                if not values:
+                    return 0.0
+                return float(np.percentile(np.array(values, dtype=np.float64), percentile))
+
+            for row in transcript_rows:
+                prompt_snippet = textwrap.shorten(row["prompt"], width=58, placeholder="…")
+                torch_text = row["reference"]["text"] or ""
+                coreml_text = row["coreml"]["text"] or ""
+                transcript_table.add_row(
+                    prompt_snippet,
+                    textwrap.shorten(torch_text, width=64, placeholder="…"),
+                    textwrap.shorten(coreml_text, width=64, placeholder="…"),
+                    "✅" if row["match"] else "❌",
+                )
+
+                decode_ms = row["coreml"]["decode_ms"]
+                avg_ms = float(sum(decode_ms) / len(decode_ms)) if decode_ms else 0.0
+                metrics_table.add_row(
+                    prompt_snippet,
+                    f"{row['coreml']['init_ms']:.2f}",
+                    f"{avg_ms:.2f}",
+                    f"{_percentile(decode_ms, 50):.2f}",
+                    f"{_percentile(decode_ms, 90):.2f}",
+                    f"{_percentile(decode_ms, 99):.2f}",
+                    f"{(row['coreml']['residency'][-1] * 100.0) if row['coreml']['residency'] else 0.0:.2f}",
+                    str(row["coreml"]["evicted"]),
+                )
+
+            console.print(transcript_table)
+            console.print(metrics_table)
+
+            if decode_lat_all:
+                overall = np.percentile(
+                    np.array(decode_lat_all, dtype=np.float64), [50, 90, 99]
+                )
+                console.print(
+                    Panel.fit(
+                        "[green]Aggregate decode latency — "
+                        f"p50: {overall[0]:.2f} ms, p90: {overall[1]:.2f} ms, p99: {overall[2]:.2f} ms"
+                    )
+                )
+
+            if residency_all:
+                avg_residency = statistics.fmean(residency_all) * 100.0
+                min_residency = min(residency_all) * 100.0
+                max_residency = max(residency_all) * 100.0
+                console.print(
+                    Panel.fit(
+                        "[green]KV-cache residency — "
+                        f"avg: {avg_residency:.2f}% • min: {min_residency:.2f}% • "
+                        f"max: {max_residency:.2f}% • evicted tokens: {total_evicted}"
+                    )
+                )
+
+            if not all_match:
+                validation_failed = True
+                console.print(
+                    Panel.fit(
+                        "[bold red]❌ Golden transcript parity FAILED.[/]",
+                        border_style="red",
+                    )
+                )
+            else:
+                console.print("[green]Validation run complete. Numerical parity confirmed.")
         except Exception as exc:  # pragma: no cover - device specific behaviour
             console.print(
                 Panel.fit(
@@ -671,6 +974,7 @@ def main(argv: Sequence[str]) -> int:
                     border_style="yellow",
                 )
             )
+            raise
 
     # ------------------------------------------------------------------
     # Step 11: Optional cleanup
@@ -678,6 +982,9 @@ def main(argv: Sequence[str]) -> int:
     if args.clean_tmp:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         console.print("[green]Temporary build directory cleaned up.")
+
+    if validation_failed:
+        return 1
 
     console.print(
         Panel.fit(

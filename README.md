@@ -52,9 +52,12 @@ Key stages:
 5. **4-bit quantization** – Executes palettization (group size 16 by default)
    followed by linear quantization, producing a compressed package ready for
    Apple Silicon.
-6. **Optional validation** – When `--profile-validate` is set the script runs a
-   sanity pass to confirm load/decode/embedding operations succeed before
-   cleaning temporary artifacts.
+6. **Optional validation** – When `--profile-validate` is set the script now
+   compares deterministic golden transcripts between the PyTorch model and the
+   exported Core ML package, reporting decode latency percentiles and KV-cache
+   residency/eviction metrics before cleaning temporary artifacts. Runs exit
+   non-zero when any transcript diverges, and you can tweak the prompts by
+   editing the `GOLDEN_PROMPTS` list in `dolphin2coreml_full.py`.
 
 ## Swift Runtime Integration
 

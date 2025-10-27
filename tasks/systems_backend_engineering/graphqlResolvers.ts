@@ -179,7 +179,7 @@ const createProductLoader = (
       return keys.map((key: number) => {
         const product = productMap.get(key);
         if (!product) {
-          throw new ProductNotFoundError(key);
+          return new ProductNotFoundError(key);
         }
         return product;
       });

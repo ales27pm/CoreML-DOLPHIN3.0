@@ -10,9 +10,9 @@
     "types": [
       "node",
       "vitest/globals",
-      "@types/react",
-      "@types/react-dom",
-      "@types/react-test-renderer"
+      "react",
+      "react-dom",
+      "react-test-renderer"
     ],
     "jsx": "react-jsx",
     "resolveJsonModule": true

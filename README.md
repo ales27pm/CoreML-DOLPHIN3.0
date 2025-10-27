@@ -55,7 +55,9 @@ Key stages:
 6. **Optional validation** – When `--profile-validate` is set the script now
    compares deterministic golden transcripts between the PyTorch model and the
    exported Core ML package, reporting decode latency percentiles and KV-cache
-   residency/eviction metrics before cleaning temporary artifacts.
+   residency/eviction metrics before cleaning temporary artifacts. Runs exit
+   non-zero when any transcript diverges, and you can tweak the prompts by
+   editing the `GOLDEN_PROMPTS` list in `dolphin2coreml_full.py`.
 
 ## Swift Runtime Integration
 

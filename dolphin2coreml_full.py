@@ -210,10 +210,13 @@ def _run_reference_decode(
     """Generate deterministic tokens using PyTorch as the golden reference."""
 
     device = _torch_device(model)
-    torch_input = torch.from_numpy(trimmed_prompt[:, :prompt_len]).to(device)
+    torch_input = torch.from_numpy(trimmed_prompt[:, :prompt_len]).to(
+        device=device, dtype=torch.long
+    )
     attention_mask = torch.ones_like(torch_input, dtype=torch.long)
 
     pad_token = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
+    eos_id = tokenizer.eos_token_id
     if pad_token is None:
         raise ValueError("Tokenizer is missing both pad and EOS token IDs for generation.")
 
@@ -225,6 +228,7 @@ def _run_reference_decode(
             max_new_tokens=max_new_tokens,
             do_sample=False,
             pad_token_id=pad_token,
+            eos_token_id=eos_id,
         )
 
     new_tokens = generated[0, prompt_len : prompt_len + max_new_tokens].tolist()
@@ -832,6 +836,8 @@ def main(argv: Sequence[str]) -> int:
     # ------------------------------------------------------------------
     # Step 10: Optional validation
     # ------------------------------------------------------------------
+    validation_failed = False
+
     if args.profile_validate:
         console.print(Panel.fit("[bold green]Running deterministic validation suite…"))
         try:
@@ -952,11 +958,15 @@ def main(argv: Sequence[str]) -> int:
                 )
 
             if not all_match:
-                raise RuntimeError(
-                    "Core ML decode outputs diverged from PyTorch golden transcripts."
+                validation_failed = True
+                console.print(
+                    Panel.fit(
+                        "[bold red]❌ Golden transcript parity FAILED.[/]",
+                        border_style="red",
+                    )
                 )
-
-            console.print("[green]Validation run complete. Numerical parity confirmed.")
+            else:
+                console.print("[green]Validation run complete. Numerical parity confirmed.")
         except Exception as exc:  # pragma: no cover - device specific behaviour
             console.print(
                 Panel.fit(
@@ -964,6 +974,7 @@ def main(argv: Sequence[str]) -> int:
                     border_style="yellow",
                 )
             )
+            raise
 
     # ------------------------------------------------------------------
     # Step 11: Optional cleanup
@@ -971,6 +982,9 @@ def main(argv: Sequence[str]) -> int:
     if args.clean_tmp:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         console.print("[green]Temporary build directory cleaned up.")
+
+    if validation_failed:
+        return 1
 
     console.print(
         Panel.fit(

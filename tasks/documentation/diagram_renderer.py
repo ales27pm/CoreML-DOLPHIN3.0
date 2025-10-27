@@ -21,9 +21,12 @@ import logging
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, Protocol, Sequence, runtime_checkable
 
-import graphviz  # type: ignore[import-not-found,import-untyped]
+try:  # pragma: no cover - import guard for optional dependency
+    import graphviz  # type: ignore[import-not-found,import-untyped]
+except ImportError:  # pragma: no cover - dependency may be absent in some envs
+    graphviz = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -141,27 +144,59 @@ def _render(nodes: Sequence[DiagramNode], max_width: int) -> str:
     return ascii_art
 
 
+@runtime_checkable
+class _SupportsPipe(Protocol):
+    def pipe(self, format: str) -> bytes:
+        """Render the DOT payload using the requested Graphviz format."""
+
+
 def generate_ascii_diagram(
     dot_source: str,
     *,
     max_width: int = DEFAULT_MAX_WIDTH,
-    source_factory: Callable[[str], graphviz.Source] | None = None,
+    source_factory: Callable[[str], _SupportsPipe] | None = None,
 ) -> str:
     """Render ``dot_source`` into an ASCII table constrained by ``max_width``."""
 
     if max_width < _MIN_TABLE_WIDTH:
         raise ValueError(f"max_width must be at least {_MIN_TABLE_WIDTH} characters")
-    factory = source_factory or graphviz.Source
+    if source_factory is not None:
+        factory = source_factory
+    elif graphviz is not None:
+        factory = graphviz.Source  # type: ignore[assignment]
+    else:
+        raise DiagramRenderingError(
+            "Graphviz library is not installed. Provide a source_factory or install Graphviz."
+        )
+
     try:
-        plain_output = factory(dot_source).pipe(format="plain").decode("utf-8")
-    except graphviz.backend.ExecutableNotFound as exc:
-        raise DiagramRenderingError(
-            "Graphviz executable not found. Install Graphviz to enable rendering."
-        ) from exc
-    except graphviz.backend.CalledProcessError as exc:
-        raise DiagramRenderingError(
-            f"Graphviz failed to render DOT source: {exc}"
-        ) from exc
+        pipeable = factory(dot_source)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise DiagramRenderingError(f"Failed to build Graphviz source: {exc}") from exc
+
+    if not isinstance(pipeable, _SupportsPipe):  # pragma: no cover - defensive
+        raise DiagramRenderingError("Provided source_factory returned unsupported object")
+
+    try:
+        plain_output_bytes = pipeable.pipe(format="plain")
+    except Exception as exc:
+        if graphviz is not None:
+            backend = getattr(graphviz, "backend", None)
+            executable_not_found = getattr(backend, "ExecutableNotFound", tuple())
+            called_process_error = getattr(backend, "CalledProcessError", tuple())
+            if isinstance(exc, executable_not_found):
+                raise DiagramRenderingError(
+                    "Graphviz executable not found. Install Graphviz to enable rendering."
+                ) from exc
+            if isinstance(exc, called_process_error):
+                raise DiagramRenderingError(
+                    f"Graphviz failed to render DOT source: {exc}"
+                ) from exc
+        raise DiagramRenderingError(f"Graphviz failed to render DOT source: {exc}") from exc
+
+    if not isinstance(plain_output_bytes, (bytes, bytearray)):
+        raise DiagramRenderingError("Graphviz plain output must be bytes")
+    plain_output = bytes(plain_output_bytes).decode("utf-8")
     logger.debug("Graphviz plain output:\n%s", plain_output)
     nodes = _parse_plain_output(plain_output)
     ascii_art = _render(nodes, max_width)
@@ -174,7 +209,7 @@ def render_to_path(
     output_path: Path,
     *,
     max_width: int = DEFAULT_MAX_WIDTH,
-    source_factory: Callable[[str], graphviz.Source] | None = None,
+    source_factory: Callable[[str], _SupportsPipe] | None = None,
 ) -> Path:
     """Render ``dot_source`` and persist the ASCII output to ``output_path``."""
 
@@ -191,7 +226,7 @@ def render_from_file(
     *,
     output_path: Path | None = None,
     max_width: int = DEFAULT_MAX_WIDTH,
-    source_factory: Callable[[str], graphviz.Source] | None = None,
+    source_factory: Callable[[str], _SupportsPipe] | None = None,
 ) -> Path:
     """Load DOT contents from ``dot_path`` and write the ASCII rendering."""
 

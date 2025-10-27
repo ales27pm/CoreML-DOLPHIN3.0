@@ -25,10 +25,14 @@ async def metrics_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ):
     start = time.perf_counter()
-    response = await call_next(request)
-    duration = time.perf_counter() - start
-    REQUEST_LATENCY.labels(request.method, request.url.path).observe(duration)
-    return response
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        duration = time.perf_counter() - start
+        route = request.scope.get("route")
+        endpoint = getattr(route, "path", request.url.path)
+        REQUEST_LATENCY.labels(request.method, endpoint).observe(duration)
 
 
 def instrument_route(path: str, handler: Callable[..., object]) -> None:

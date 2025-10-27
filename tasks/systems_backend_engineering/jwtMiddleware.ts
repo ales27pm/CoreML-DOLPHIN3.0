@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt, {
   type JwtPayload,
   type VerifyErrors,
@@ -112,11 +112,18 @@ function normaliseOptions(options: JwtMiddlewareOptions): {
     ...verify
   } = options;
 
+  const algorithms = Array.isArray(verify.algorithms)
+    ? verify.algorithms.filter((alg) => typeof alg === "string" && alg.trim() !== "")
+    : [];
+
   return {
     headerName: headerName.toLowerCase(),
     logger,
     requestProperty,
-    verify,
+    verify: {
+      ...verify,
+      algorithms: algorithms.length > 0 ? algorithms : ["HS256"],
+    },
     tokenExtractor,
   };
 }
@@ -146,7 +153,7 @@ function buildAuthContext(
 export function createJwtMiddleware(
   secret: string,
   options: JwtMiddlewareOptions = {},
-) {
+): RequestHandler {
   if (typeof secret !== "string" || secret.trim() === "") {
     throw new Error("JWT secret must be a non-empty string");
   }

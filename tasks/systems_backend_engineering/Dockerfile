@@ -8,28 +8,32 @@ FROM python:3.11-slim AS builder
 ARG APP_HOME=/app
 WORKDIR ${APP_HOME}
 
-ENV PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    POETRY_VERSION=1.8.3
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-COPY pyproject.toml poetry.lock ./
-RUN pip install --upgrade pip \
-    && pip install "poetry==${POETRY_VERSION}" \
-    && poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+COPY tasks/systems_backend_engineering/requirements.txt ./requirements.txt
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir --target /opt/site -r requirements.txt
 
-COPY . .
-RUN poetry build -f wheel
+COPY tasks/systems_backend_engineering ./app
+RUN python -m compileall ./app
 
 ############################################
 # Test stage
 ############################################
-FROM builder AS tester
+FROM python:3.11-slim AS tester
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+WORKDIR /workspace
 
-RUN poetry run pytest --maxfail=1 --disable-warnings
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+COPY requirements-dev.txt ./requirements-dev.txt
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements-dev.txt
+
+COPY . ./
+RUN pytest tests/systems_backend_engineering
 
 ############################################
 # Runtime stage
@@ -39,12 +43,12 @@ FROM gcr.io/distroless/python3-debian12 AS runtime
 ARG APP_HOME=/app
 WORKDIR ${APP_HOME}
 
-COPY --from=builder /app/dist/*.whl ./
-RUN python -m pip install --no-cache-dir ./$(ls *.whl | head -n1)
+COPY --from=builder /opt/site /opt/site
+COPY --from=builder /app/app ./app
+
+ENV PYTHONPATH=/opt/site:/app/app
 
 USER nonroot
 
-ENV PYTHONPATH=${APP_HOME}
-
 EXPOSE 8080
-CMD ["python", "-m", "service"]
+CMD ["python", "-m", "uvicorn", "tasks.systems_backend_engineering.metrics_app:app", "--host", "0.0.0.0", "--port", "8080"]

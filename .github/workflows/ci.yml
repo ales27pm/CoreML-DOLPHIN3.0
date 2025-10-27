@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint ${{ matrix.language }}
@@ -75,6 +78,7 @@ jobs:
       - run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+          pip install build
           python -m build
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --workspace --release
@@ -99,17 +103,3 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --workspace
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Publish artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: service-package
-          path: dist/
-      - name: Deploy
-        env:
-          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
-        run: ./scripts/deploy.sh

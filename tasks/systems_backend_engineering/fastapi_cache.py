@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import hashlib
 import json
 import logging
 from dataclasses import asdict, is_dataclass
@@ -118,7 +119,10 @@ def cache(
                 sort_keys=True,
                 default=_json_default,
             )
-            cache_key = f"{namespace}:{key_payload}"
+            digest = hashlib.blake2b(
+                key_payload.encode("utf-8"), digest_size=16
+            ).hexdigest()
+            cache_key = f"{namespace}:{digest}"
             cached = await redis_client.get(cache_key)
             if cached is not None:
                 logger.info("cache.hit", extra={"key": cache_key, "ttl": ttl})

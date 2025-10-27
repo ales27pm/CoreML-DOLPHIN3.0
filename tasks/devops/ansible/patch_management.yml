@@ -1,0 +1,105 @@
+---
+- name: Apply security updates with controlled reboot policy
+  hosts: all
+  become: true
+  gather_facts: true
+  serial: 25
+
+  vars:
+    patch_window: "{{ lookup('env', 'PATCH_WINDOW') | default('02:00', true) }}"
+    maintenance_contact: devops@example.com
+
+  pre_tasks:
+    - name: Assert supported distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] in ['Debian', 'RedHat']
+        fail_msg: "Unsupported distribution for patch automation"
+
+    - name: Derive Debian security release codename
+      ansible.builtin.set_fact:
+        debian_security_release: "{{ ansible_facts.get('lsb', {}).get('codename') }}-security"
+      when:
+        - ansible_facts['os_family'] == 'Debian'
+        - ansible_facts.get('lsb', {}).get('codename') is defined
+
+    - name: Record starting uptime
+      ansible.builtin.command: uptime
+      register: uptime_before
+      changed_when: false
+
+  tasks:
+    - name: Refresh package metadata cache (APT)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Refresh package metadata cache (YUM/DNF)
+      ansible.builtin.yum:
+        update_cache: true
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Apply security updates on Debian systems
+      ansible.builtin.apt:
+        upgrade: dist
+        only_upgrade: true
+        update_cache: false
+        default_release: "{{ debian_security_release | default(omit) }}"
+      when: ansible_facts['os_family'] == 'Debian'
+      notify: Restart host when required
+
+    - name: Apply security updates on RedHat systems
+      ansible.builtin.yum:
+        name: "*"
+        state: latest
+        security: true
+      when: ansible_facts['os_family'] == 'RedHat'
+      notify: Restart host when required
+
+    - name: Capture list of upgraded packages (APT)
+      ansible.builtin.command: /usr/bin/apt list --upgradable
+      when: ansible_facts['pkg_mgr'] == 'apt'
+      register: upgrade_report
+      changed_when: false
+
+    - name: Capture list of upgraded packages (YUM)
+      ansible.builtin.command: /usr/bin/yum updateinfo list security
+      when: ansible_facts['pkg_mgr'] in ['yum', 'dnf']
+      register: upgrade_report
+      changed_when: false
+
+    - name: Write compliance report
+      ansible.builtin.copy:
+        dest: "/var/log/patch-management/{{ inventory_hostname }}-{{ ansible_date_time.iso8601 }}.json"
+        content: |
+          {
+            "host": "{{ inventory_hostname }}",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "patch_window": "{{ patch_window }}",
+            "packages": {{ upgrade_report.stdout_lines | default([]) | to_json }},
+            "contact": "{{ maintenance_contact }}"
+          }
+        owner: root
+        group: root
+        mode: "0640"
+
+  post_tasks:
+    - name: Record uptime after patching
+      ansible.builtin.command: uptime
+      register: uptime_after
+      changed_when: false
+
+    - name: Display uptime delta
+      ansible.builtin.debug:
+        msg: |
+          Host {{ inventory_hostname }} patched. Uptime before: {{ uptime_before.stdout }}.
+          Uptime after: {{ uptime_after.stdout }}.
+
+  handlers:
+    - name: Restart host when required
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by automated patch management"
+        connect_timeout: 5
+        reboot_timeout: 600
+        test_command: whoami

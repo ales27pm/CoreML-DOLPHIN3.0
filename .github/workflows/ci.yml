@@ -60,7 +60,12 @@ jobs:
           components: clippy
       - name: Rust lint
         if: matrix.language == 'rust'
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: |
+          if [ -f Cargo.toml ]; then
+            cargo clippy --workspace --all-targets -- -D warnings
+          else
+            echo "No Cargo.toml detected; skipping Rust lint."
+          fi
 
   build:
     needs: lint
@@ -81,7 +86,12 @@ jobs:
           pip install build
           python -m build
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --workspace --release
+      - run: |
+          if [ -f Cargo.toml ]; then
+            cargo build --workspace --release
+          else
+            echo "No Cargo.toml detected; skipping cargo build."
+          fi
 
   test:
     needs: build
@@ -101,5 +111,9 @@ jobs:
           pip install -r requirements-dev.txt
           pytest
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --workspace
-
+      - run: |
+          if [ -f Cargo.toml ]; then
+            cargo test --workspace
+          else
+            echo "No Cargo.toml detected; skipping cargo test."
+          fi

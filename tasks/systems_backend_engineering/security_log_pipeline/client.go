@@ -91,6 +91,9 @@ func (e Event) Validate() error {
 	if e.Timestamp == "" {
 		return errors.New("event timestamp must not be empty")
 	}
+	if _, err := time.Parse(time.RFC3339, e.Timestamp); err != nil {
+		return fmt.Errorf("event timestamp must be RFC3339: %w", err)
+	}
 	if e.Severity == "" {
 		return errors.New("event severity must not be empty")
 	}
@@ -117,6 +120,7 @@ func (c *Client) SendEvent(ctx context.Context, event Event) error {
 			return fmt.Errorf("build request: %w", reqErr)
 		}
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", event.ID)
 
 		resp, doErr := c.httpClient().Do(req)
 		if doErr == nil {
@@ -126,7 +130,11 @@ func (c *Client) SendEvent(ctx context.Context, event Event) error {
 				c.logger().Printf("sent security event %s", event.ID)
 				return nil
 			}
-			doErr = fmt.Errorf("unexpected status %d", resp.StatusCode)
+			if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+				doErr = fmt.Errorf("retryable status %d", resp.StatusCode)
+			} else {
+				return fmt.Errorf("non-retryable status %d", resp.StatusCode)
+			}
 		}
 
 		if errors.Is(doErr, context.Canceled) || errors.Is(doErr, context.DeadlineExceeded) {

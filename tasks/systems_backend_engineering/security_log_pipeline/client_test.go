@@ -3,8 +3,10 @@ package securitylog
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -35,8 +37,12 @@ func TestSendEventSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&received.Attempts, 1)
 		defer r.Body.Close()
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Fatalf("expected JSON content-type, got %s", r.Header.Get("Content-Type"))
+		ct := r.Header.Get("Content-Type")
+		if mt, _, err := mime.ParseMediaType(ct); err != nil || mt != "application/json" {
+			t.Fatalf("expected application/json content-type, got %s", ct)
+		}
+		if r.Header.Get("Idempotency-Key") != "evt-1" {
+			t.Fatalf("expected idempotency key evt-1, got %s", r.Header.Get("Idempotency-Key"))
 		}
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
 			t.Fatalf("decode event: %v", err)
@@ -106,7 +112,7 @@ func TestStreamStopsOnContextCancel(t *testing.T) {
 	}()
 
 	err := client.Stream(ctx, events)
-	if err == nil || err != context.Canceled {
+	if err == nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation error, got %v", err)
 	}
 	if attempts.Load() == 0 {

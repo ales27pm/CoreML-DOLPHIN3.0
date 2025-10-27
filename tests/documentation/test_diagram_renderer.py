@@ -18,7 +18,7 @@ class _FakeSource:
         self.dot_source = dot_source
         self._plain_output = plain_output
 
-    def pipe(self, format: str) -> bytes:  # noqa: A003 - mimic graphviz API
+    def pipe(self, format: str) -> bytes:
         assert format == "plain"
         return self._plain_output.encode("utf-8")
 

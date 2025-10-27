@@ -30,10 +30,12 @@ DEFAULT_QUERIES: Mapping[str, str] = {
 
 class MetricFetchError(RuntimeError):
     """Raised when a metric cannot be retrieved from Prometheus."""
-def _parse_metric(response: Response) -> float:
+
+
+def _parse_metric(response: Response, query: str) -> float:
     try:
         payload = response.json()
-    except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+    except (ValueError, json.JSONDecodeError) as exc:  # pragma: no cover - defensive
         raise MetricFetchError("Prometheus response was not valid JSON") from exc
 
     try:
@@ -42,7 +44,7 @@ def _parse_metric(response: Response) -> float:
         raise MetricFetchError("Prometheus response missing data.result field") from exc
 
     if not data:
-        logger.warning("Prometheus query %s returned no data", payload.get("data"))
+        logger.warning("Prometheus query %s returned no data", query)
         return 0.0
 
     try:
@@ -67,7 +69,7 @@ def fetch_metric(
         logger.debug("Fetching Prometheus metric: %s", query)
         response = http.get(url, params={"query": query}, timeout=timeout)
         response.raise_for_status()
-        return _parse_metric(response)
+        return _parse_metric(response, query)
     except RequestException as exc:
         raise MetricFetchError(f"Failed to fetch metric '{query}': {exc}") from exc
     finally:

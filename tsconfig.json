@@ -7,7 +7,13 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "types": ["node", "vitest/globals"],
+    "types": [
+      "node",
+      "vitest/globals",
+      "react",
+      "react-dom",
+      "react-test-renderer"
+    ],
     "jsx": "react-jsx",
     "resolveJsonModule": true
   },

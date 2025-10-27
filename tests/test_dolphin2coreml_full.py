@@ -14,4 +14,6 @@ def test_cosine_similarity_matches_expected() -> None:
 
 def test_cosine_similarity_rejects_zero_norm() -> None:
     with pytest.raises(ValueError):
-        _cosine_similarity(np.zeros((1, 3), dtype=np.float32), np.ones((1, 3), dtype=np.float32))
+        _cosine_similarity(
+            np.zeros((1, 3), dtype=np.float32), np.ones((1, 3), dtype=np.float32)
+        )

@@ -24,7 +24,9 @@ DATASET = {
 
 
 def test_knapsack_variants_produce_identical_result() -> None:
-    result_top = knapsack_top_down(DATASET["capacity"], DATASET["weights"], DATASET["values"])
+    result_top = knapsack_top_down(
+        DATASET["capacity"], DATASET["weights"], DATASET["values"]
+    )
     result_bottom = knapsack_bottom_up(
         DATASET["capacity"], DATASET["weights"], DATASET["values"]
     )
@@ -47,14 +49,21 @@ def test_profile_algorithms_enforces_memory_ratio() -> None:
         DATASET["capacity"], DATASET["weights"], DATASET["values"]
     )
     assert top_profile.result == bottom_profile.result
-    assert bottom_profile.peak_bytes <= int(top_profile.peak_bytes * 0.70) or top_profile.peak_bytes == 0
+    assert (
+        bottom_profile.peak_bytes <= int(top_profile.peak_bytes * 0.70)
+        or top_profile.peak_bytes == 0
+    )
 
 
 def test_write_profiles_to_csv(tmp_path: Path) -> None:
     target = tmp_path / "profiles.csv"
     profiles = (
-        AlgorithmProfile(name="top_down", result=1, time_seconds=0.123456789, peak_bytes=1000),
-        AlgorithmProfile(name="bottom_up", result=1, time_seconds=0.023456789, peak_bytes=600),
+        AlgorithmProfile(
+            name="top_down", result=1, time_seconds=0.123456789, peak_bytes=1000
+        ),
+        AlgorithmProfile(
+            name="bottom_up", result=1, time_seconds=0.023456789, peak_bytes=600
+        ),
     )
     write_profiles_to_csv(target, profiles)
 

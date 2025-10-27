@@ -12,7 +12,9 @@ from tasks.systems_backend_engineering.fastapi_cache import cache
 
 
 @pytest.mark.asyncio
-async def test_cache_decorator_hits_and_misses(caplog: pytest.LogCaptureFixture) -> None:
+async def test_cache_decorator_hits_and_misses(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level("INFO", logger="fastapi.cache")
     fake_redis = fakeredis.aioredis.FakeRedis()
     app = FastAPI()

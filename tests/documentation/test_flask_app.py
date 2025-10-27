@@ -41,7 +41,10 @@ def test_schema_violation_logs_error(monkeypatch, caplog):
     def _failing_validate(item):  # type: ignore[override]
         raise ValueError("boom")
 
-    monkeypatch.setattr("tasks.documentation.flask_app.Item.model_validate", staticmethod(_failing_validate))
+    monkeypatch.setattr(
+        "tasks.documentation.flask_app.Item.model_validate",
+        staticmethod(_failing_validate),
+    )
     app = create_app({5: captured})
     with app.test_client() as test_client:
         caplog.clear()
@@ -49,4 +52,6 @@ def test_schema_violation_logs_error(monkeypatch, caplog):
         response = test_client.get("/items/5")
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    assert any("Item payload failed validation" in record.message for record in caplog.records)
+    assert any(
+        "Item payload failed validation" in record.message for record in caplog.records
+    )

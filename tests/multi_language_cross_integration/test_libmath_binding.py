@@ -43,7 +43,9 @@ def test_pybind11_module_builds_and_runs(tmp_path: Path) -> None:
         env=env,
     )
 
-    artifacts = list(build_dir.glob("libmath*.so")) or list(build_dir.glob("Release/libmath*.dll"))
+    artifacts = list(build_dir.glob("libmath*.so")) or list(
+        build_dir.glob("Release/libmath*.dll")
+    )
     if not artifacts:
         artifacts = list(build_dir.glob("libmath*.dylib"))
     if not artifacts:

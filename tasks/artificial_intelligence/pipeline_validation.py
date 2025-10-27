@@ -91,9 +91,7 @@ def load_baselines(path: Path) -> Mapping[str, Mapping[str, Sequence[float]]]:
 
     prompts = payload[_BASELINE_PROMPTS_KEY]
     if not isinstance(prompts, Mapping):
-        raise ValueError(
-            f"Expected '{_BASELINE_PROMPTS_KEY}' to map prompts to logits"
-        )
+        raise ValueError(f"Expected '{_BASELINE_PROMPTS_KEY}' to map prompts to logits")
 
     normalized: dict[str, Mapping[str, Sequence[float]]] = {}
     for prompt, entries in prompts.items():
@@ -243,8 +241,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=Path(__file__).with_name("baselines").joinpath("pipeline_logits.json"),
         help="Baseline JSON containing recorded logits (default: bundled baseline)",
     )
-    parser.add_argument("--pytorch-logits", type=Path, help="Optional PyTorch logits JSON")
-    parser.add_argument("--coreml-logits", type=Path, help="Optional Core ML logits JSON")
+    parser.add_argument(
+        "--pytorch-logits", type=Path, help="Optional PyTorch logits JSON"
+    )
+    parser.add_argument(
+        "--coreml-logits", type=Path, help="Optional Core ML logits JSON"
+    )
     parser.add_argument(
         "--threshold",
         type=float,

@@ -25,7 +25,10 @@ from .graph_shortest_path import (
     format_distances,
     visualize_shortest_paths,
 )
-from .longest_palindromic_substring import PalindromeResult, longest_palindromic_substring
+from .longest_palindromic_substring import (
+    PalindromeResult,
+    longest_palindromic_substring,
+)
 from .trie_autocomplete import Trie, TrieNode, benchmark
 
 __all__ = [

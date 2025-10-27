@@ -149,7 +149,8 @@ class Trie:
         return {
             "terminal": node.is_terminal,
             "children": {
-                char: Trie._serialize_node(child) for char, child in sorted(node.children.items())
+                char: Trie._serialize_node(child)
+                for char, child in sorted(node.children.items())
             },
         }
 
@@ -187,12 +188,12 @@ class Trie:
         return word
 
     def _traverse(self, fragment: str) -> Optional[TrieNode]:
-        node = self.root
+        current: Optional[TrieNode] = self.root
         for char in fragment:
-            node = node.children.get(char)
-            if node is None:
+            if current is None:
                 return None
-        return node
+            current = current.children.get(char)
+        return current
 
     def _calculate_metadata(self, node: TrieNode) -> tuple[int, int]:
         size = 1 if node.is_terminal else 0

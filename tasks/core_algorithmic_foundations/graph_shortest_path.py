@@ -31,13 +31,27 @@ from __future__ import annotations
 from dataclasses import dataclass
 import heapq
 import math
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeAlias,
+    Union,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - import is for type checking only
-    import networkx as nx
-    NxDiGraph = nx.DiGraph
+    import networkx as nx  # type: ignore[import-not-found]
+
+    NxDiGraph: TypeAlias = nx.DiGraph
 else:  # pragma: no cover - alias keeps runtime dependency optional
-    NxDiGraph = Any
+    NxDiGraph: TypeAlias = Any
 
 GraphEdge = Tuple[str, float]
 GraphInput = Mapping[str, Iterable[GraphEdge]]
@@ -115,10 +129,10 @@ class ShortestPathResult:
         path.reverse()
         return path
 
-    def as_dict(self) -> Dict[str, Union[float, List[str], str]]:
+    def as_dict(self) -> Dict[str, Any]:
         """Return a serialisable snapshot of the shortest paths tree."""
 
-        snapshot: Dict[str, Union[float, List[str], str]] = {}
+        snapshot: Dict[str, Any] = {}
         for node in self.distances:
             path = self.path_to(node)
             snapshot[node] = {
@@ -142,7 +156,12 @@ class VisualizationPayload:
     focus_path: Optional[List[str]] = None
 
 
-def dijkstra(graph: Union[GraphInput, WeightedGraph], source: str, *, target: Optional[str] = None) -> ShortestPathResult:
+def dijkstra(
+    graph: Union[GraphInput, WeightedGraph],
+    source: str,
+    *,
+    target: Optional[str] = None,
+) -> ShortestPathResult:
     """Compute single-source shortest paths using Dijkstra's algorithm.
 
     Parameters
@@ -168,7 +187,9 @@ def dijkstra(graph: Union[GraphInput, WeightedGraph], source: str, *, target: Op
         If ``source`` is not present in the graph.
     """
 
-    weighted = graph if isinstance(graph, WeightedGraph) else WeightedGraph.from_mapping(graph)
+    weighted = (
+        graph if isinstance(graph, WeightedGraph) else WeightedGraph.from_mapping(graph)
+    )
     if source not in weighted.adjacency:
         raise ValueError(f"Source node {source!r} is not present in the graph")
 
@@ -202,13 +223,15 @@ def build_networkx_graph(graph: Union[GraphInput, WeightedGraph]) -> NxDiGraph:
     """
 
     try:
-        import networkx as nx  # type: ignore
+        import networkx as nx  # type: ignore[import-not-found]
     except ImportError as exc:  # pragma: no cover - exercised via tests when missing
         raise ModuleNotFoundError(
             "NetworkX is required for visualization support. Install it via 'pip install networkx'."
         ) from exc
 
-    weighted = graph if isinstance(graph, WeightedGraph) else WeightedGraph.from_mapping(graph)
+    weighted = (
+        graph if isinstance(graph, WeightedGraph) else WeightedGraph.from_mapping(graph)
+    )
     nx_graph = nx.DiGraph()
     for node in weighted.adjacency:
         nx_graph.add_node(node)
@@ -247,13 +270,15 @@ def visualize_shortest_paths(
     """
 
     try:
-        import networkx as nx  # type: ignore
+        import networkx as nx  # type: ignore[import-not-found]
     except ImportError as exc:  # pragma: no cover - exercised via tests when missing
         raise ModuleNotFoundError(
             "NetworkX is required for visualization support. Install it via 'pip install networkx'."
         ) from exc
 
-    weighted = graph if isinstance(graph, WeightedGraph) else WeightedGraph.from_mapping(graph)
+    weighted = (
+        graph if isinstance(graph, WeightedGraph) else WeightedGraph.from_mapping(graph)
+    )
     result = dijkstra(weighted, source)
     nx_graph = build_networkx_graph(weighted)
 
@@ -265,7 +290,9 @@ def visualize_shortest_paths(
     try:
         resolver = layout_resolvers[layout]
     except KeyError as exc:
-        raise ValueError(f"Unsupported layout '{layout}'. Choose from {sorted(layout_resolvers)}") from exc
+        raise ValueError(
+            f"Unsupported layout '{layout}'. Choose from {sorted(layout_resolvers)}"
+        ) from exc
 
     positions = resolver(nx_graph)
     edge_labels = {(u, v): data["weight"] for u, v, data in nx_graph.edges(data=True)}
@@ -292,7 +319,9 @@ def format_distances(result: ShortestPathResult) -> List[str]:
             lines.append(f"{result.source} -> {node}: unreachable")
             continue
         path = result.path_to(node)
-        assert path is not None  # pragma: no cover - defensive; unreachable handled above
+        assert (
+            path is not None
+        )  # pragma: no cover - defensive; unreachable handled above
         path_str = " → ".join(path)
         lines.append(f"{result.source} -> {node}: cost={distance:.3f}, path={path_str}")
     return lines
@@ -310,7 +339,9 @@ def _normalize_graph(graph: GraphInput) -> Dict[str, Tuple[GraphEdge, ...]]:
         normalized_edges: List[GraphEdge] = []
         for edge in edges:
             if not isinstance(edge, Sequence) or len(edge) != 2:
-                raise GraphValidationError("Edges must be two-item sequences of (neighbor, weight)")
+                raise GraphValidationError(
+                    "Edges must be two-item sequences of (neighbor, weight)"
+                )
             neighbor, weight = edge
             if not isinstance(neighbor, str):
                 raise GraphValidationError("Neighbor identifiers must be strings")

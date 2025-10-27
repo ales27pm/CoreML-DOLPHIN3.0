@@ -51,7 +51,7 @@ impl Session {
     /// # Errors
     ///
     /// Returns [`SessionValidationError::NonPositiveTtl`] if `ttl` is zero or negative.
-    #[must_use]
+    #[must_use = "Handle the Result to ensure session creation succeeds"]
     pub fn create(user_id: Uuid, ttl: Duration) -> Result<Self, SessionValidationError> {
         let created_at = Utc::now();
         Self::from_parts(Uuid::new_v4(), user_id, created_at, created_at + ttl)

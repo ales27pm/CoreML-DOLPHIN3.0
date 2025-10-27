@@ -74,6 +74,7 @@ def test_verify_emits_log(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> N
         guard.verify("prompt", [0.25, 0.75])
 
     assert any(
-        record.levelno == logging.INFO and "Regression guard verified" in record.getMessage()
+        record.levelno == logging.INFO
+        and "Regression guard verified" in record.getMessage()
         for record in caplog.records
     )

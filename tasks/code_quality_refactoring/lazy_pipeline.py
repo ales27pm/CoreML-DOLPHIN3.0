@@ -4,6 +4,7 @@ This module exposes eager and lazy summation helpers alongside a
 memory-comparison routine that demonstrates the allocation benefits of
 switching from a list comprehension to a generator expression.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence

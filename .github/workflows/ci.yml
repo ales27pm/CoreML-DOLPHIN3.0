@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
       - name: Install Node dependencies
         if: matrix.language == 'node'
         run: npm ci
@@ -36,8 +36,8 @@ jobs:
         if: matrix.language == 'python'
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: "pip"
           cache-dependency-path: requirements-dev.txt
       - name: Install Python dependencies
         if: matrix.language == 'python'
@@ -52,11 +52,9 @@ jobs:
           mypy tasks
       - name: Setup Rust
         if: matrix.language == 'rust'
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          components: clippy
       - name: Rust lint
         if: matrix.language == 'rust'
         run: cargo clippy --workspace --all-targets -- -D warnings
@@ -73,15 +71,12 @@ jobs:
       - run: npm run build --if-present
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
           python -m build
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --workspace --release
 
   test:
@@ -96,15 +91,12 @@ jobs:
       - run: npm test
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
           pytest
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --workspace
 
   deploy:

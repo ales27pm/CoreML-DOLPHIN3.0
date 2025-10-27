@@ -52,4 +52,5 @@ async def ready() -> dict[str, str]:
 
 @app.get("/metrics")
 async def metrics() -> Response:
-    return Response(generate_latest(REQUEST_LATENCY), media_type=CONTENT_TYPE_LATEST)
+    payload = generate_latest()
+    return Response(payload, media_type=CONTENT_TYPE_LATEST)

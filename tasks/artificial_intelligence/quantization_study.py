@@ -133,7 +133,9 @@ def load_quantization_dataset(path: Path) -> List[QuantizationSample]:
             tokens = int(entry["tokens"])
         except KeyError as exc:  # pragma: no cover - programmer error
             raise ValueError(f"Sample missing required field: {exc}") from exc
-        samples.append(QuantizationSample(prompt=prompt, difficulty=difficulty, tokens=tokens))
+        samples.append(
+            QuantizationSample(prompt=prompt, difficulty=difficulty, tokens=tokens)
+        )
     if not samples:
         raise ValueError("Quantisation dataset cannot be empty")
     return samples
@@ -150,7 +152,11 @@ def run_quantization_study(
             raise ValueError("Bit depth must be positive")
         accuracy = model.evaluate(dataset, bits)
         throughput = model.benchmark(dataset, bits)
-        results.append(QuantizationResult(bits=bits, accuracy=accuracy, tokens_per_second=throughput))
+        results.append(
+            QuantizationResult(
+                bits=bits, accuracy=accuracy, tokens_per_second=throughput
+            )
+        )
     return results
 
 
@@ -166,7 +172,7 @@ def plot_quantization_tradeoffs(
     output: Path,
 ) -> Path:
     try:
-        import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt  # type: ignore[import-not-found]
     except ModuleNotFoundError as exc:  # pragma: no cover - environment dependent
         raise RuntimeError("matplotlib is required to generate plots") from exc
 
@@ -198,7 +204,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run quantisation accuracy/throughput analysis",
     )
-    parser.add_argument("--dataset", type=Path, required=True, help="Path to dataset JSON")
+    parser.add_argument(
+        "--dataset", type=Path, required=True, help="Path to dataset JSON"
+    )
     parser.add_argument(
         "--bits",
         type=int,

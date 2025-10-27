@@ -61,7 +61,7 @@ class _RedisFactory:
 def _json_default(value: Any) -> Any:
     if isinstance(value, (set, frozenset)):
         return sorted(value)
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return asdict(value)
     if hasattr(value, "dict"):
         return value.dict()  # type: ignore[no-any-return]

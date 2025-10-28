@@ -100,6 +100,173 @@ verifies that LLM2Vec embeddings from the exported Core ML package stay within
 0.99 cosine similarity of the upstream checkpoint across a set of benchmark
 sentences.
 
+### Swift Package Manager distribution
+
+The runtime ships as a Swift Package so you can consume it directly from Xcode
+or as an archive artifact. Point your application `Package.swift` at the root
+of this repository when working with the sources:
+
+```swift
+// In your application's Package.swift
+dependencies: [
+    .package(url: "https://github.com/your-org/CoreML-DOLPHIN3.0.git", branch: "main")
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [
+            .product(name: "DolphinCoreMLRuntime", package: "CoreML-DOLPHIN3.0"),
+            .product(name: "DolphinBenchmarkHarness", package: "CoreML-DOLPHIN3.0")
+        ]
+    )
+]
+```
+
+Every CI run on `main` publishes a `DolphinCoreMLRuntime.swiftpm.artifactbundle`
+containing a signed source archive suitable for Swift Package Registry
+distribution. Download the bundle from the workflow run and upload the embedded
+`DolphinCoreMLRuntime.swiftpm.zip` to your registry of choice. Consumers can
+then depend on the package through their registry instead of targeting this Git
+repository directly.
+
+To reproduce the SwiftPM source bundle locally, run the archiver script on
+macOS:
+
+```bash
+swift package archive-source \
+  --output ./artifacts/DolphinCoreMLRuntime.swiftpm.artifactbundle \
+  --allow-writing-to-directory ./artifacts
+```
+
+The generated bundle is compatible with Xcode 16 and later across iOS 18,
+macOS 15, and visionOS 2 targets.
+
+### Background execution patterns
+
+For background token generation (for example, summarising a capture while the
+app is suspended) wire the runtime through `BGProcessingTaskRequest` and
+`BackgroundTasks`:
+
+1. Register the task in `application(_:didFinishLaunchingWithOptions:)`.
+2. Schedule the task after each successful run.
+3. Instantiate `DolphinCoreML` inside the task handler, execute the workload,
+   and call the completion handler with `setTaskCompleted(success:)`.
+
+```swift
+import BackgroundTasks
+
+BGTaskScheduler.shared.register(forTaskWithIdentifier: "ai.dolphin.runtime.background") { task in
+    Task { @MainActor in
+        guard let processingTask = task as? BGProcessingTask else { return }
+        do {
+            let runtime = try DolphinCoreML(
+                modelURL: ModelLocator.shared.url,
+                metadata: ModelLocator.shared.metadata
+            )
+            try await RuntimePipelines.shared.summariseCaptures(using: runtime)
+            processingTask.setTaskCompleted(success: true)
+        } catch {
+            Logger.background.error("Background run failed: \(error.localizedDescription)")
+            processingTask.setTaskCompleted(success: false)
+        }
+    }
+}
+
+func scheduleBackgroundDecode() {
+    let request = BGProcessingTaskRequest(identifier: "ai.dolphin.runtime.background")
+    request.requiresNetworkConnectivity = false
+    request.requiresExternalPower = false
+    try? BGTaskScheduler.shared.submit(request)
+}
+```
+
+On macOS you can achieve the same behaviour with `NSBackgroundActivityScheduler`
+for command-line tooling. When running on iOS ensure the background task owns a
+`BGProcessingTaskRequest` entitlement and keep the Core ML model in a shared
+container (e.g. via App Group) so the task can access it even when launched in
+the background.
+
+### Streaming UI integration
+
+Combine `AsyncStream` with `Observable` view models to surface incremental
+tokens or embeddings in SwiftUI. The pattern keeps decoding off the main actor
+and yields updates as soon as `decodeStep` returns:
+
+```swift
+import os.log
+
+@MainActor
+final class StreamedChatViewModel: ObservableObject {
+    @Published private(set) var transcript: [String] = []
+    private let runtime: DolphinCoreML
+    private let tokenizer: Tokenizer
+    private let logger = Logger(subsystem: "ai.dolphin.runtime", category: "StreamedChat")
+
+    init(runtime: DolphinCoreML, tokenizer: Tokenizer) {
+        self.runtime = runtime
+        self.tokenizer = tokenizer
+    }
+
+    func streamResponse(for prompt: String) {
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+
+            do {
+                let (ids, mask) = tokenizer.encodeToMultiArray(prompt, seqLen: runtime.seqLen)
+                let initOut = try runtime.initPass(inputIds: ids, attentionMask: mask)
+                let nextSeedId = try tokenizer.firstNextIdArray()
+                let nextSeedMask = try tokenizer.oneMaskArray()
+
+                let stream = AsyncStream<String> { continuation in
+                    Task.detached {
+                        var cacheK = initOut.pastK
+                        var cacheV = initOut.pastV
+                        var localNextId = nextSeedId
+                        var localNextMask = nextSeedMask
+
+                        while !Task.isCancelled {
+                            do {
+                                let step = try runtime.decodeStep(
+                                    nextId: localNextId,
+                                    nextMask: localNextMask,
+                                    pastK: cacheK,
+                                    pastV: cacheV
+                                )
+                                cacheK = step.outK
+                                cacheV = step.outV
+                                let token = runtime.greedySample(from: step.logits)
+                                continuation.yield(tokenizer.decode(token: token))
+                                (localNextId, localNextMask) = tokenizer.nextMaskArrays(tokenId: token)
+                            } catch {
+                                continuation.finish()
+                                return
+                            }
+                        }
+                        continuation.finish()
+                    }
+                }
+
+                for await piece in stream {
+                    await MainActor.run {
+                        self.transcript.append(piece)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    logger.error("Streaming decode failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+}
+```
+
+The `StreamedChatViewModel` publishes each decoded token to the UI, enabling
+SwiftUI views to animate in real time. When combined with `@ScenePhase` you can
+pause the `AsyncStream` when the app moves to the background and resume it when
+the scene becomes active again, ensuring resources are released while the user
+is away.
+
 ### Quantization knobs
 
 - `--wbits` selects the global palettization bit-width (2/4/6/8).

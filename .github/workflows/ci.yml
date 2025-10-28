@@ -117,3 +117,166 @@ jobs:
           else
             echo "No Cargo.toml detected; skipping cargo test."
           fi
+
+  swift-runtime:
+    needs: test
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, macos, visionos]
+        include:
+          - platform: ios
+            destination: "generic/platform=iOS Simulator"
+            sdk: iphonesimulator
+          - platform: macos
+            destination: "platform=macOS"
+            sdk: macosx
+          - platform: visionos
+            destination: "generic/platform=visionOS Simulator"
+            sdk: xrsimulator
+    steps:
+      - name: Configure Xcode 16 toolchain
+        uses: maxim-lobanov/setup-xcode@c51a66b42363123fa82a6cfe02c60af4281dab93
+        with:
+          xcode-version: "16.0"
+      - uses: actions/checkout@v4
+      - name: Select Xcode toolchain
+        run: |
+          set -euo pipefail
+          if [ -d "/Applications/Xcode_16.app" ]; then
+              sudo xcode-select -s /Applications/Xcode_16.app
+          else
+              sudo xcode-select -s /Applications/Xcode.app
+          fi
+
+          SELECTED_VERSION="$(xcodebuild -version | awk '/^Xcode/ {print $2}')"
+          if [[ "${SELECTED_VERSION}" != 16* ]]; then
+              echo "Expected Xcode 16 but found ${SELECTED_VERSION}" >&2
+              exit 1
+          fi
+      - name: Resolve Swift package
+        run: swift package resolve
+      - name: Run Swift tests
+        if: matrix.platform == 'macos'
+        run: swift test --configuration release
+      - name: Validate iOS simulator SDK
+        if: matrix.platform == 'ios'
+        run: |
+          set -euo pipefail
+          REQUIRED_RUNTIME="iphonesimulator18.0"
+          SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "iphonesimulator SDK path not found: ${SDK_PATH}" >&2
+              exit 1
+          fi
+
+          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
+              echo "${REQUIRED_RUNTIME} SDK metadata missing from xcodebuild -showsdks output" >&2
+              xcodebuild -showsdks
+              exit 1
+          fi
+      - name: Build macOS library
+        if: matrix.platform == 'macos'
+        run: swift build --configuration release
+      - name: Build iOS simulator libraries
+        if: matrix.platform == 'ios'
+        run: |
+          set -euo pipefail
+          SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "Failed to locate iphonesimulator SDK at ${SDK_PATH}" >&2
+              exit 1
+          fi
+
+          DESTINATION_FILE="$(mktemp)"
+          TOOLCHAIN_BIN_DIR="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+          cat >"${DESTINATION_FILE}" <<EOF
+          {
+            "version": 1,
+            "target": "arm64-apple-ios18.0-simulator",
+            "sdk": "${SDK_PATH}",
+            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}",
+            "extra-swiftc-flags": [],
+            "extra-cc-flags": [],
+            "extra-cpp-flags": [],
+            "extra-cxx-flags": [],
+            "extra-linker-flags": []
+          }
+          EOF
+
+          trap 'rm -f "${DESTINATION_FILE}"' EXIT
+
+          swift build \
+            --configuration release \
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinCoreMLRuntime
+          swift build \
+            --configuration release \
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinBenchmarkHarness
+      - name: Validate visionOS simulator SDK
+        if: matrix.platform == 'visionos'
+        run: |
+          set -euo pipefail
+          REQUIRED_RUNTIME="xrsimulator2.0"
+          SDK_PATH="$(xcrun --sdk xrsimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "xrsimulator SDK path not found: ${SDK_PATH}" >&2
+              exit 1
+          fi
+
+          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
+              echo "${REQUIRED_RUNTIME} SDK metadata missing from xcodebuild -showsdks output" >&2
+              xcodebuild -showsdks
+              exit 1
+          fi
+      - name: Build visionOS simulator library
+        if: matrix.platform == 'visionos'
+        run: |
+          set -euo pipefail
+          SDK_PATH="$(xcrun --sdk xrsimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "Failed to locate xrsimulator SDK at ${SDK_PATH}" >&2
+              exit 1
+          fi
+
+          DESTINATION_FILE="$(mktemp)"
+          TOOLCHAIN_BIN_DIR="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+          cat >"${DESTINATION_FILE}" <<EOF
+          {
+            "version": 1,
+            "target": "arm64-apple-xros2.0-simulator",
+            "sdk": "${SDK_PATH}",
+            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}",
+            "extra-swiftc-flags": [],
+            "extra-cc-flags": [],
+            "extra-cpp-flags": [],
+            "extra-cxx-flags": [],
+            "extra-linker-flags": []
+          }
+          EOF
+
+          trap 'rm -f "${DESTINATION_FILE}"' EXIT
+
+          swift build \
+            --configuration release \
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinCoreMLRuntime
+          swift build \
+            --configuration release \
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinBenchmarkHarness
+      - name: Archive SwiftPM source bundle
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          swift package archive-source \
+            --output artifacts/DolphinCoreMLRuntime.swiftpm.artifactbundle
+      - name: Upload SwiftPM source bundle
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DolphinCoreMLRuntime.swiftpm.artifactbundle
+          path: artifacts/DolphinCoreMLRuntime.swiftpm.artifactbundle

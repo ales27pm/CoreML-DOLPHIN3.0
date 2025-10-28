@@ -16,13 +16,15 @@ import CoreML
 public enum ComputeUnitSelection: String {
     case all = "ALL"              // ANE + GPU + CPU on iPhone/iPad, GPU+CPU on Mac
     case cpuAndGPU = "CPU_AND_GPU"
+    case cpuAndNeuralEngine = "CPU_AND_NEURAL_ENGINE"
     case cpuOnly = "CPU_ONLY"
 
     var coreML: MLComputeUnits {
         switch self {
-        case .all:       return .all
-        case .cpuAndGPU: return .cpuAndGPU
-        case .cpuOnly:   return .cpuOnly
+        case .all:                return .all
+        case .cpuAndGPU:          return .cpuAndGPU
+        case .cpuAndNeuralEngine: return .cpuAndNeuralEngine
+        case .cpuOnly:            return .cpuOnly
         }
     }
 }

@@ -11,6 +11,10 @@ final class ComputeUnitSelectionTests: XCTestCase {
         XCTAssertEqual(ComputeUnitSelection.cpuAndGPU.coreML, .cpuAndGPU)
     }
 
+    func testCpuAndNeuralEngineMapsCorrectly() {
+        XCTAssertEqual(ComputeUnitSelection.cpuAndNeuralEngine.coreML, .cpuAndNeuralEngine)
+    }
+
     func testCpuOnlyMapsToCpuOnlyComputeUnits() {
         XCTAssertEqual(ComputeUnitSelection.cpuOnly.coreML, .cpuOnly)
     }

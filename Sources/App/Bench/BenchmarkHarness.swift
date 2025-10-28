@@ -25,6 +25,19 @@ public final class BenchmarkHarness {
         self.defaultWarmupTokens = warmupTokens
     }
 
+    /// Executes a single benchmarking pass using the provided prompt.
+    ///
+    /// The harness performs an optional warmup phase to prime the KV cache,
+    /// measures end-to-end initialization latency, streams `genTokens` decode
+    /// steps to derive a tokens-per-second score, and records embedding
+    /// encoding latency.
+    /// - Parameters:
+    ///   - prompt: Input text to tokenize and feed into the Core ML runtime.
+    ///   - genTokens: Number of decode iterations to time for throughput.
+    ///   - warmupTokens: Overrides the default warmup token budget when
+    ///     specified; otherwise `defaultWarmupTokens` is used.
+    /// - Returns: A tuple containing initialization milliseconds, produced
+    ///   tokens per second, and embedding encoding milliseconds.
     @discardableResult
     public func run(
         prompt: String,

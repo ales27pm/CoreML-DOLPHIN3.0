@@ -117,3 +117,74 @@ jobs:
           else
             echo "No Cargo.toml detected; skipping cargo test."
           fi
+
+  swift-runtime:
+    needs: test
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, macos, visionos]
+        include:
+          - platform: ios
+            destination: "generic/platform=iOS Simulator"
+            sdk: iphonesimulator
+          - platform: macos
+            destination: "platform=macOS"
+            sdk: macosx
+          - platform: visionos
+            destination: "generic/platform=visionOS Simulator"
+            sdk: xrsimulator
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode toolchain
+        run: |
+          set -euo pipefail
+          if [ -d "/Applications/Xcode_16.app" ]; then
+              sudo xcode-select -s /Applications/Xcode_16.app
+          else
+              sudo xcode-select -s /Applications/Xcode.app
+          fi
+      - name: Resolve Swift package
+        run: swift package resolve
+      - name: Build macOS library
+        if: matrix.platform == 'macos'
+        run: swift build --configuration release
+      - name: Build iOS simulator library
+        if: matrix.platform == 'ios'
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -scheme DolphinCoreMLRuntime-Package \
+            -destination '${{ matrix.destination }}' \
+            -sdk ${{ matrix.sdk }} \
+            -configuration Release \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            build
+      - name: Build visionOS simulator library
+        if: matrix.platform == 'visionos'
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -scheme DolphinCoreMLRuntime-Package \
+            -destination '${{ matrix.destination }}' \
+            -sdk ${{ matrix.sdk }} \
+            -configuration Release \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            build
+      - name: Archive SwiftPM artifact
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          swift package archive-source \
+            --output artifacts/DolphinCoreMLRuntime.artifactbundle \
+            --allow-writing-to-directory artifacts
+      - name: Upload runtime artifact bundle
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DolphinCoreMLRuntime.artifactbundle
+          path: artifacts/DolphinCoreMLRuntime.artifactbundle

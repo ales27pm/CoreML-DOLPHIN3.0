@@ -153,6 +153,21 @@ jobs:
           fi
       - name: Resolve Swift package
         run: swift package resolve
+      - name: Provision iOS simulator runtime
+        if: matrix.platform == 'ios'
+        run: |
+          set -euo pipefail
+          REQUIRED_RUNTIME="iphonesimulator18.0"
+          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
+              echo "${REQUIRED_RUNTIME} SDK not found; attempting download via xcodebuild -downloadPlatform iOS"
+              sudo xcodebuild -license accept
+              sudo xcodebuild -downloadPlatform iOS
+          fi
+
+          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
+              echo "Unable to provision ${REQUIRED_RUNTIME} even after attempting download" >&2
+              exit 1
+          fi
       - name: Build macOS library
         if: matrix.platform == 'macos'
         run: swift build --configuration release
@@ -168,6 +183,21 @@ jobs:
             -skipMacroValidation \
             -skipPackagePluginValidation \
             build
+      - name: Provision visionOS simulator runtime
+        if: matrix.platform == 'visionos'
+        run: |
+          set -euo pipefail
+          REQUIRED_RUNTIME="xrsimulator2.0"
+          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
+              echo "${REQUIRED_RUNTIME} SDK not found; attempting download via xcodebuild -downloadPlatform visionOS"
+              sudo xcodebuild -license accept
+              sudo xcodebuild -downloadPlatform visionOS
+          fi
+
+          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
+              echo "Unable to provision ${REQUIRED_RUNTIME} even after attempting download" >&2
+              exit 1
+          fi
       - name: Build visionOS simulator library
         if: matrix.platform == 'visionos'
         run: |

@@ -145,6 +145,12 @@ jobs:
           else
               sudo xcode-select -s /Applications/Xcode.app
           fi
+
+          SELECTED_VERSION="$(xcodebuild -version | awk '/^Xcode/ {print $2}')"
+          if [[ "${SELECTED_VERSION}" != 16* ]]; then
+              echo "Expected Xcode 16 but found ${SELECTED_VERSION}" >&2
+              exit 1
+          fi
       - name: Resolve Swift package
         run: swift package resolve
       - name: Build macOS library

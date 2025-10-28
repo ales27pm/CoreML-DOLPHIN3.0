@@ -273,8 +273,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           swift package archive-source \
-            --output artifacts/DolphinCoreMLRuntime.artifactbundle \
-            --allow-writing-to-directory artifacts
+            --output artifacts/DolphinCoreMLRuntime.artifactbundle
       - name: Upload runtime artifact bundle
         if: matrix.platform == 'macos'
         uses: actions/upload-artifact@v4

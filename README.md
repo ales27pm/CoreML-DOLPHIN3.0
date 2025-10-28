@@ -25,7 +25,10 @@ pyproject.toml           # Packaging metadata for the conversion script
 ## Conversion Workflow
 
 Run the pipeline to produce a compressed `.mlpackage` that exposes `init`,
-`decode`, and `encode` entry points.
+`decode`, and `encode` entry points. The script bootstraps its own
+dependencies – if `torch`, `transformers`, `coremltools`, or `rich` are missing
+they are installed on-demand with retry/backoff and actionable error messages –
+so fresh environments can execute the conversion without manual prep work.
 
 ```bash
 python dolphin2coreml_full.py \
@@ -55,13 +58,33 @@ Key stages:
    sizes {8, 16, 32, 64} while CPU-only exports accept any positive group size.
    Provide `--mixed-precision attention=6,mlp=4` to keep attention projections
    at 6-bit while compressing MLP blocks to 4-bit without sacrificing decode
-   latency.
+   latency. Mixed overrides are summarised in the console so you can verify the
+   number of affected operators per component.
 6. **Optional validation** – When `--profile-validate` is set the script now
    compares deterministic golden transcripts between the PyTorch model and the
-   exported Core ML package, reporting decode latency percentiles and KV-cache
-   residency/eviction metrics before cleaning temporary artifacts. Runs exit
-   non-zero when any transcript diverges, and you can tweak the prompts by
-   editing the `GOLDEN_PROMPTS` list in `dolphin2coreml_full.py`.
+   exported Core ML package, reporting decode latency percentiles, KV-cache
+   residency/eviction metrics, and LLM2Vec embedding cosine similarity. Runs
+   exit non-zero when any transcript diverges or the minimum cosine similarity
+   drops below the 0.99 threshold.
+
+### Command-line reference
+
+- `--model`, `--revision`, `--hf-token`, `--cache-dir` – Locate the base checkpoint on Hugging Face (supports private repos via token).
+- `--lora-checkpoint`, `--llm2vec-checkpoint` – Provide directories for the mandatory LoRA adapters and LLM2Vec head.
+- `--seq-len` – Maximum context window used for export and validation.
+- `--output` – Destination `.mlpackage` path or directory.
+- `--tmp` – Scratch directory for intermediate PyTorch modules and Core ML artifacts.
+- `--wbits`, `--palett-granularity`, `--palett-group-size` – Configure palettization behaviour with backend-aware validation.
+- `--mixed-precision` – Apply per-component bit-width overrides such as `attention=6,mlp=4`.
+- `--compute-units` – Choose Core ML compute units (`ALL`, `CPU_AND_GPU`, `CPU_ONLY`) for validation runs.
+- `--minimum-deployment-target` – Stamp the exported model with the minimum iOS/macOS version you intend to support.
+- `--profile-validate` – Enable golden transcript + embedding parity checks with latency reporting.
+- `--clean-tmp` – Delete the temporary working directory after a successful run.
+
+Golden prompts for validation live in the `GOLDEN_PROMPTS` tuple within
+`dolphin2coreml_full.py`. Adjust the prompts, maximum new tokens, or expected
+behaviour there to tailor the suite for your domain. The validation report is
+rendered as Rich tables so deviations are obvious even in CI logs.
 
 ## Swift Runtime Integration
 
@@ -98,7 +121,8 @@ and embedding latencies with warm-up control for regression tracking.
 When the conversion pipeline is invoked with `--profile-validate`, it now
 verifies that LLM2Vec embeddings from the exported Core ML package stay within
 0.99 cosine similarity of the upstream checkpoint across a set of benchmark
-sentences.
+sentences, surfacing the minimum cosine in the validation summary alongside the
+per-prompt transcript comparison.
 
 ### Swift Package Manager distribution
 

@@ -1,40 +1,47 @@
-"""Quantization helpers for the Dolphin Core ML export pipeline."""
+"""Helper utilities for quantization configuration and validation."""
 from __future__ import annotations
 
-from collections import Counter
+import argparse
+from collections import Counter, OrderedDict
 from typing import Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
-import numpy as np
-
-SUPPORTED_MIXED_PRECISION_KEYS: Mapping[str, str] = {
-    "attention": "Self-attention projection weights",
-    "mlp": "Feed-forward projection weights",
-}
+SUPPORTED_MIXED_PRECISION_KEYS: Mapping[str, str] = OrderedDict(
+    [
+        ("attention", "Self-attention projection weights"),
+        ("mlp", "Feed-forward projection weights"),
+    ]
+)
 
 SUPPORTED_WBITS: Tuple[int, ...] = (2, 4, 6, 8)
 
 NEURAL_ENGINE_GROUP_SIZES: Sequence[int] = (8, 16, 32, 64)
 
-_MIXED_PRECISION_PATTERNS: Mapping[str, Tuple[str, ...]] = {
-    "attention": (
-        "attn",
-        "attention",
-        "q_proj",
-        "k_proj",
-        "v_proj",
-        "o_proj",
-    ),
-    "mlp": (
-        "mlp",
-        "feed_forward",
-        "ffn",
-        "gate_proj",
-        "up_proj",
-        "down_proj",
-    ),
-}
-
-_MIXED_PRECISION_PRIORITY: Tuple[str, ...] = tuple(_MIXED_PRECISION_PATTERNS.keys())
+_MIXED_PRECISION_PATTERNS: OrderedDict[str, Tuple[str, ...]] = OrderedDict(
+    [
+        (
+            "attention",
+            (
+                "attn",
+                "attention",
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+            ),
+        ),
+        (
+            "mlp",
+            (
+                "mlp",
+                "feed_forward",
+                "ffn",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+            ),
+        ),
+    ]
+)
 
 
 def _validate_group_size_for_backend(group_size: int, compute_units: str) -> None:
@@ -52,11 +59,15 @@ def _validate_group_size_for_backend(group_size: int, compute_units: str) -> Non
 def _parse_mixed_precision_overrides(raw: Optional[str]) -> Dict[str, int]:
     """Parse CLI overrides for mixed-precision palettization."""
 
-    if raw is None or raw.strip() == "":
+    if raw is None:
         return {}
 
     overrides: Dict[str, int] = {}
-    for entry in raw.split(","):
+    entries = [segment.strip() for segment in raw.split(",") if segment.strip()]
+    if not entries:
+        return overrides
+
+    for entry in entries:
         if "=" not in entry:
             raise ValueError(
                 "Mixed precision overrides must use key=value format (e.g., attention=6)."
@@ -65,8 +76,10 @@ def _parse_mixed_precision_overrides(raw: Optional[str]) -> Dict[str, int]:
         key = key.strip().lower()
         value = value.strip()
         if key not in SUPPORTED_MIXED_PRECISION_KEYS:
-            supported = ", ".join(sorted(SUPPORTED_MIXED_PRECISION_KEYS))
+            supported = ", ".join(SUPPORTED_MIXED_PRECISION_KEYS.keys())
             raise ValueError(f"Unsupported mixed precision key '{key}'. Use one of: {supported}.")
+        if key in overrides:
+            raise ValueError(f"Duplicate mixed precision override for '{key}'.")
         try:
             nbits = int(value)
         except ValueError as exc:  # pragma: no cover - argparse guards help text
@@ -78,19 +91,6 @@ def _parse_mixed_precision_overrides(raw: Optional[str]) -> Dict[str, int]:
             )
         overrides[key] = nbits
     return overrides
-
-
-def _classify_weight_for_mixed_precision(weight_name: str) -> Optional[str]:
-    """Return the mixed-precision bucket for a given weight name if matched."""
-
-    lowered = weight_name.lower()
-    if "bias" in lowered:
-        return None
-    for category in _MIXED_PRECISION_PRIORITY:
-        patterns = _MIXED_PRECISION_PATTERNS[category]
-        if any(token in lowered for token in patterns):
-            return category
-    return None
 
 
 def _resolve_mixed_precision_plan(
@@ -105,29 +105,27 @@ def _resolve_mixed_precision_plan(
         return plan, counts
 
     for name in weight_names:
-        category = _classify_weight_for_mixed_precision(name)
-        if category is None:
+        lowered = name.lower()
+        if "bias" in lowered:
             continue
-        if category not in overrides:
-            continue
-        plan[name] = overrides[category]
-        counts[category] += 1
+        for category, patterns in _MIXED_PRECISION_PATTERNS.items():
+            if category not in overrides:
+                continue
+            if any(token in lowered for token in patterns):
+                plan[name] = overrides[category]
+                counts[category] += 1
+                break
+
     return plan, counts
 
 
-def _cosine_similarity(
-    lhs: np.ndarray,
-    rhs: np.ndarray,
-) -> float:
-    """Compute cosine similarity between two vectors."""
+def _mixed_precision_arg(value: str) -> Dict[str, int]:
+    """argparse helper that validates mixed-precision override specifications."""
 
-    lhs_flat = np.asarray(lhs, dtype=np.float64).reshape(-1)
-    rhs_flat = np.asarray(rhs, dtype=np.float64).reshape(-1)
-    lhs_norm = np.linalg.norm(lhs_flat)
-    rhs_norm = np.linalg.norm(rhs_flat)
-    if lhs_norm == 0.0 or rhs_norm == 0.0:
-        raise ValueError("Cosine similarity undefined for zero-norm embeddings.")
-    return float(np.dot(lhs_flat, rhs_flat) / (lhs_norm * rhs_norm))
+    try:
+        return _parse_mixed_precision_overrides(value)
+    except ValueError as exc:  # pragma: no cover - argparse converts to CLI error
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 __all__ = [
@@ -136,7 +134,6 @@ __all__ = [
     "NEURAL_ENGINE_GROUP_SIZES",
     "_validate_group_size_for_backend",
     "_parse_mixed_precision_overrides",
-    "_classify_weight_for_mixed_precision",
     "_resolve_mixed_precision_plan",
-    "_cosine_similarity",
+    "_mixed_precision_arg",
 ]

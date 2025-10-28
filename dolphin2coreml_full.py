@@ -38,12 +38,10 @@ import textwrap
 import time
 
 
-from dolphin_quantization import (
+from quantization import (
     SUPPORTED_MIXED_PRECISION_KEYS,
-    SUPPORTED_WBITS,
-    _classify_weight_for_mixed_precision,
     _cosine_similarity,
-    _parse_mixed_precision_overrides,
+    _mixed_precision_arg,
     _resolve_mixed_precision_plan,
     _validate_group_size_for_backend,
 )
@@ -399,21 +397,6 @@ def _torch_device(module: torch.nn.Module) -> torch.device:
         return torch.device("cpu")
 
 
-def _cosine_similarity(
-    lhs: np.ndarray,
-    rhs: np.ndarray,
-) -> float:
-    """Compute cosine similarity between two vectors."""
-
-    lhs_flat = np.asarray(lhs, dtype=np.float64).reshape(-1)
-    rhs_flat = np.asarray(rhs, dtype=np.float64).reshape(-1)
-    lhs_norm = np.linalg.norm(lhs_flat)
-    rhs_norm = np.linalg.norm(rhs_flat)
-    if lhs_norm == 0.0 or rhs_norm == 0.0:
-        raise ValueError("Cosine similarity undefined for zero-norm embeddings.")
-    return float(np.dot(lhs_flat, rhs_flat) / (lhs_norm * rhs_norm))
-
-
 def _validate_embedding_parity(
     mlmodel: "ct.models.MLModel",
     embedding_module: torch.nn.Module,
@@ -667,6 +650,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--mixed-precision",
         dest="mixed_precision",
         default=None,
+        type=_mixed_precision_arg,
         help=(
             "Comma separated overrides for palettization bit-width by component. "
             "Example: 'attention=6,mlp=4'. Supported keys: attention, mlp."
@@ -752,11 +736,7 @@ def main(argv: Sequence[str]) -> int:
         console.print(Panel.fit(f"[bold red]❌ {exc}", border_style="red"))
         return 2
 
-    try:
-        mixed_precision_overrides = _parse_mixed_precision_overrides(args.mixed_precision)
-    except ValueError as exc:
-        console.print(Panel.fit(f"[bold red]❌ {exc}", border_style="red"))
-        return 2
+    mixed_precision_overrides = args.mixed_precision or {}
 
     cache_dir = Path(args.cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -1091,6 +1071,20 @@ def main(argv: Sequence[str]) -> int:
         plan, mixed_summary = _resolve_mixed_precision_plan(
             weight_metadata.keys(), mixed_precision_overrides
         )
+
+        unused_overrides = [
+            key for key in sorted(mixed_precision_overrides) if key not in mixed_summary
+        ]
+        if unused_overrides:
+            console.print(
+                Panel.fit(
+                    "[yellow]Warning: The following mixed precision overrides were not used "
+                    "(no matching weights found): "
+                    + ", ".join(unused_overrides),
+                    title="Unused Mixed Precision Overrides",
+                    border_style="yellow",
+                )
+            )
         if plan:
             op_name_overrides = {
                 name: OpPalettizerConfig(

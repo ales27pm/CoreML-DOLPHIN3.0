@@ -8,11 +8,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dolphin_quantization import (
+from quantization import (
     NEURAL_ENGINE_GROUP_SIZES,
     SUPPORTED_MIXED_PRECISION_KEYS,
     SUPPORTED_WBITS,
-    _classify_weight_for_mixed_precision,
     _cosine_similarity,
     _parse_mixed_precision_overrides,
     _resolve_mixed_precision_plan,
@@ -47,6 +46,11 @@ def test_parse_mixed_precision_overrides_rejects_invalid_entries(invalid_spec: s
         _parse_mixed_precision_overrides(invalid_spec)
 
 
+def test_parse_mixed_precision_overrides_rejects_duplicates() -> None:
+    with pytest.raises(ValueError, match="Duplicate"):
+        _parse_mixed_precision_overrides("attention=4, attention=6")
+
+
 @pytest.mark.parametrize("compute_units", ["ALL", "CPU_AND_GPU"])
 @pytest.mark.parametrize("group_size", NEURAL_ENGINE_GROUP_SIZES)
 def test_validate_group_size_for_backend_accepts_ne_group_sizes(group_size: int, compute_units: str) -> None:
@@ -70,10 +74,27 @@ def test_validate_group_size_for_backend_rejects_invalid_sizes(group_size: int) 
         ("layers.0.mlp.down_proj.weight", "mlp"),
         ("norm.weight", None),
         ("layers.0.self_attn.q_proj.bias", None),
+        ("LAYERS.0.SELF_ATTN.Q_PROJ.WEIGHT", None),
+        ("layers_0__self_attn__q_proj__weight", None),
+        ("layers.0.self_attn.q_proj_weight", None),
+        ("layers.0.self_attn.q_proj.weight_extra", None),
+        ("layers.0.SELF_ATTN.q_proj.weight", None),
+        ("layers.0.self_attn.k_proj__weight", None),
+        ("layers.0.mlp.down_proj.weight_", None),
+        ("layers.0.mlp.down_proj.WEIGHT", None),
     ],
 )
-def test_classify_weight_for_mixed_precision(name: str, expected: str | None) -> None:
-    assert _classify_weight_for_mixed_precision(name) == expected
+def test_resolve_mixed_precision_plan_matches_patterns(
+    name: str, expected: str | None
+) -> None:
+    overrides = {"attention": 6, "mlp": 4}
+    plan, counts = _resolve_mixed_precision_plan([name], overrides)
+    if expected is None:
+        assert plan == {}
+        assert not counts
+    else:
+        assert plan == {name: overrides[expected]}
+        assert counts[expected] == 1
 
 
 def test_resolve_mixed_precision_plan_counts() -> None:
@@ -95,8 +116,9 @@ def test_resolve_mixed_precision_plan_counts() -> None:
     assert counts["mlp"] == 1
 
 
+@pytest.mark.parametrize("bits", SUPPORTED_WBITS)
 @pytest.mark.parametrize("category", SUPPORTED_MIXED_PRECISION_KEYS.keys())
-def test_mixed_precision_overrides_allow_supported_bits(category: str) -> None:
-    spec = f"{category}=4"
+def test_mixed_precision_overrides_allow_supported_bits(category: str, bits: int) -> None:
+    spec = f"{category}={bits}"
     overrides = _parse_mixed_precision_overrides(spec)
-    assert overrides[category] in SUPPORTED_WBITS
+    assert overrides[category] == bits

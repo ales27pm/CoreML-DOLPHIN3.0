@@ -7,13 +7,15 @@ its companion Swift runtime. Follow these rules for any contribution:
 
 - Keep `dolphin2coreml_full.py` production ready. Changes must preserve LoRA
   merging (via Unsloth), LLM2Vec attachment, mixed-precision aware quantization,
-  and the deterministic validation suite triggered by `--profile-validate`.
+  the quantization sweep/reporting workflow, and the deterministic validation
+  suite triggered by `--profile-validate`.
 - Prefer standard-library modules; if third-party packages are required, update
   `requirements-dev.txt` and document the usage in the README.
 - Provide descriptive logging and actionable error messages. Avoid placeholders
   or partially implemented functions.
-- When touching the golden prompts or validation logic, update the README's
-  command-reference section so operators understand the latest CLI surface.
+- When touching the golden prompts, validation logic, or quantization sweep
+  planning/reporting, update the README's command-reference section so
+  operators understand the latest CLI surface and JSON outputs.
 
 ## Swift Runtime
 
@@ -29,5 +31,5 @@ its companion Swift runtime. Follow these rules for any contribution:
   sync with the codebase (CLI options, validation reports, Swift integration)
   when behaviour changes.
 - Run `python -m compileall dolphin2coreml_full.py Sources/App/LLM Sources/App/Bench`
-  and keep `ROADMAP.md` aligned with implemented features before committing
-  changes.
+  and keep `ROADMAP.md` plus the sweep documentation aligned with implemented
+  features before committing changes.

@@ -7,7 +7,8 @@ This scope applies to all Swift code under `Sources/`.
 - Keep modules free of placeholder implementations—mirror the production utilities already in
   place (Core ML wrappers, benchmark harnesses) and ensure public APIs expose thorough
   documentation comments when behaviour is non-obvious. The streaming + background execution
-  patterns documented in the README must remain accurate when altering the runtime APIs.
+  patterns documented in the README and the quantization sweep reporting guidance must remain
+  accurate when altering the runtime APIs.
 - Maintain Core ML imports and avoid introducing platform-specific APIs without `#if canImport`
   guards.
 - Prefer deterministic performance measurements and guard against unsafe pointer usage by
@@ -15,4 +16,5 @@ This scope applies to all Swift code under `Sources/`.
   logging hooks (os.log categories) used by the examples so app developers can correlate runtime
   metrics with pipeline validation output.
 - When introducing new Swift sources, accompany them with integration notes in the README or
-  inline doc comments so app developers understand how to wire them into Xcode projects.
+  inline doc comments so app developers understand how to wire them into Xcode projects and how
+  they relate to the exporter’s benchmarking/sweep outputs.

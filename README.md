@@ -21,8 +21,6 @@ Sources/App/Bench/       # Optional benchmarking harness for Core ML packages
 requirements-dev.txt     # Heavier dev/test dependencies (Torch, Transformers, Core ML Tools, etc.)
 pyproject.toml           # Packaging metadata for the conversion script
 ```
-To benchmark multiple quantization settings in one run, provide a directory as
-`--output` and enable the sweep mode:
 
 ## Conversion Workflow
 
@@ -44,6 +42,8 @@ python dolphin2coreml_full.py \
   --clean-tmp
 ```
 
+### Quantization sweeps & reporting
+
 To benchmark multiple quantization settings in one run, provide a directory as
 `--output` and enable the sweep mode:
 
@@ -57,6 +57,45 @@ python dolphin2coreml_full.py \
   --quant-sweep \
   --sweep-report artifacts/dolphin_sweep.json
 ```
+
+When `--quant-sweep` is enabled the exporter evaluates a primary variant first
+using the CLI defaults (e.g., `--wbits 4 --palett-group-size 16`) and then
+iterates through additional bit-width and group-size combinations derived from
+`--sweep-wbits`/`--sweep-group-sizes`. For each variant the pipeline:
+
+1. Saves the quantized `.mlpackage` at `OUTPUT/dolphin_w{bits}_g{group}.mlpackage`.
+2. Records size-on-disk and compression ratios versus an FP16 baseline.
+3. Optionally gathers decode latency/residency metrics using the golden prompts
+   from the validation suite.
+4. Emits a Rich summary table highlighting validation outcomes and any
+   collection errors.
+
+Supplying `--sweep-report` persists the sweep output as JSON for CI dashboards
+and regression tracking. A shortened example payload:
+
+```json
+{
+  "model": "dphn/Dolphin3.0-Llama3.1-8B",
+  "minimum_deployment_target": "iOS18",
+  "evaluated_wbits": [4, 2, 6],
+  "evaluated_group_sizes": [16, 32],
+  "variants": [
+    {
+      "wbits": 4,
+      "group_size": 16,
+      "size_bytes": 1234567890,
+      "compression_ratio": 0.28,
+      "performance": {
+        "aggregate": {"decode_p50_ms": 17.2, "avg_residency_pct": 82.4}
+      },
+      "validation_passed": true
+    }
+  ]
+}
+```
+
+Downstream automation can diff the JSON artefacts to detect regressions across
+hardware configurations or Core ML toolchain updates.
 
 Key stages:
 
@@ -78,7 +117,7 @@ Key stages:
    you can verify the number of affected operators per component. Enable
    `--quant-sweep` to iterate through multiple bit-width/group-size pairs,
    collect decode/residency metrics for each variant, and surface a summary
-   table plus an optional JSON report consumable by CI dashboards.
+   table plus optional JSON artefacts consumable by CI dashboards.
 6. **Optional validation** – When `--profile-validate` is set the script now
    compares deterministic golden transcripts between the PyTorch model and the
    exported Core ML package, reporting decode latency percentiles, KV-cache

@@ -2,8 +2,9 @@
 
 This roadmap aligns ongoing development with the repository's single objective:
 ship a production-ready Core ML export of **Dolphin3.0-Llama3.1-8B** that merges
-LoRA adapters via Unsloth, applies 4-bit quantization, and delivers multifunction
-chat + LLM2Vec capabilities through a Swift runtime wrapper.
+LoRA adapters via Unsloth, applies 4-bit quantization (with optional sweeps),
+and delivers multifunction chat + LLM2Vec capabilities through a Swift runtime
+wrapper.
 
 ## Guiding Principles
 
@@ -21,8 +22,9 @@ chat + LLM2Vec capabilities through a Swift runtime wrapper.
 - Conversion pipeline merges LoRA weights with Unsloth, exports
   init/decode/encode graphs, and persists multifunction `.mlpackage` bundles.
 - Quantization defaults to 4-bit grouped-channel palettization, with
-  CLI-configurable group sizes, mixed-precision overrides, and backend-specific
-  guard rails.
+  CLI-configurable group sizes, mixed-precision overrides, backend-specific
+  guard rails, and an automated sweep mode that benchmarks multiple
+  configurations while emitting Rich/JSON summaries for CI consumption.
 - `--profile-validate` executes golden transcript comparisons, reports decode
   latency percentiles + KV-cache residency, and enforces ≥0.99 cosine similarity
   for LLM2Vec embeddings.
@@ -31,10 +33,11 @@ chat + LLM2Vec capabilities through a Swift runtime wrapper.
 
 ## Near-Term Objectives (0-2 sprints)
 
-1. **Automated quantization sweeps**
-   - Introduce a mode that sweeps through permitted `--wbits`/group sizes and
-     records size/perf trade-offs for target hardware classes.
-   - Surface summary reports consumable by CI dashboards.
+1. **Sweep automation in CI**
+   - Schedule nightly/device-matrix quantization sweeps and archive the JSON
+     artefacts for regression tracking.
+   - Gate pull requests on configurable thresholds for latency regression and
+     package size growth.
 2. **Validation extensibility**
    - Support loading golden prompts from an external YAML/JSON config so teams
      can maintain domain-specific suites without editing the script.
@@ -74,7 +77,7 @@ chat + LLM2Vec capabilities through a Swift runtime wrapper.
 
 ## Checkpoints & Milestones
 
-- **Milestone A:** Quantization sweep mode with CI-ready reports (target:
+- **Milestone A (✅):** Quantization sweep mode with CI-ready reports (delivered
   Sprint 2).
 - **Milestone B:** Externalised validation suites with JSON artefacts (target:
   Sprint 3).

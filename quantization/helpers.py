@@ -147,6 +147,63 @@ def _mixed_precision_arg(value: str) -> Dict[str, int]:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
+def _parse_sweep_sequence(
+    raw: str,
+    *,
+    field: str,
+    allowed: Optional[Sequence[int]] = None,
+    minimum: int = 1,
+) -> Tuple[int, ...]:
+    """Return a deduplicated tuple of integers parsed from a comma list."""
+
+    entries = [segment.strip() for segment in raw.split(",") if segment.strip()]
+    if not entries:
+        raise argparse.ArgumentTypeError(
+            f"{field} requires at least one integer value."
+        )
+
+    seen = OrderedDict()
+    for entry in entries:
+        try:
+            value = int(entry)
+        except ValueError as exc:  # pragma: no cover - argparse guards help text
+            raise argparse.ArgumentTypeError(
+                f"{field} must contain integers separated by commas."
+            ) from exc
+
+        if value < minimum:
+            raise argparse.ArgumentTypeError(
+                f"{field} values must be ≥ {minimum}. Received {value}."
+            )
+
+        if allowed is not None and value not in allowed:
+            allowed_display = ", ".join(str(item) for item in allowed)
+            raise argparse.ArgumentTypeError(
+                f"{field} value {value} is not supported. Choose from: {allowed_display}."
+            )
+
+        seen.setdefault(value, None)
+
+    return tuple(seen.keys())
+
+
+def sweep_wbits_arg(value: str) -> Tuple[int, ...]:
+    """`argparse` helper that parses comma-separated weight bit-widths."""
+
+    return _parse_sweep_sequence(
+        value,
+        field="--sweep-wbits",
+        allowed=SUPPORTED_WBITS,
+        minimum=min(SUPPORTED_WBITS),
+    )
+
+
+def sweep_group_size_arg(value: str) -> Tuple[int, ...]:
+    """`argparse` helper that parses comma-separated palettization group sizes."""
+
+    return _parse_sweep_sequence(value, field="--sweep-group-sizes", allowed=None, minimum=1)
+
+
 __all__ = [
     "NEURAL_ENGINE_GROUP_SIZES",
     "SUPPORTED_MIXED_PRECISION_KEYS",
@@ -155,4 +212,6 @@ __all__ = [
     "_parse_mixed_precision_overrides",
     "_resolve_mixed_precision_plan",
     "_validate_group_size_for_backend",
+    "sweep_group_size_arg",
+    "sweep_wbits_arg",
 ]

@@ -20,8 +20,10 @@ with comprehensive error handling and logging.
 from __future__ import annotations
 
 import argparse
+import datetime
 import importlib
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -40,11 +42,15 @@ import time
 
 
 from quantization import (
+    NEURAL_ENGINE_GROUP_SIZES,
     SUPPORTED_MIXED_PRECISION_KEYS,
+    SUPPORTED_WBITS,
     _cosine_similarity,
     _mixed_precision_arg,
     _resolve_mixed_precision_plan,
     _validate_group_size_for_backend,
+    sweep_group_size_arg,
+    sweep_wbits_arg,
 )
 
 
@@ -316,6 +322,28 @@ class GoldenPrompt:
 
     prompt: str
     max_new_tokens: int = 32
+
+
+@dataclass(frozen=True)
+class QuantizationVariant:
+    """Combination of bit-width and group size evaluated during a sweep."""
+
+    wbits: int
+    group_size: int
+    output_path: Path
+
+
+@dataclass
+class QuantizationResult:
+    """Outcome of quantizing and benchmarking a single variant."""
+
+    variant: QuantizationVariant
+    size_bytes: Optional[int]
+    compression_ratio: Optional[float]
+    performance: Optional[Dict[str, Any]]
+    performance_error: Optional[str]
+    error: Optional[str]
+    validation_passed: Optional[bool] = None
 
 
 GOLDEN_PROMPTS: Sequence[GoldenPrompt] = (
@@ -595,6 +623,316 @@ def _run_coreml_decode(
     }
 
 
+def _compute_package_size(path: Path) -> int:
+    """Return the size of a saved Core ML package in bytes."""
+
+    if not path.exists():
+        raise FileNotFoundError(f"Cannot determine size for missing path: {path}")
+
+    if path.is_file():
+        return path.stat().st_size
+
+    if not path.is_dir():
+        raise RuntimeError(f"Unsupported path type for size computation: {path}")
+
+    total = 0
+    for entry in path.rglob("*"):
+        if entry.is_file():
+            total += entry.stat().st_size
+    return total
+
+
+def _remove_existing_path(path: Path) -> None:
+    """Remove an existing file or directory path before overwriting."""
+
+    if not path.exists():
+        return
+
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def _build_quantization_plan(
+    *,
+    root: Path,
+    default_wbits: int,
+    default_group_size: int,
+    compute_units: str,
+    requested_wbits: Optional[Sequence[int]],
+    requested_group_sizes: Optional[Sequence[int]],
+) -> List[QuantizationVariant]:
+    """Return the ordered list of quantization variants to evaluate."""
+
+    root.mkdir(parents=True, exist_ok=True)
+
+    wbits_sequence: List[int] = [default_wbits]
+    if requested_wbits:
+        wbits_sequence.extend(
+            [value for value in requested_wbits if value not in wbits_sequence]
+        )
+    else:
+        wbits_sequence.extend(
+            [value for value in SUPPORTED_WBITS if value not in wbits_sequence]
+        )
+
+    base_group_sequence: List[int] = [default_group_size]
+    if requested_group_sizes:
+        base_group_sequence.extend(
+            [value for value in requested_group_sizes if value not in base_group_sequence]
+        )
+    else:
+        ne_sizes = list(NEURAL_ENGINE_GROUP_SIZES)
+        if compute_units == "CPU_ONLY" and default_group_size not in ne_sizes:
+            ne_sizes.append(default_group_size)
+        base_group_sequence.extend(
+            [value for value in ne_sizes if value not in base_group_sequence]
+        )
+
+    variants: List[QuantizationVariant] = []
+    seen: set[Tuple[int, int]] = set()
+
+    for wbits in wbits_sequence:
+        for group_size in base_group_sequence:
+            key = (wbits, group_size)
+            if key in seen:
+                continue
+            try:
+                _validate_group_size_for_backend(group_size, compute_units)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Sweep configuration wbits={wbits}, group_size={group_size} is invalid: {exc}"
+                ) from exc
+            output_path = root / f"dolphin_w{wbits}_g{group_size}.mlpackage"
+            variants.append(
+                QuantizationVariant(
+                    wbits=wbits, group_size=group_size, output_path=output_path
+                )
+            )
+            seen.add(key)
+
+    return variants
+
+
+def _collect_coreml_performance(
+    *,
+    mlmodel: "ct.models.MLModel",
+    tokenizer: "AutoTokenizer",
+    seq_len: int,
+    num_layers: int,
+    prompts: Sequence[GoldenPrompt],
+) -> Dict[str, Any]:
+    """Run deterministic decode to capture latency and residency statistics."""
+
+    prompt_rows: List[Dict[str, Any]] = []
+    all_decode: List[float] = []
+    all_residency: List[float] = []
+    init_samples: List[float] = []
+    total_evicted = 0
+
+    def _percentile(samples: Sequence[float], percentile: float) -> float:
+        if not samples:
+            return 0.0
+        return float(np.percentile(np.array(samples, dtype=np.float64), percentile))
+
+    for golden in prompts:
+        padded_ids, padded_mask, _, effective_len = _prepare_prompt_arrays(
+            tokenizer, golden.prompt, seq_len
+        )
+        metrics = _run_coreml_decode(
+            mlmodel,
+            tokenizer,
+            padded_ids,
+            padded_mask,
+            effective_len,
+            seq_len,
+            num_layers,
+            golden.max_new_tokens,
+            tokenizer.eos_token_id,
+        )
+
+        decode_ms = metrics["decode_ms"]
+        init_samples.append(float(metrics["init_ms"]))
+        all_decode.extend(float(sample) for sample in decode_ms)
+        all_residency.extend(float(sample) for sample in metrics["residency"])
+        total_evicted += int(metrics["evicted"])
+
+        avg_decode = float(sum(decode_ms) / len(decode_ms)) if decode_ms else 0.0
+        final_residency = (
+            float(metrics["residency"][-1] * 100.0)
+            if metrics["residency"]
+            else 0.0
+        )
+
+        prompt_rows.append(
+            {
+                "prompt": golden.prompt,
+                "init_ms": float(metrics["init_ms"]),
+                "avg_decode_ms": avg_decode,
+                "decode_p50_ms": _percentile(decode_ms, 50),
+                "decode_p90_ms": _percentile(decode_ms, 90),
+                "decode_p99_ms": _percentile(decode_ms, 99),
+                "final_residency_pct": final_residency,
+                "evicted_tokens": int(metrics["evicted"]),
+            }
+        )
+
+    aggregate = {
+        "init_mean_ms": statistics.fmean(init_samples) if init_samples else 0.0,
+        "decode_p50_ms": _percentile(all_decode, 50),
+        "decode_p90_ms": _percentile(all_decode, 90),
+        "decode_p99_ms": _percentile(all_decode, 99),
+        "avg_residency_pct": (statistics.fmean(all_residency) * 100.0)
+        if all_residency
+        else 0.0,
+        "min_residency_pct": (min(all_residency) * 100.0) if all_residency else 0.0,
+        "max_residency_pct": (max(all_residency) * 100.0) if all_residency else 0.0,
+        "total_evicted_tokens": total_evicted,
+    }
+
+    return {"prompts": prompt_rows, "aggregate": aggregate}
+
+
+def _render_sweep_summary(
+    results: Sequence[QuantizationResult], *, baseline_size: Optional[int]
+) -> None:
+    """Print a Rich table summarising sweep outcomes."""
+
+    table = Table(title="Quantization Sweep Summary")
+    table.add_column("Variant", justify="left")
+    table.add_column("Size (GB)", justify="right")
+    table.add_column("Vs FP16", justify="right")
+    table.add_column("p50 ms", justify="right")
+    table.add_column("p90 ms", justify="right")
+    table.add_column("p99 ms", justify="right")
+    table.add_column("Avg residency %", justify="right")
+    table.add_column("Notes", justify="left")
+
+    for index, result in enumerate(results):
+        variant = result.variant
+        label = f"W{variant.wbits}/G{variant.group_size}"
+        if index == 0:
+            label += " (primary)"
+
+        size_display = (
+            f"{result.size_bytes / 1e9:.3f}"
+            if result.size_bytes is not None
+            else "-"
+        )
+        if result.compression_ratio is not None:
+            ratio_display = f"{result.compression_ratio:.3f}×"
+        elif baseline_size and result.size_bytes is not None:
+            ratio_display = f"{(result.size_bytes / baseline_size):.3f}×"
+        else:
+            ratio_display = "-"
+
+        aggregate = result.performance.get("aggregate") if result.performance else {}
+        p50_display = (
+            f"{aggregate.get('decode_p50_ms', 0.0):.2f}" if aggregate else "-"
+        )
+        p90_display = (
+            f"{aggregate.get('decode_p90_ms', 0.0):.2f}" if aggregate else "-"
+        )
+        p99_display = (
+            f"{aggregate.get('decode_p99_ms', 0.0):.2f}" if aggregate else "-"
+        )
+        residency_display = (
+            f"{aggregate.get('avg_residency_pct', 0.0):.2f}"
+            if aggregate
+            else "-"
+        )
+
+        notes: List[str] = []
+        if result.error:
+            notes.append(f"❌ {result.error}")
+        if result.performance_error:
+            notes.append(f"⚠️ {result.performance_error}")
+        if result.validation_passed is True:
+            notes.append("Validation ✅")
+        elif result.validation_passed is False:
+            notes.append("Validation ❌")
+
+        table.add_row(
+            label,
+            size_display,
+            ratio_display,
+            p50_display,
+            p90_display,
+            p99_display,
+            residency_display,
+            "\n".join(notes) if notes else "",
+        )
+
+    console.print(table)
+
+
+def _write_sweep_report(
+    path: Path,
+    *,
+    model: str,
+    revision: Optional[str],
+    compute_units: str,
+    deployment_target: str,
+    seq_len: int,
+    baseline_size: Optional[int],
+    results: Sequence[QuantizationResult],
+    evaluated_wbits: Sequence[int],
+    evaluated_group_sizes: Sequence[int],
+) -> None:
+    """Persist a machine-readable summary of sweep results."""
+
+    resolved_path = path.expanduser().resolve()
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+
+    payload: Dict[str, Any] = {
+        "model": model,
+        "revision": revision,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "compute_units": compute_units,
+        "minimum_deployment_target": deployment_target,
+        "seq_len": seq_len,
+        "evaluated_wbits": list(evaluated_wbits),
+        "evaluated_group_sizes": list(evaluated_group_sizes),
+        "variants": [],
+    }
+
+    if baseline_size is not None:
+        payload["baseline_size_bytes"] = baseline_size
+
+    for result in results:
+        entry: Dict[str, Any] = {
+            "wbits": result.variant.wbits,
+            "group_size": result.variant.group_size,
+            "output_path": str(result.variant.output_path.resolve()),
+        }
+        if result.size_bytes is not None:
+            entry["size_bytes"] = result.size_bytes
+        if result.compression_ratio is not None:
+            entry["compression_ratio"] = result.compression_ratio
+        if result.performance is not None:
+            entry["performance"] = result.performance
+        if result.performance_error:
+            entry["performance_error"] = result.performance_error
+        if result.error:
+            entry["error"] = result.error
+        if result.validation_passed is not None:
+            entry["validation_passed"] = result.validation_passed
+        payload["variants"].append(entry)
+
+    try:
+        resolved_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    except Exception as exc:  # pragma: no cover - filesystem specific
+        raise RuntimeError(f"Failed to write sweep report to {resolved_path}: {exc}") from exc
+
+    console.print(
+        Panel.fit(
+            f"[bold green]Quantization sweep report written to {resolved_path}",
+            border_style="green",
+        )
+    )
+
+
 # ---------------------------------------------------------------------------
 # Argument parsing utilities
 # ---------------------------------------------------------------------------
@@ -667,6 +1005,32 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         type=int,
         default=16,
         help="Group size when using grouped-channel palettization",
+    )
+    parser.add_argument(
+        "--quant-sweep",
+        dest="quant_sweep",
+        action="store_true",
+        help="Sweep quantization configs across supported bit-widths/group sizes and report trade-offs.",
+    )
+    parser.add_argument(
+        "--sweep-wbits",
+        dest="sweep_wbits",
+        type=sweep_wbits_arg,
+        default=None,
+        help="Comma-separated bit-widths (e.g., '2,4,6') to include in the quantization sweep.",
+    )
+    parser.add_argument(
+        "--sweep-group-sizes",
+        dest="sweep_group_sizes",
+        type=sweep_group_size_arg,
+        default=None,
+        help="Comma-separated palettization group sizes to include in the sweep report.",
+    )
+    parser.add_argument(
+        "--sweep-report",
+        dest="sweep_report",
+        default=None,
+        help="Optional JSON file path for CI consumption of sweep metrics.",
     )
     parser.add_argument(
         "--mixed-precision",
@@ -752,6 +1116,15 @@ def ensure_llm2vec() -> None:
 def main(argv: Sequence[str]) -> int:
     args = parse_args(argv)
 
+    if (args.sweep_wbits or args.sweep_group_sizes or args.sweep_report) and not args.quant_sweep:
+        console.print(
+            Panel.fit(
+                "[bold red]❌ Sweep options require --quant-sweep to be enabled.",
+                border_style="red",
+            )
+        )
+        return 2
+
     try:
         _validate_group_size_for_backend(args.palett_group_size, args.compute_units)
     except ValueError as exc:
@@ -765,8 +1138,11 @@ def main(argv: Sequence[str]) -> int:
 
     tmp_dir = prepare_tmp_dir(Path(args.tmp))
 
-    out_path = Path(args.output)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    compression_line = (
+        "• Sweep quantization variants"
+        if args.quant_sweep
+        else f"• Apply W{args.wbits} compression"
+    )
 
     console.print(
         Panel.fit(
@@ -777,7 +1153,7 @@ def main(argv: Sequence[str]) -> int:
                 "• Attach LLM2Vec encoder\n"
                 "• Export init/decode/encode wrappers\n"
                 "• Convert to Core ML multifunction mlprogram\n"
-                f"• Apply W{args.wbits} compression • Validate"
+                f"{compression_line} • Validate"
             ),
             title="Pipeline Start",
             border_style="cyan",
@@ -1083,7 +1459,7 @@ def main(argv: Sequence[str]) -> int:
     # ------------------------------------------------------------------
     console.print(
         Panel.fit(
-            f"[bold green]Applying W{args.wbits} compression: palettization + linear quant…"
+            "[bold green]Preparing Core ML compression (palettization + linear quantization)…"
         )
     )
 
@@ -1096,21 +1472,19 @@ def main(argv: Sequence[str]) -> int:
         palettize_weights,
     )
 
-    op_name_overrides: Optional[Dict[str, OpPalettizerConfig]] = None
+    mixed_plan: Dict[str, int] = {}
     mixed_summary: Counter[str] = Counter()
 
     if mixed_precision_overrides:
         try:
             weight_metadata = get_weights_metadata(model_converted)
-        except (
-            Exception
-        ) as exc:  # pragma: no cover - depends on Core ML runtime availability
+        except Exception as exc:  # pragma: no cover - depends on Core ML runtime availability
             raise RuntimeError(
                 "Mixed precision overrides require Core ML weight metadata support. "
                 "Ensure coremltools is installed with libcoremlpython bindings."
             ) from exc
 
-        plan, mixed_summary = _resolve_mixed_precision_plan(
+        mixed_plan, mixed_summary = _resolve_mixed_precision_plan(
             weight_metadata.keys(), mixed_precision_overrides
         )
 
@@ -1126,16 +1500,7 @@ def main(argv: Sequence[str]) -> int:
                     border_style="yellow",
                 )
             )
-        if plan:
-            op_name_overrides = {
-                name: OpPalettizerConfig(
-                    nbits=nbits,
-                    granularity=args.palett_granularity,
-                    group_size=args.palett_group_size,
-                )
-                for name, nbits in plan.items()
-            }
-        else:
+        if not mixed_plan:
             console.print(
                 Panel.fit(
                     "[bold yellow]⚠️ No weights matched the requested mixed-precision overrides. "
@@ -1144,14 +1509,6 @@ def main(argv: Sequence[str]) -> int:
                 )
             )
 
-    pal_config = OptimizationConfig(
-        global_config=OpPalettizerConfig(
-            nbits=args.wbits,
-            granularity=args.palett_granularity,
-            group_size=args.palett_group_size,
-        ),
-        op_name_configs=op_name_overrides,
-    )
     if mixed_summary:
         lines = ["[bold green]Mixed-precision overrides applied:"]
         for key, description in SUPPORTED_MIXED_PRECISION_KEYS.items():
@@ -1163,35 +1520,191 @@ def main(argv: Sequence[str]) -> int:
                 )
         console.print(Panel.fit("\n".join(lines), border_style="green"))
 
-    model_pal = palettize_weights(model_converted, pal_config)
-
     lin_config = OptimizationConfig(
         global_config=OpLinearQuantizerConfig(
             mode="linear_symmetric",
             granularity="per_tensor",
         )
     )
-    model_wbits = linear_quantize_weights(
-        model_pal,
-        lin_config,
-        joint_compression=True,
+
+    quant_results: List[QuantizationResult] = []
+    baseline_size_bytes: Optional[int] = None
+    output_root = Path(args.output)
+    sweep_wbits: Tuple[int, ...] = (
+        tuple(args.sweep_wbits) if args.sweep_wbits else ()
+    )
+    sweep_group_sizes: Tuple[int, ...] = (
+        tuple(args.sweep_group_sizes) if args.sweep_group_sizes else ()
     )
 
-    console.print("[green]Compression complete.")
-
-    # ------------------------------------------------------------------
-    # Step 9: Persist the mlpackage
-    # ------------------------------------------------------------------
-    console.print(Panel.fit(f"[bold green]Saving final model to {out_path}…"))
-    model_wbits.save(str(out_path))
-
-    if out_path.is_file():
-        size_bytes = out_path.stat().st_size
-    else:
-        size_bytes = sum(
-            item.stat().st_size for item in out_path.rglob("*") if item.is_file()
+    if args.quant_sweep:
+        if output_root.suffix == ".mlpackage":
+            console.print(
+                Panel.fit(
+                    "[bold red]❌ --output must be a directory when --quant-sweep is enabled.",
+                    border_style="red",
+                )
+            )
+            return 2
+        if output_root.exists() and not output_root.is_dir():
+            console.print(
+                Panel.fit(
+                    f"[bold red]❌ Sweep output path {output_root} exists and is not a directory.",
+                    border_style="red",
+                )
+            )
+            return 2
+        try:
+            quant_plan = _build_quantization_plan(
+                root=output_root,
+                default_wbits=args.wbits,
+                default_group_size=args.palett_group_size,
+                compute_units=args.compute_units,
+                requested_wbits=list(sweep_wbits) if sweep_wbits else None,
+                requested_group_sizes=list(sweep_group_sizes) if sweep_group_sizes else None,
+            )
+        except ValueError as exc:
+            console.print(Panel.fit(f"[bold red]❌ {exc}", border_style="red"))
+            return 2
+        baseline_tmp = tmp_dir / "baseline_fp16.mlpackage"
+        _remove_existing_path(baseline_tmp)
+        model_converted.save(str(baseline_tmp))
+        baseline_size_bytes = _compute_package_size(baseline_tmp)
+        _remove_existing_path(baseline_tmp)
+        evaluated_wbits = tuple(
+            dict.fromkeys(variant.wbits for variant in quant_plan)
         )
-    console.print(f"[blue]Final package size: {size_bytes / 1e9:.3f} GB")
+        evaluated_group_sizes = tuple(
+            dict.fromkeys(variant.group_size for variant in quant_plan)
+        )
+    else:
+        output_root.parent.mkdir(parents=True, exist_ok=True)
+        quant_plan = [
+            QuantizationVariant(
+                wbits=args.wbits,
+                group_size=args.palett_group_size,
+                output_path=output_root,
+            )
+        ]
+        evaluated_wbits = (args.wbits,)
+        evaluated_group_sizes = (args.palett_group_size,)
+
+    if not quant_plan:
+        raise RuntimeError("Quantization plan did not produce any variants.")
+
+    for index, variant in enumerate(quant_plan):
+        descriptor = f"W{variant.wbits}/G{variant.group_size}"
+        border = "green" if index == 0 else "cyan"
+        console.print(
+            Panel.fit(
+                f"[bold {border}]Applying compression for {descriptor}",
+                border_style=border,
+            )
+        )
+        try:
+            variant.output_path.parent.mkdir(parents=True, exist_ok=True)
+            _remove_existing_path(variant.output_path)
+            pal_config = OptimizationConfig(
+                global_config=OpPalettizerConfig(
+                    nbits=variant.wbits,
+                    granularity=args.palett_granularity,
+                    group_size=variant.group_size,
+                ),
+                op_name_configs={
+                    name: OpPalettizerConfig(
+                        nbits=nbits,
+                        granularity=args.palett_granularity,
+                        group_size=variant.group_size,
+                    )
+                    for name, nbits in mixed_plan.items()
+                }
+                if mixed_plan
+                else None,
+            )
+            model_pal = palettize_weights(model_converted, pal_config)
+            model_quant = linear_quantize_weights(
+                model_pal,
+                lin_config,
+                joint_compression=True,
+            )
+            model_quant.save(str(variant.output_path))
+            size_bytes = _compute_package_size(variant.output_path)
+        except Exception as exc:
+            message = f"Failed to quantize variant {descriptor}: {exc}"
+            if index == 0:
+                console.print(
+                    Panel.fit(f"[bold red]❌ {message}", border_style="red")
+                )
+                raise
+            console.print(
+                Panel.fit(f"[bold yellow]⚠️ {message}", border_style="yellow")
+            )
+            quant_results.append(
+                QuantizationResult(
+                    variant=variant,
+                    size_bytes=None,
+                    compression_ratio=None,
+                    performance=None,
+                    performance_error=None,
+                    error=str(exc),
+                )
+            )
+            continue
+
+        compression_ratio = (
+            (size_bytes / baseline_size_bytes) if baseline_size_bytes else None
+        )
+
+        performance: Optional[Dict[str, Any]] = None
+        performance_error: Optional[str] = None
+        if args.quant_sweep:
+            try:
+                mlmodel_variant = ct.models.MLModel(
+                    str(variant.output_path),
+                    compute_units=resolve_compute_units(args.compute_units),
+                )
+                performance = _collect_coreml_performance(
+                    mlmodel=mlmodel_variant,
+                    tokenizer=tokenizer,
+                    seq_len=seq_len,
+                    num_layers=num_layers,
+                    prompts=GOLDEN_PROMPTS,
+                )
+            except Exception as exc:
+                performance_error = str(exc)
+                console.print(
+                    Panel.fit(
+                        f"[bold yellow]⚠️ Unable to collect performance metrics for {descriptor}:[/] {exc}",
+                        border_style="yellow",
+                    )
+                )
+
+        quant_results.append(
+            QuantizationResult(
+                variant=variant,
+                size_bytes=size_bytes,
+                compression_ratio=compression_ratio,
+                performance=performance,
+                performance_error=performance_error,
+                error=None,
+            )
+        )
+        console.print(
+            f"[green]Saved {descriptor} to {variant.output_path} ({size_bytes / 1e9:.3f} GB)."
+        )
+
+    primary_result = quant_results[0]
+    primary_output_path = primary_result.variant.output_path
+    console.print(
+        Panel.fit(
+            f"[bold green]Primary quantized model available at {primary_output_path}",
+            border_style="green",
+        )
+    )
+    if primary_result.size_bytes is not None:
+        console.print(
+            f"[blue]Final package size: {primary_result.size_bytes / 1e9:.3f} GB"
+        )
 
     # ------------------------------------------------------------------
     # Step 10: Optional validation
@@ -1202,7 +1715,7 @@ def main(argv: Sequence[str]) -> int:
         console.print(Panel.fit("[bold green]Running deterministic validation suite…"))
         try:
             mlmodel = ct.models.MLModel(
-                str(out_path),
+                str(primary_output_path),
                 compute_units=resolve_compute_units(args.compute_units),
             )
 
@@ -1389,6 +1902,25 @@ def main(argv: Sequence[str]) -> int:
                 )
             )
             raise
+
+    if quant_results and args.profile_validate:
+        quant_results[0].validation_passed = not validation_failed
+
+    if args.quant_sweep:
+        _render_sweep_summary(quant_results, baseline_size=baseline_size_bytes)
+        if args.sweep_report:
+            _write_sweep_report(
+                Path(args.sweep_report),
+                model=args.model,
+                revision=args.revision,
+                compute_units=args.compute_units,
+                deployment_target=args.minimum_deployment_target,
+                seq_len=args.seq_len,
+                baseline_size=baseline_size_bytes,
+                results=quant_results,
+                evaluated_wbits=evaluated_wbits,
+                evaluated_group_sizes=evaluated_group_sizes,
+            )
 
     # ------------------------------------------------------------------
     # Step 11: Optional cleanup

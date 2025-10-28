@@ -1,8 +1,17 @@
 from __future__ import annotations
 
+import argparse
+
 import pytest
 
-np = pytest.importorskip("numpy")
+try:  # pragma: no cover - exercised during import
+    import numpy as np
+except ModuleNotFoundError as exc:  # pragma: no cover - import guard
+    raise ModuleNotFoundError(
+        "NumPy is required for quantization unit tests. Install the project "
+        "dependencies via 'python -m pip install -r requirements-dev.txt' before "
+        "running pytest."
+    ) from exc
 
 import sys
 from pathlib import Path
@@ -17,6 +26,8 @@ from quantization import (
     _parse_mixed_precision_overrides,
     _resolve_mixed_precision_plan,
     _validate_group_size_for_backend,
+    sweep_group_size_arg,
+    sweep_wbits_arg,
 )
 
 
@@ -137,3 +148,23 @@ def test_mixed_precision_overrides_allow_supported_bits(
     spec = f"{category}={bits}"
     overrides = _parse_mixed_precision_overrides(spec)
     assert overrides[category] == bits
+
+
+def test_sweep_wbits_arg_parses_unique_ordered_values() -> None:
+    assert sweep_wbits_arg("4,2,4,8") == (4, 2, 8)
+
+
+@pytest.mark.parametrize("invalid", ["", "foo", "3", "2,seven"])
+def test_sweep_wbits_arg_rejects_invalid_entries(invalid: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        sweep_wbits_arg(invalid)
+
+
+def test_sweep_group_size_arg_accepts_positive_integers() -> None:
+    assert sweep_group_size_arg("16,32,16") == (16, 32)
+
+
+@pytest.mark.parametrize("invalid", ["0", "-2", "", "one"])
+def test_sweep_group_size_arg_rejects_invalid_entries(invalid: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        sweep_group_size_arg(invalid)

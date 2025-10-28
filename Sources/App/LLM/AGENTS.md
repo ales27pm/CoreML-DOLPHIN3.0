@@ -5,7 +5,7 @@ This scope covers the `Sources/App/LLM/` directory, including `DolphinCoreML.swi
 - Preserve compatibility with multifunction `.mlpackage` artifacts that expose `init`, `decode`,
   and `encode` entry points. Keep function names (`input_ids`, `attention_mask`, `past_k_*`,
   `out_v_*`, etc.) synchronized with the exporter and reflect any naming changes in the README's
-  code samples.
+  code samples and the quantization sweep documentation.
 - Keep `ComputeUnitSelection` and metadata-driven initialisers exhaustive. If new compute-unit
   options or Core ML targets emerge, extend the enums and configuration mapping with full test
   coverage.
@@ -17,4 +17,4 @@ This scope covers the `Sources/App/LLM/` directory, including `DolphinCoreML.swi
   `StreamedChatViewModel` guidance.
 - When adding new functionality (e.g., temperature sampling, batching), include unit or integration
   tests exercising the logic with synthetic `MLMultiArray` inputs and update benchmarking guidance
-  accordingly.
+  and sweep-related notes accordingly.

@@ -10,6 +10,8 @@ from .helpers import (
     _parse_mixed_precision_overrides,
     _resolve_mixed_precision_plan,
     _validate_group_size_for_backend,
+    sweep_group_size_arg,
+    sweep_wbits_arg,
 )
 from .math_utils import _cosine_similarity
 
@@ -22,4 +24,6 @@ __all__ = [
     "_parse_mixed_precision_overrides",
     "_resolve_mixed_precision_plan",
     "_validate_group_size_for_backend",
+    "sweep_group_size_arg",
+    "sweep_wbits_arg",
 ]

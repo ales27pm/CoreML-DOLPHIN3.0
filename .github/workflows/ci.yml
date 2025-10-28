@@ -196,7 +196,11 @@ jobs:
             "version": 1,
             "target": "arm64-apple-ios18.0-simulator",
             "sdk": "${SDK_PATH}",
-            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}"
+            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}",
+            "extra-swiftc-flags": [],
+            "extra-cc-flags": [],
+            "extra-cxx-flags": [],
+            "extra-linker-flags": []
           }
           EOF
 
@@ -243,7 +247,11 @@ jobs:
             "version": 1,
             "target": "arm64-apple-xros2.0-simulator",
             "sdk": "${SDK_PATH}",
-            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}"
+            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}",
+            "extra-swiftc-flags": [],
+            "extra-cc-flags": [],
+            "extra-cxx-flags": [],
+            "extra-linker-flags": []
           }
           EOF
 

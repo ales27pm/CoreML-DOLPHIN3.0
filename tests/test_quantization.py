@@ -4,7 +4,14 @@ import argparse
 
 import pytest
 
-np = pytest.importorskip("numpy")
+try:  # pragma: no cover - exercised during import
+    import numpy as np
+except ModuleNotFoundError as exc:  # pragma: no cover - import guard
+    raise ModuleNotFoundError(
+        "NumPy is required for quantization unit tests. Install the project "
+        "dependencies via 'python -m pip install -r requirements-dev.txt' before "
+        "running pytest."
+    ) from exc
 
 import sys
 from pathlib import Path

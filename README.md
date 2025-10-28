@@ -5,8 +5,8 @@ This repository contains the production pipeline for exporting
 focuses exclusively on the original goals of the project:
 
 - Merge LoRA adapters into the base model using Unsloth before export.
-- Quantize the Core ML weights with 4-bit palettization and grouped-channel
-  compression.
+- Quantize the Core ML weights with configurable palettization bit-width and
+  grouped-channel compression tuned per backend.
 - Attach an LLM2Vec encoder head so the resulting package serves both chat and
   embedding workloads.
 - Ship a Swift runtime wrapper that wires the Core ML model into Apple
@@ -49,9 +49,12 @@ Key stages:
    requested sequence length is supported by the target architecture.
 4. **Core ML export** – Builds PyTorch wrapper modules for init/decode/encode and
    converts them into a multifunction `mlprogram`.
-5. **4-bit quantization** – Executes palettization (group size 16 by default)
-   followed by linear quantization, producing a compressed package ready for
-   Apple Silicon.
+5. **Configurable quantization** – Executes palettization followed by linear
+   quantization. `--wbits` and `--palett-group-size` tune the global compression
+   level, with guard rails keeping Neural Engine / GPU builds on supported group
+   sizes {8, 16, 32, 64}. Provide `--mixed-precision attention=6,mlp=4` to keep
+   attention projections at 6-bit while compressing MLP blocks to 4-bit without
+   sacrificing decode latency.
 6. **Optional validation** – When `--profile-validate` is set the script now
    compares deterministic golden transcripts between the PyTorch model and the
    exported Core ML package, reporting decode latency percentiles and KV-cache
@@ -96,17 +99,29 @@ verifies that LLM2Vec embeddings from the exported Core ML package stay within
 0.99 cosine similarity of the upstream checkpoint across a set of benchmark
 sentences.
 
+### Quantization knobs
+
+- `--wbits` selects the global palettization bit-width (2/4/6/8).
+- `--palett-group-size` adjusts grouped-channel LUT size; Neural Engine and GPU
+  builds are clamped to {8, 16, 32, 64} to match Core ML hardware support.
+- `--mixed-precision attention=6,mlp=4` applies mixed schemes, keeping
+  attention projections at a higher precision while compressing MLP blocks more
+  aggressively to preserve decode latency on Apple Silicon.
+
 ## Development Environment
 
-Install the lightweight helper dependencies for linting or local validation:
+Install the full helper dependencies for linting, local validation, and parity
+with the production export stack:
 
 ```bash
 python -m pip install -r requirements-dev.txt
 ```
 
-The conversion script installs heavy dependencies (PyTorch, Core ML Tools,
-Transformers, Unsloth, LLM2Vec) on demand. Use `python -m compileall` to perform
-a quick syntax check before committing changes:
+The development requirements now pull in the same heavyweight packages that the
+pipeline uses at runtime—PyTorch, Transformers, Accelerate, PEFT, Unsloth,
+LLM2Vec, Core ML Tools, and SentencePiece—so CI mirrors the production
+environment without relying on stubs. Use `python -m compileall` to perform a
+quick syntax check before committing changes:
 
 ```bash
 python -m compileall dolphin2coreml_full.py Sources/App/LLM Sources/App/Bench

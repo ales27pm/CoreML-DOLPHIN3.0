@@ -26,15 +26,27 @@ import shutil
 import subprocess
 import sys
 import uuid
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import shlex
 import statistics
 import textwrap
 import time
+
+
+from dolphin_quantization import (
+    SUPPORTED_MIXED_PRECISION_KEYS,
+    SUPPORTED_WBITS,
+    _classify_weight_for_mixed_precision,
+    _cosine_similarity,
+    _parse_mixed_precision_overrides,
+    _resolve_mixed_precision_plan,
+    _validate_group_size_for_backend,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +664,15 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Group size when using grouped-channel palettization",
     )
     parser.add_argument(
+        "--mixed-precision",
+        dest="mixed_precision",
+        default=None,
+        help=(
+            "Comma separated overrides for palettization bit-width by component. "
+            "Example: 'attention=6,mlp=4'. Supported keys: attention, mlp."
+        ),
+    )
+    parser.add_argument(
         "--compute-units",
         dest="compute_units",
         choices=["ALL", "CPU_AND_GPU", "CPU_ONLY"],
@@ -679,6 +700,9 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+# ---------------------------------------------------------------------------
+# Quantization helpers
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
@@ -721,6 +745,18 @@ def ensure_llm2vec() -> None:
 # ---------------------------------------------------------------------------
 def main(argv: Sequence[str]) -> int:
     args = parse_args(argv)
+
+    try:
+        _validate_group_size_for_backend(args.palett_group_size, args.compute_units)
+    except ValueError as exc:
+        console.print(Panel.fit(f"[bold red]❌ {exc}", border_style="red"))
+        return 2
+
+    try:
+        mixed_precision_overrides = _parse_mixed_precision_overrides(args.mixed_precision)
+    except ValueError as exc:
+        console.print(Panel.fit(f"[bold red]❌ {exc}", border_style="red"))
+        return 2
 
     cache_dir = Path(args.cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -1035,17 +1071,61 @@ def main(argv: Sequence[str]) -> int:
         OptimizationConfig,
         OpLinearQuantizerConfig,
         OpPalettizerConfig,
+        get_weights_metadata,
         linear_quantize_weights,
         palettize_weights,
     )
+
+    op_name_overrides: Optional[Dict[str, OpPalettizerConfig]] = None
+    mixed_summary: Counter[str] = Counter()
+
+    if mixed_precision_overrides:
+        try:
+            weight_metadata = get_weights_metadata(model_converted)
+        except Exception as exc:  # pragma: no cover - depends on Core ML runtime availability
+            raise RuntimeError(
+                "Mixed precision overrides require Core ML weight metadata support. "
+                "Ensure coremltools is installed with libcoremlpython bindings."
+            ) from exc
+
+        plan, mixed_summary = _resolve_mixed_precision_plan(
+            weight_metadata.keys(), mixed_precision_overrides
+        )
+        if plan:
+            op_name_overrides = {
+                name: OpPalettizerConfig(
+                    nbits=nbits,
+                    granularity=args.palett_granularity,
+                    group_size=args.palett_group_size,
+                )
+                for name, nbits in plan.items()
+            }
+        else:
+            console.print(
+                Panel.fit(
+                    "[bold yellow]⚠️ No weights matched the requested mixed-precision overrides. "
+                    "Falling back to global bit-width.",
+                    border_style="yellow",
+                )
+            )
 
     pal_config = OptimizationConfig(
         global_config=OpPalettizerConfig(
             nbits=args.wbits,
             granularity=args.palett_granularity,
             group_size=args.palett_group_size,
-        )
+        ),
+        op_name_configs=op_name_overrides,
     )
+    if mixed_summary:
+        lines = ["[bold green]Mixed-precision overrides applied:"]
+        for key, description in SUPPORTED_MIXED_PRECISION_KEYS.items():
+            if key in mixed_summary:
+                bits = mixed_precision_overrides[key]
+                count = mixed_summary[key]
+                lines.append(f"• {key} ({description}): {bits}-bit across {count} weights")
+        console.print(Panel.fit("\n".join(lines), border_style="green"))
+
     model_pal = palettize_weights(model_converted, pal_config)
 
     lin_config = OptimizationConfig(

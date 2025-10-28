@@ -267,16 +267,16 @@ jobs:
             --configuration release \
             --destination "${DESTINATION_FILE}" \
             --target DolphinBenchmarkHarness
-      - name: Archive SwiftPM artifact
+      - name: Archive SwiftPM source bundle
         if: matrix.platform == 'macos'
         run: |
           set -euo pipefail
           mkdir -p artifacts
           swift package archive-source \
-            --output artifacts/DolphinCoreMLRuntime.artifactbundle
-      - name: Upload runtime artifact bundle
+            --output artifacts/DolphinCoreMLRuntime.swiftpm.artifactbundle
+      - name: Upload SwiftPM source bundle
         if: matrix.platform == 'macos'
         uses: actions/upload-artifact@v4
         with:
-          name: DolphinCoreMLRuntime.artifactbundle
-          path: artifacts/DolphinCoreMLRuntime.artifactbundle
+          name: DolphinCoreMLRuntime.swiftpm.artifactbundle
+          path: artifacts/DolphinCoreMLRuntime.swiftpm.artifactbundle

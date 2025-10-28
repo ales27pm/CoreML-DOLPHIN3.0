@@ -122,25 +122,19 @@ targets: [
 ]
 ```
 
-Every CI run on `main` publishes a `DolphinCoreMLRuntime.artifactbundle`
-containing a `swiftpm` archive. Download the bundle from the workflow run,
-extract the `DolphinCoreMLRuntime.zip`, and host it (for example on GitHub
-Releases or internal object storage). You can then consume the binary artifact
-without a Git dependency:
+Every CI run on `main` publishes a `DolphinCoreMLRuntime.swiftpm.artifactbundle`
+containing a signed source archive suitable for Swift Package Registry
+distribution. Download the bundle from the workflow run and upload the embedded
+`DolphinCoreMLRuntime.swiftpm.zip` to your registry of choice. Consumers can
+then depend on the package through their registry instead of targeting this Git
+repository directly.
 
-```swift
-.binaryTarget(
-    name: "DolphinCoreMLRuntime",
-    url: "https://example.com/DolphinCoreMLRuntime.zip",
-    checksum: "<sha256>"
-)
-```
-
-To reproduce the CI artifact locally, run the archiver script on macOS:
+To reproduce the SwiftPM source bundle locally, run the archiver script on
+macOS:
 
 ```bash
 swift package archive-source \
-  --output ./artifacts/DolphinCoreMLRuntime.artifactbundle \
+  --output ./artifacts/DolphinCoreMLRuntime.swiftpm.artifactbundle \
   --allow-writing-to-directory ./artifacts
 ```
 

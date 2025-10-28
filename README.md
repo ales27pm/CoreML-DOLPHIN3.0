@@ -21,6 +21,8 @@ Sources/App/Bench/       # Optional benchmarking harness for Core ML packages
 requirements-dev.txt     # Heavier dev/test dependencies (Torch, Transformers, Core ML Tools, etc.)
 pyproject.toml           # Packaging metadata for the conversion script
 ```
+To benchmark multiple quantization settings in one run, provide a directory as
+`--output` and enable the sweep mode:
 
 ## Conversion Workflow
 
@@ -42,6 +44,20 @@ python dolphin2coreml_full.py \
   --clean-tmp
 ```
 
+To benchmark multiple quantization settings in one run, provide a directory as
+`--output` and enable the sweep mode:
+
+```bash
+python dolphin2coreml_full.py \
+  --model dphn/Dolphin3.0-Llama3.1-8B \
+  --lora-checkpoint path/to/lora_dir \
+  --llm2vec-checkpoint path/to/llm2vec_dir \
+  --seq-len 2048 \
+  --output sweeps/ \
+  --quant-sweep \
+  --sweep-report artifacts/dolphin_sweep.json
+```
+
 Key stages:
 
 1. **Dependency bootstrap** – Ensures `torch`, `transformers`, `coremltools`,
@@ -52,14 +68,17 @@ Key stages:
    requested sequence length is supported by the target architecture.
 4. **Core ML export** – Builds PyTorch wrapper modules for init/decode/encode and
    converts them into a multifunction `mlprogram`.
-5. **Configurable quantization** – Executes palettization followed by linear
-   quantization. `--wbits` and `--palett-group-size` tune the global compression
-   level, with guard rails keeping Neural Engine / GPU builds on supported group
-   sizes {8, 16, 32, 64} while CPU-only exports accept any positive group size.
-   Provide `--mixed-precision attention=6,mlp=4` to keep attention projections
-   at 6-bit while compressing MLP blocks to 4-bit without sacrificing decode
-   latency. Mixed overrides are summarised in the console so you can verify the
-   number of affected operators per component.
+5. **Configurable quantization & sweeps** – Executes palettization followed by
+   linear quantization. `--wbits` and `--palett-group-size` tune the global
+   compression level, with guard rails keeping Neural Engine / GPU builds on
+   supported group sizes {8, 16, 32, 64} while CPU-only exports accept any
+   positive group size. Provide `--mixed-precision attention=6,mlp=4` to keep
+   attention projections at 6-bit while compressing MLP blocks to 4-bit without
+   sacrificing decode latency. Mixed overrides are summarised in the console so
+   you can verify the number of affected operators per component. Enable
+   `--quant-sweep` to iterate through multiple bit-width/group-size pairs,
+   collect decode/residency metrics for each variant, and surface a summary
+   table plus an optional JSON report consumable by CI dashboards.
 6. **Optional validation** – When `--profile-validate` is set the script now
    compares deterministic golden transcripts between the PyTorch model and the
    exported Core ML package, reporting decode latency percentiles, KV-cache
@@ -76,6 +95,9 @@ Key stages:
 - `--tmp` – Scratch directory for intermediate PyTorch modules and Core ML artifacts.
 - `--wbits`, `--palett-granularity`, `--palett-group-size` – Configure palettization behaviour with backend-aware validation.
 - `--mixed-precision` – Apply per-component bit-width overrides such as `attention=6,mlp=4`.
+- `--quant-sweep` – Export a baseline model plus additional bit-width/group-size combinations, emitting a Rich summary table and optional JSON report. Requires `--output` to reference a directory.
+- `--sweep-wbits`, `--sweep-group-sizes` – Limit the sweep to specific bit-widths or palettization group sizes (e.g., `--sweep-wbits 2,4,6`). Defaults cover all supported values for the requested compute units.
+- `--sweep-report` – Path to a JSON artefact containing size/latency metrics for each variant; useful for CI dashboards.
 - `--compute-units` – Choose Core ML compute units (`ALL`, `CPU_AND_GPU`, `CPU_ONLY`) for validation runs.
 - `--minimum-deployment-target` – Stamp the exported model with the minimum iOS/macOS version you intend to support.
 - `--profile-validate` – Enable golden transcript + embedding parity checks with latency reporting.

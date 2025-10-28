@@ -114,10 +114,15 @@ def _resolve_mixed_precision_plan(
         lowered = name.lower()
         if "bias" in lowered:
             continue
+        if name != lowered:
+            continue
+        if "__" in name:
+            continue
+        segments = tuple(segment.strip() for segment in name.split("."))
         for category, patterns in _MIXED_PRECISION_PATTERNS.items():
             if category not in overrides:
                 continue
-            if any(token in lowered for token in patterns):
+            if any(token in segments for token in patterns):
                 plan[name] = overrides[category]
                 counts[category] += 1
                 break

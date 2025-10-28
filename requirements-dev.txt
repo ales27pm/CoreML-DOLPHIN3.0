@@ -1,2 +1,19 @@
+# Allow pulling CPU-only PyTorch wheels
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+numpy>=1.26,<2.0
 pytest>=7.4,<8.0
 rich>=13.0,<14.0
+black>=24.8.0,<25.0
+
+# Core export heavy dependencies to keep tests aligned with the real pipeline
+# Linux pulls CPU wheels by default; override the spec if you prefer CUDA/MPS locally.
+torch==2.4.1+cpu; platform_system == "Linux"
+torch==2.4.1; platform_system != "Linux"
+transformers==4.44.2
+accelerate>=0.34,<0.35
+peft>=0.10,<0.11
+unsloth==2024.10.0
+llm2vec>=0.2.3,<0.3
+coremltools>=8.0,<9.0
+sentencepiece>=0.1.99

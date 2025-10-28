@@ -16,6 +16,7 @@ decode with KV-cache, and embedding generation.
 The script intentionally avoids placeholders and is designed for production usage
 with comprehensive error handling and logging.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,15 +27,25 @@ import shutil
 import subprocess
 import sys
 import uuid
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import shlex
 import statistics
 import textwrap
 import time
+
+
+from quantization import (
+    SUPPORTED_MIXED_PRECISION_KEYS,
+    _cosine_similarity,
+    _mixed_precision_arg,
+    _resolve_mixed_precision_plan,
+    _validate_group_size_for_backend,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -88,10 +99,7 @@ def ensure_packages(packages: Iterable[str]) -> None:
 
     console.print(
         Panel.fit(
-            (
-                "[bold yellow]Installing dependencies:[/] "
-                + " ".join(pkgs_to_install)
-            ),
+            ("[bold yellow]Installing dependencies:[/] " + " ".join(pkgs_to_install)),
             border_style="yellow",
         )
     )
@@ -99,7 +107,7 @@ def ensure_packages(packages: Iterable[str]) -> None:
     max_attempts = 3
     last_error: Exception | None = None
     for attempt in range(1, max_attempts + 1):
-        wait_seconds = min(2 ** attempt, 10)
+        wait_seconds = min(2**attempt, 10)
         command = [
             sys.executable,
             "-m",
@@ -146,14 +154,10 @@ def ensure_packages(packages: Iterable[str]) -> None:
             module for module in modules_to_verify if not _module_available(module)
         ]
         if not missing_after:
-            console.print(
-                Panel.fit("[green]Dependencies installed successfully.")
-            )
+            console.print(Panel.fit("[green]Dependencies installed successfully."))
             return
 
-        pkgs_to_install = [
-            pkg for pkg, module in pending if module in missing_after
-        ]
+        pkgs_to_install = [pkg for pkg, module in pending if module in missing_after]
         modules_to_verify = missing_after
         console.print(
             Panel.fit(
@@ -197,7 +201,9 @@ def prepare_tmp_dir(base_path: Path) -> Path:
             f"Temporary root {resolved_base} is not writable. Adjust permissions or choose a different path."
         )
 
-    run_dir = resolved_base / f"run-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    run_dir = (
+        resolved_base / f"run-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    )
     try:
         run_dir.mkdir(exist_ok=False)
     except FileExistsError:  # pragma: no cover - highly unlikely
@@ -251,6 +257,14 @@ except ImportError:  # pragma: no cover
     ensure_packages(["coremltools>=8.0.0"])
     import coremltools as ct
 
+coreml_version = getattr(ct, "__version__", "0")
+try:
+    _COREMLTOOLS_MAJOR = int(coreml_version.split(".")[0])
+except ValueError:  # pragma: no cover - unexpected version string
+    _COREMLTOOLS_MAJOR = 0
+if _COREMLTOOLS_MAJOR < 8:  # pragma: no cover - ensures runtime alignment
+    raise RuntimeError("coremltools>=8.0 is required for mixed-precision overrides.")
+
 try:  # pragma: no cover
     from huggingface_hub import snapshot_download
 except ImportError:  # pragma: no cover
@@ -260,12 +274,14 @@ except ImportError:  # pragma: no cover
 try:  # pragma: no cover
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 except ImportError:  # pragma: no cover
-    ensure_packages([
-        "transformers>=4.44.0",
-        "accelerate",
-        "sentencepiece",
-        "tokenizers",
-    ])
+    ensure_packages(
+        [
+            "transformers>=4.44.0",
+            "accelerate",
+            "sentencepiece",
+            "tokenizers",
+        ]
+    )
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 
@@ -387,21 +403,6 @@ def _torch_device(module: torch.nn.Module) -> torch.device:
         return torch.device("cpu")
 
 
-def _cosine_similarity(
-    lhs: np.ndarray,
-    rhs: np.ndarray,
-) -> float:
-    """Compute cosine similarity between two vectors."""
-
-    lhs_flat = np.asarray(lhs, dtype=np.float64).reshape(-1)
-    rhs_flat = np.asarray(rhs, dtype=np.float64).reshape(-1)
-    lhs_norm = np.linalg.norm(lhs_flat)
-    rhs_norm = np.linalg.norm(rhs_flat)
-    if lhs_norm == 0.0 or rhs_norm == 0.0:
-        raise ValueError("Cosine similarity undefined for zero-norm embeddings.")
-    return float(np.dot(lhs_flat, rhs_flat) / (lhs_norm * rhs_norm))
-
-
 def _validate_embedding_parity(
     mlmodel: "ct.models.MLModel",
     embedding_module: torch.nn.Module,
@@ -436,10 +437,14 @@ def _validate_embedding_parity(
         coreml_np = np.asarray(coreml_out["embedding"], dtype=np.float32)
         cosine = _cosine_similarity(reference_np, coreml_np)
         min_cosine = min(min_cosine, cosine)
-        results.append({"sentence": sentence, "cosine": cosine, "pass": cosine >= minimum_cosine})
+        results.append(
+            {"sentence": sentence, "cosine": cosine, "pass": cosine >= minimum_cosine}
+        )
 
     if not results:
-        raise ValueError("Embedding validation requires at least one benchmark sentence.")
+        raise ValueError(
+            "Embedding validation requires at least one benchmark sentence."
+        )
 
     return results, min_cosine
 
@@ -459,10 +464,16 @@ def _run_reference_decode(
     )
     attention_mask = torch.ones_like(torch_input, dtype=torch.long)
 
-    pad_token = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
+    pad_token = (
+        tokenizer.pad_token_id
+        if tokenizer.pad_token_id is not None
+        else tokenizer.eos_token_id
+    )
     eos_id = tokenizer.eos_token_id
     if pad_token is None:
-        raise ValueError("Tokenizer is missing both pad and EOS token IDs for generation.")
+        raise ValueError(
+            "Tokenizer is missing both pad and EOS token IDs for generation."
+        )
 
     torch.manual_seed(0)
     with torch.no_grad():
@@ -482,7 +493,9 @@ def _run_reference_decode(
 
 def _trim_coreml_cache(array: np.ndarray) -> np.ndarray:
     if array.ndim != 4:
-        raise ValueError(f"Expected rank-4 KV cache tensor, received rank {array.ndim}.")
+        raise ValueError(
+            f"Expected rank-4 KV cache tensor, received rank {array.ndim}."
+        )
     if array.shape[2] <= 1:
         raise ValueError("KV cache tensor does not have enough timesteps to trim.")
     return np.ascontiguousarray(array[:, :, 1:, :])
@@ -512,12 +525,10 @@ def _run_coreml_decode(
     init_ms = (time.perf_counter() - init_start) * 1000.0
 
     past_k = [
-        np.ascontiguousarray(init_out[f"past_k_{layer}"])
-        for layer in range(num_layers)
+        np.ascontiguousarray(init_out[f"past_k_{layer}"]) for layer in range(num_layers)
     ]
     past_v = [
-        np.ascontiguousarray(init_out[f"past_v_{layer}"])
-        for layer in range(num_layers)
+        np.ascontiguousarray(init_out[f"past_v_{layer}"]) for layer in range(num_layers)
     ]
 
     logits = init_out["logits"]
@@ -594,9 +605,15 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
             "and optional validation"
         )
     )
-    parser.add_argument("--model", required=True, help="HF repo or local path for the base model")
-    parser.add_argument("--revision", default=None, help="Specific revision or commit to fetch")
-    parser.add_argument("--hf-token", dest="hf_token", default=None, help="Optional Hugging Face token")
+    parser.add_argument(
+        "--model", required=True, help="HF repo or local path for the base model"
+    )
+    parser.add_argument(
+        "--revision", default=None, help="Specific revision or commit to fetch"
+    )
+    parser.add_argument(
+        "--hf-token", dest="hf_token", default=None, help="Optional Hugging Face token"
+    )
     parser.add_argument(
         "--cache-dir",
         dest="cache_dir",
@@ -652,6 +669,16 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Group size when using grouped-channel palettization",
     )
     parser.add_argument(
+        "--mixed-precision",
+        dest="mixed_precision",
+        default=None,
+        type=_mixed_precision_arg,
+        help=(
+            "Comma separated overrides for palettization bit-width by component. "
+            "Example: 'attention=6,mlp=4'. Supported keys: attention, mlp."
+        ),
+    )
+    parser.add_argument(
         "--compute-units",
         dest="compute_units",
         choices=["ALL", "CPU_AND_GPU", "CPU_ONLY"],
@@ -679,6 +706,9 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+# ---------------------------------------------------------------------------
+# Quantization helpers
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
@@ -722,6 +752,14 @@ def ensure_llm2vec() -> None:
 def main(argv: Sequence[str]) -> int:
     args = parse_args(argv)
 
+    try:
+        _validate_group_size_for_backend(args.palett_group_size, args.compute_units)
+    except ValueError as exc:
+        console.print(Panel.fit(f"[bold red]❌ {exc}", border_style="red"))
+        return 2
+
+    mixed_precision_overrides = args.mixed_precision or {}
+
     cache_dir = Path(args.cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -755,7 +793,9 @@ def main(argv: Sequence[str]) -> int:
         TimeElapsedColumn(),
         transient=True,
     ) as progress:
-        task_id = progress.add_task("[green]Fetching base model from Hugging Face…", total=None)
+        task_id = progress.add_task(
+            "[green]Fetching base model from Hugging Face…", total=None
+        )
         try:
             if Path(args.model).exists():
                 local_base = str(Path(args.model).resolve())
@@ -767,7 +807,9 @@ def main(argv: Sequence[str]) -> int:
                     cache_dir=str(cache_dir),
                     local_files_only=False,
                 )
-            progress.update(task_id, description=f"[green]Base model ready at {local_base}")
+            progress.update(
+                task_id, description=f"[green]Base model ready at {local_base}"
+            )
         except Exception as exc:  # pragma: no cover - network interaction
             console.print(
                 Panel.fit(
@@ -802,7 +844,9 @@ def main(argv: Sequence[str]) -> int:
         Panel.fit(f"[bold green]Merging LoRA adapters from: {args.lora_checkpoint}")
     )
     try:
-        from peft import PeftModel  # imported lazily to avoid unnecessary dependency during help
+        from peft import (
+            PeftModel,
+        )  # imported lazily to avoid unnecessary dependency during help
     except ImportError:  # pragma: no cover
         ensure_packages(["peft"])
         from peft import PeftModel
@@ -818,7 +862,9 @@ def main(argv: Sequence[str]) -> int:
     # ------------------------------------------------------------------
     ensure_llm2vec()
     console.print(
-        Panel.fit(f"[bold green]Loading LLM2Vec encoder from: {args.llm2vec_checkpoint}")
+        Panel.fit(
+            f"[bold green]Loading LLM2Vec encoder from: {args.llm2vec_checkpoint}"
+        )
     )
     try:
         from llm2vec import LLM2Vec
@@ -841,7 +887,9 @@ def main(argv: Sequence[str]) -> int:
     # ------------------------------------------------------------------
     # Step 5: Construct wrapper modules for export
     # ------------------------------------------------------------------
-    console.print(Panel.fit("[bold green]Constructing PyTorch wrapper modules for export…"))
+    console.print(
+        Panel.fit("[bold green]Constructing PyTorch wrapper modules for export…")
+    )
 
     num_layers = config.num_hidden_layers
     n_heads = config.num_attention_heads
@@ -960,7 +1008,11 @@ def main(argv: Sequence[str]) -> int:
     # ------------------------------------------------------------------
     # Step 7: Convert to Core ML multifunction model
     # ------------------------------------------------------------------
-    console.print(Panel.fit("[bold green]Converting to Core ML (mlprogram) with multiple functions…"))
+    console.print(
+        Panel.fit(
+            "[bold green]Converting to Core ML (mlprogram) with multiple functions…"
+        )
+    )
 
     def tensor_type(name: str, shape: Tuple[int, ...], dtype: Any) -> ct.TensorType:
         return ct.TensorType(name=name, shape=shape, dtype=dtype)
@@ -991,8 +1043,12 @@ def main(argv: Sequence[str]) -> int:
     ]
     decode_out_shape = (batch, n_heads, seq_len + 1, head_dim)
     for layer_idx in range(num_layers):
-        decode_outputs.append(tensor_type(f"out_k_{layer_idx}", decode_out_shape, np.float16))
-        decode_outputs.append(tensor_type(f"out_v_{layer_idx}", decode_out_shape, np.float16))
+        decode_outputs.append(
+            tensor_type(f"out_k_{layer_idx}", decode_out_shape, np.float16)
+        )
+        decode_outputs.append(
+            tensor_type(f"out_v_{layer_idx}", decode_out_shape, np.float16)
+        )
 
     encode_inputs = [
         tensor_type("input_ids", (batch, seq_len), np.int32),
@@ -1035,17 +1091,78 @@ def main(argv: Sequence[str]) -> int:
         OptimizationConfig,
         OpLinearQuantizerConfig,
         OpPalettizerConfig,
+        get_weights_metadata,
         linear_quantize_weights,
         palettize_weights,
     )
+
+    op_name_overrides: Optional[Dict[str, OpPalettizerConfig]] = None
+    mixed_summary: Counter[str] = Counter()
+
+    if mixed_precision_overrides:
+        try:
+            weight_metadata = get_weights_metadata(model_converted)
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - depends on Core ML runtime availability
+            raise RuntimeError(
+                "Mixed precision overrides require Core ML weight metadata support. "
+                "Ensure coremltools is installed with libcoremlpython bindings."
+            ) from exc
+
+        plan, mixed_summary = _resolve_mixed_precision_plan(
+            weight_metadata.keys(), mixed_precision_overrides
+        )
+
+        unused_overrides = [
+            key for key in sorted(mixed_precision_overrides) if key not in mixed_summary
+        ]
+        if unused_overrides:
+            console.print(
+                Panel.fit(
+                    "[yellow]Warning: The following mixed precision overrides were not used "
+                    "(no matching weights found): " + ", ".join(unused_overrides),
+                    title="Unused Mixed Precision Overrides",
+                    border_style="yellow",
+                )
+            )
+        if plan:
+            op_name_overrides = {
+                name: OpPalettizerConfig(
+                    nbits=nbits,
+                    granularity=args.palett_granularity,
+                    group_size=args.palett_group_size,
+                )
+                for name, nbits in plan.items()
+            }
+        else:
+            console.print(
+                Panel.fit(
+                    "[bold yellow]⚠️ No weights matched the requested mixed-precision overrides. "
+                    "Falling back to global bit-width.",
+                    border_style="yellow",
+                )
+            )
 
     pal_config = OptimizationConfig(
         global_config=OpPalettizerConfig(
             nbits=args.wbits,
             granularity=args.palett_granularity,
             group_size=args.palett_group_size,
-        )
+        ),
+        op_name_configs=op_name_overrides,
     )
+    if mixed_summary:
+        lines = ["[bold green]Mixed-precision overrides applied:"]
+        for key, description in SUPPORTED_MIXED_PRECISION_KEYS.items():
+            if key in mixed_summary:
+                bits = mixed_precision_overrides[key]
+                count = mixed_summary[key]
+                lines.append(
+                    f"• {key} ({description}): {bits}-bit across {count} weights"
+                )
+        console.print(Panel.fit("\n".join(lines), border_style="green"))
+
     model_pal = palettize_weights(model_converted, pal_config)
 
     lin_config = OptimizationConfig(
@@ -1096,11 +1213,15 @@ def main(argv: Sequence[str]) -> int:
             all_match = True
 
             for golden in GOLDEN_PROMPTS:
-                padded_ids, padded_mask, trimmed_prompt, effective_len = _prepare_prompt_arrays(
-                    tokenizer, golden.prompt, seq_len
+                padded_ids, padded_mask, trimmed_prompt, effective_len = (
+                    _prepare_prompt_arrays(tokenizer, golden.prompt, seq_len)
                 )
                 reference = _run_reference_decode(
-                    model, tokenizer, trimmed_prompt, effective_len, golden.max_new_tokens
+                    model,
+                    tokenizer,
+                    trimmed_prompt,
+                    effective_len,
+                    golden.max_new_tokens,
                 )
                 coreml_metrics = _run_coreml_decode(
                     mlmodel,
@@ -1148,10 +1269,14 @@ def main(argv: Sequence[str]) -> int:
             def _percentile(values: Sequence[float], percentile: float) -> float:
                 if not values:
                     return 0.0
-                return float(np.percentile(np.array(values, dtype=np.float64), percentile))
+                return float(
+                    np.percentile(np.array(values, dtype=np.float64), percentile)
+                )
 
             for row in transcript_rows:
-                prompt_snippet = textwrap.shorten(row["prompt"], width=58, placeholder="…")
+                prompt_snippet = textwrap.shorten(
+                    row["prompt"], width=58, placeholder="…"
+                )
                 torch_text = row["reference"]["text"] or ""
                 coreml_text = row["coreml"]["text"] or ""
                 transcript_table.add_row(
@@ -1253,7 +1378,9 @@ def main(argv: Sequence[str]) -> int:
                     )
                 )
             else:
-                console.print("[green]Validation run complete. Numerical parity confirmed.")
+                console.print(
+                    "[green]Validation run complete. Numerical parity confirmed."
+                )
         except Exception as exc:  # pragma: no cover - device specific behaviour
             console.print(
                 Panel.fit(

@@ -159,6 +159,16 @@ GOLDEN_PROMPTS: Sequence[GoldenPrompt] = (
 )
 
 
+EMBEDDING_BENCHMARKS: Sequence[str] = (
+    "Legitimate packet capture helps incident responders observe beaconing without disrupting production traffic.",
+    "Deterministic validation builds trust in Core ML exports by catching parity gaps before shipping to devices.",
+    "Batched LLM2Vec embeddings enable semantic clustering of security advisories for faster triage.",
+)
+
+
+EMBEDDING_COSINE_THRESHOLD = 0.99
+
+
 def _prepare_prompt_arrays(
     tokenizer: "AutoTokenizer", prompt: str, seq_len: int
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
@@ -193,11 +203,86 @@ def _prepare_prompt_arrays(
     )
 
 
+def _prepare_embedding_arrays(
+    tokenizer: "AutoTokenizer", sentence: str, seq_len: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Return padded input ID and mask arrays suitable for Core ML embedding calls."""
+
+    encoded = tokenizer(
+        sentence,
+        return_tensors="np",
+        truncation=True,
+        max_length=seq_len,
+        padding="max_length",
+        add_special_tokens=True,
+    )
+    ids = encoded["input_ids"].astype(np.int32, copy=False)
+    mask = encoded["attention_mask"].astype(np.int32, copy=False)
+    return ids, mask
+
+
 def _torch_device(module: torch.nn.Module) -> torch.device:
     try:
         return next(module.parameters()).device
     except StopIteration:  # pragma: no cover - defensive branch
         return torch.device("cpu")
+
+
+def _cosine_similarity(
+    lhs: np.ndarray,
+    rhs: np.ndarray,
+) -> float:
+    """Compute cosine similarity between two vectors."""
+
+    lhs_flat = np.asarray(lhs, dtype=np.float64).reshape(-1)
+    rhs_flat = np.asarray(rhs, dtype=np.float64).reshape(-1)
+    lhs_norm = np.linalg.norm(lhs_flat)
+    rhs_norm = np.linalg.norm(rhs_flat)
+    if lhs_norm == 0.0 or rhs_norm == 0.0:
+        raise ValueError("Cosine similarity undefined for zero-norm embeddings.")
+    return float(np.dot(lhs_flat, rhs_flat) / (lhs_norm * rhs_norm))
+
+
+def _validate_embedding_parity(
+    mlmodel: "ct.models.MLModel",
+    embedding_module: torch.nn.Module,
+    tokenizer: "AutoTokenizer",
+    seq_len: int,
+    sentences: Sequence[str],
+    *,
+    minimum_cosine: float,
+) -> Tuple[List[Dict[str, Any]], float]:
+    """Return cosine similarity metrics for LLM2Vec embeddings."""
+
+    device = _torch_device(embedding_module)
+    results: List[Dict[str, Any]] = []
+    min_cosine = float("inf")
+
+    for sentence in sentences:
+        ids_np, mask_np = _prepare_embedding_arrays(tokenizer, sentence, seq_len)
+        ids_tensor = torch.from_numpy(ids_np).to(device=device, dtype=torch.long)
+        mask_tensor = torch.from_numpy(mask_np).to(device=device, dtype=torch.long)
+
+        with torch.no_grad():
+            reference_embedding = embedding_module.encode(
+                input_ids=ids_tensor,
+                attention_mask=mask_tensor,
+            )
+
+        reference_np = reference_embedding.detach().to("cpu").float().numpy()
+        coreml_out = mlmodel.predict(
+            {"input_ids": ids_np, "attention_mask": mask_np},
+            function_name="encode",
+        )
+        coreml_np = np.asarray(coreml_out["embedding"], dtype=np.float32)
+        cosine = _cosine_similarity(reference_np, coreml_np)
+        min_cosine = min(min_cosine, cosine)
+        results.append({"sentence": sentence, "cosine": cosine, "pass": cosine >= minimum_cosine})
+
+    if not results:
+        raise ValueError("Embedding validation requires at least one benchmark sentence.")
+
+    return results, min_cosine
 
 
 def _run_reference_decode(
@@ -933,6 +1018,50 @@ def main(argv: Sequence[str]) -> int:
 
             console.print(transcript_table)
             console.print(metrics_table)
+
+            try:
+                embedding_rows, min_cosine = _validate_embedding_parity(
+                    mlmodel,
+                    embedding_module,
+                    tokenizer,
+                    seq_len,
+                    EMBEDDING_BENCHMARKS,
+                    minimum_cosine=EMBEDDING_COSINE_THRESHOLD,
+                )
+            except Exception as exc:
+                validation_failed = True
+                console.print(
+                    Panel.fit(
+                        f"[bold red]❌ LLM2Vec embedding validation failed:[/] {exc}",
+                        border_style="red",
+                    )
+                )
+            else:
+                embed_table = Table(title="LLM2Vec Embedding Cosine Similarity")
+                embed_table.add_column("Sentence", justify="left")
+                embed_table.add_column("Cosine", justify="right")
+                embed_table.add_column("Pass", justify="center")
+                for row in embedding_rows:
+                    embed_table.add_row(
+                        textwrap.shorten(row["sentence"], width=58, placeholder="…"),
+                        f"{row['cosine']:.5f}",
+                        "✅" if row["pass"] else "❌",
+                    )
+                console.print(embed_table)
+                if min_cosine < EMBEDDING_COSINE_THRESHOLD:
+                    validation_failed = True
+                    console.print(
+                        Panel.fit(
+                            "[bold red]❌ LLM2Vec embedding parity FAILED.[/]",
+                            border_style="red",
+                        )
+                    )
+                else:
+                    console.print(
+                        Panel.fit(
+                            f"[green]LLM2Vec embedding parity confirmed (min cosine {min_cosine:.4f})."
+                        )
+                    )
 
             if decode_lat_all:
                 overall = np.percentile(

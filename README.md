@@ -25,7 +25,7 @@ pyproject.toml           # Packaging metadata for the conversion script
 ## Conversion Workflow
 
 Run the pipeline to produce a compressed `.mlpackage` that exposes `init`,
-`decode`, and `encode_for_llm2vec` entry points.
+`decode`, and `encode` entry points.
 
 ```bash
 python dolphin2coreml_full.py \
@@ -72,15 +72,29 @@ let dolphin = try DolphinCoreML(
                numHeads: 32, headDim: 128, seqLen: 2048)
 )
 
-let initResult = try dolphin.initPass(promptTokens: prompt)
-let decodeResult = try dolphin.decodeStep(previous: initResult, nextToken: token)
-let embedding = try dolphin.encodeEmbedding(text: "security research prompt")
+let (promptIds, promptMask) = tokenizer.encodeToMultiArray(prompt, seqLen: dolphin.seqLen)
+let initResult = try dolphin.initPass(inputIds: promptIds, attentionMask: promptMask)
+let decodeStep = try dolphin.decodeStep(
+    nextId: tokenizer.firstNextIdArray(),
+    nextMask: tokenizer.oneMaskArray(),
+    pastK: initResult.pastK,
+    pastV: initResult.pastV
+)
+
+let prompts: [String] = ["security audit checklist", "wireless intrusion detection"]
+let batchedInputs = prompts.map { tokenizer.encodeToMultiArray($0, seqLen: dolphin.seqLen) }
+let embeddings = try dolphin.encodeEmbeddingBatch(batchedInputs)
 ```
 
 The wrapper streams KV-cache updates, supports Float16 and Float32 logits, and
 propagates descriptive `NSError` payloads when Core ML outputs are missing. The
 optional benchmarking harness in `Sources/App/Bench/` measures init, per-token,
 and embedding latencies with warm-up control for regression tracking.
+
+When the conversion pipeline is invoked with `--profile-validate`, it now
+verifies that LLM2Vec embeddings from the exported Core ML package stay within
+0.99 cosine similarity of the upstream checkpoint across a set of benchmark
+sentences.
 
 ## Development Environment
 

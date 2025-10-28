@@ -21,9 +21,11 @@ from __future__ import annotations
 import argparse
 import importlib
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
@@ -59,25 +61,182 @@ def _module_available(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
 
 
-def ensure_packages(packages: Iterable[str]) -> None:
-    """Ensure that the required Python packages are available."""
+def _derive_module_name(package_spec: str) -> str:
+    """Return the importable module name for a given pip package spec."""
 
-    to_install: List[str] = []
+    base = package_spec.split("[")[0]
+    base = base.split("==")[0]
+    base = base.split(">=")[0]
+    base = base.split("<=")[0]
+    return base.replace("-", "_")
+
+
+def ensure_packages(packages: Iterable[str]) -> None:
+    """Ensure that the required Python packages are available with retries."""
+
+    pending: List[Tuple[str, str]] = []
     for pkg in packages:
-        module_name = pkg.split("==")[0].split(">=")[0].replace("-", "_")
+        module_name = _derive_module_name(pkg)
         if not _module_available(module_name):
-            to_install.append(pkg)
-    if to_install:
+            pending.append((pkg, module_name))
+
+    if not pending:
+        return
+
+    pkgs_to_install: List[str] = [pkg for pkg, _ in pending]
+    modules_to_verify: List[str] = [module for _, module in pending]
+
+    console.print(
+        Panel.fit(
+            (
+                "[bold yellow]Installing dependencies:[/] "
+                + " ".join(pkgs_to_install)
+            ),
+            border_style="yellow",
+        )
+    )
+
+    max_attempts = 3
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        wait_seconds = min(2 ** attempt, 10)
+        command = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-input",
+            "--upgrade",
+            "--progress-bar",
+            "off",
+            *pkgs_to_install,
+        ]
+        console.log(
+            f"[pip] Attempt {attempt}/{max_attempts}: {' '.join(shlex.quote(part) for part in command)}"
+        )
+        try:
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError as exc:
+            last_error = exc
+            if attempt == max_attempts:
+                console.print(
+                    Panel.fit(
+                        (
+                            "[bold red]❌ Dependency installation failed after retries.[/]\n"
+                            "Check your network connection or install manually with: "
+                            f"{sys.executable} -m pip install {' '.join(pkgs_to_install)}"
+                        ),
+                        border_style="red",
+                    )
+                )
+                raise RuntimeError("pip could not install required packages") from exc
+            console.print(
+                Panel.fit(
+                    (
+                        "[bold yellow]⚠️ pip install failed:[/] "
+                        f"{exc}. Retrying in {wait_seconds} seconds…"
+                    ),
+                    border_style="yellow",
+                )
+            )
+            time.sleep(wait_seconds)
+            continue
+
+        missing_after = [
+            module for module in modules_to_verify if not _module_available(module)
+        ]
+        if not missing_after:
+            console.print(
+                Panel.fit("[green]Dependencies installed successfully.")
+            )
+            return
+
+        pkgs_to_install = [
+            pkg for pkg, module in pending if module in missing_after
+        ]
+        modules_to_verify = missing_after
         console.print(
             Panel.fit(
-                f"[bold yellow]Installing dependencies:[/] {' '.join(to_install)}",
+                (
+                    "[bold yellow]⚠️ Some modules remain unavailable after installation:[/] "
+                    + ", ".join(modules_to_verify)
+                    + ". Retrying…"
+                ),
                 border_style="yellow",
             )
         )
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-q", *to_install],
-            check=True,
+        time.sleep(wait_seconds)
+
+    if last_error is None:
+        raise RuntimeError(
+            "Dependencies were installed but modules remain unavailable. "
+            "Check that pip is targeting the correct Python environment."
         )
+    raise RuntimeError("Dependency installation failed") from last_error
+
+
+def prepare_tmp_dir(base_path: Path) -> Path:
+    """Create an isolated temporary directory under ``base_path`` with validation."""
+
+    resolved_base = base_path.expanduser().resolve()
+    if resolved_base.exists() and not resolved_base.is_dir():
+        raise RuntimeError(
+            f"Temporary path {resolved_base} exists but is not a directory. "
+            "Delete it or provide a different --tmp path."
+        )
+
+    try:
+        resolved_base.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:  # pragma: no cover - filesystem dependent
+        raise RuntimeError(
+            f"Unable to create temporary root directory {resolved_base}: {exc}"
+        ) from exc
+
+    if not (os.access(resolved_base, os.W_OK) and os.access(resolved_base, os.X_OK)):
+        raise RuntimeError(
+            f"Temporary root {resolved_base} is not writable. Adjust permissions or choose a different path."
+        )
+
+    run_dir = resolved_base / f"run-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    try:
+        run_dir.mkdir(exist_ok=False)
+    except FileExistsError:  # pragma: no cover - highly unlikely
+        run_dir = resolved_base / f"run-{uuid.uuid4().hex}"
+        run_dir.mkdir(exist_ok=False)
+    except Exception as exc:  # pragma: no cover - filesystem dependent
+        raise RuntimeError(
+            f"Unable to create isolated temporary directory at {run_dir}: {exc}"
+        ) from exc
+
+    console.print(
+        Panel.fit(
+            f"[bold green]Working directory prepared:[/] {run_dir}",
+            border_style="green",
+        )
+    )
+    return run_dir
+
+
+def cleanup_tmp_dir(path: Path) -> None:
+    """Attempt to remove the temporary directory and report failures."""
+
+    if not path.exists():
+        return
+
+    try:
+        shutil.rmtree(path)
+    except Exception as exc:  # pragma: no cover - filesystem dependent
+        console.print(
+            Panel.fit(
+                (
+                    "[bold yellow]⚠️ Unable to fully clean temporary directory:[/] "
+                    f"{path} ({exc})"
+                ),
+                border_style="yellow",
+            )
+        )
+    else:
+        console.print("[green]Temporary build directory cleaned up.")
 
 
 try:  # pragma: no cover - fallback when optional deps are missing
@@ -566,8 +725,7 @@ def main(argv: Sequence[str]) -> int:
     cache_dir = Path(args.cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    tmp_dir = Path(args.tmp)
-    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = prepare_tmp_dir(Path(args.tmp))
 
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1109,8 +1267,7 @@ def main(argv: Sequence[str]) -> int:
     # Step 11: Optional cleanup
     # ------------------------------------------------------------------
     if args.clean_tmp:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        console.print("[green]Temporary build directory cleaned up.")
+        cleanup_tmp_dir(tmp_dir)
 
     if validation_failed:
         return 1

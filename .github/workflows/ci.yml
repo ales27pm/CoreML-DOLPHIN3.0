@@ -136,6 +136,10 @@ jobs:
             destination: "generic/platform=visionOS Simulator"
             sdk: xrsimulator
     steps:
+      - name: Configure Xcode 16 toolchain
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.0"
       - uses: actions/checkout@v4
       - name: Select Xcode toolchain
         run: |
@@ -153,63 +157,65 @@ jobs:
           fi
       - name: Resolve Swift package
         run: swift package resolve
-      - name: Provision iOS simulator runtime
+      - name: Validate iOS simulator SDK
         if: matrix.platform == 'ios'
         run: |
           set -euo pipefail
           REQUIRED_RUNTIME="iphonesimulator18.0"
-          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
-              echo "${REQUIRED_RUNTIME} SDK not found; attempting download via xcodebuild -downloadPlatform iOS"
-              sudo xcodebuild -license accept
-              sudo xcodebuild -downloadPlatform iOS
+          SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "iphonesimulator SDK path not found: ${SDK_PATH}" >&2
+              exit 1
           fi
 
           if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
-              echo "Unable to provision ${REQUIRED_RUNTIME} even after attempting download" >&2
+              echo "${REQUIRED_RUNTIME} SDK metadata missing from xcodebuild -showsdks output" >&2
+              xcodebuild -showsdks
               exit 1
           fi
       - name: Build macOS library
         if: matrix.platform == 'macos'
         run: swift build --configuration release
-      - name: Build iOS simulator library
+      - name: Build iOS simulator libraries
         if: matrix.platform == 'ios'
         run: |
           set -euo pipefail
-          xcodebuild \
-            -scheme DolphinCoreMLRuntime-Package \
-            -destination '${{ matrix.destination }}' \
-            -sdk ${{ matrix.sdk }} \
-            -configuration Release \
-            -skipMacroValidation \
-            -skipPackagePluginValidation \
-            build
-      - name: Provision visionOS simulator runtime
+          swift build \
+            --configuration release \
+            --triple arm64-apple-ios18.0-simulator \
+            --product DolphinCoreMLRuntime
+          swift build \
+            --configuration release \
+            --triple arm64-apple-ios18.0-simulator \
+            --product DolphinBenchmarkHarness
+      - name: Validate visionOS simulator SDK
         if: matrix.platform == 'visionos'
         run: |
           set -euo pipefail
           REQUIRED_RUNTIME="xrsimulator2.0"
-          if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
-              echo "${REQUIRED_RUNTIME} SDK not found; attempting download via xcodebuild -downloadPlatform visionOS"
-              sudo xcodebuild -license accept
-              sudo xcodebuild -downloadPlatform visionOS
+          SDK_PATH="$(xcrun --sdk xrsimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "xrsimulator SDK path not found: ${SDK_PATH}" >&2
+              exit 1
           fi
 
           if ! xcodebuild -showsdks | awk '{print $NF}' | grep -q "${REQUIRED_RUNTIME}"; then
-              echo "Unable to provision ${REQUIRED_RUNTIME} even after attempting download" >&2
+              echo "${REQUIRED_RUNTIME} SDK metadata missing from xcodebuild -showsdks output" >&2
+              xcodebuild -showsdks
               exit 1
           fi
       - name: Build visionOS simulator library
         if: matrix.platform == 'visionos'
         run: |
           set -euo pipefail
-          xcodebuild \
-            -scheme DolphinCoreMLRuntime-Package \
-            -destination '${{ matrix.destination }}' \
-            -sdk ${{ matrix.sdk }} \
-            -configuration Release \
-            -skipMacroValidation \
-            -skipPackagePluginValidation \
-            build
+          swift build \
+            --configuration release \
+            --triple arm64-apple-xros2.0-simulator \
+            --product DolphinCoreMLRuntime
+          swift build \
+            --configuration release \
+            --triple arm64-apple-xros2.0-simulator \
+            --product DolphinBenchmarkHarness
       - name: Archive SwiftPM artifact
         if: matrix.platform == 'macos'
         run: |

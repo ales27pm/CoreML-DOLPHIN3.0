@@ -199,6 +199,7 @@ jobs:
             "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}",
             "extra-swiftc-flags": [],
             "extra-cc-flags": [],
+            "extra-cpp-flags": [],
             "extra-cxx-flags": [],
             "extra-linker-flags": []
           }
@@ -250,6 +251,7 @@ jobs:
             "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}",
             "extra-swiftc-flags": [],
             "extra-cc-flags": [],
+            "extra-cpp-flags": [],
             "extra-cxx-flags": [],
             "extra-linker-flags": []
           }

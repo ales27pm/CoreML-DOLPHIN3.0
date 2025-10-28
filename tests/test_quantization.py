@@ -83,6 +83,7 @@ def test_validate_group_size_for_backend_rejects_invalid_sizes(group_size: int) 
     [
         ("layers.0.self_attn.q_proj.weight", "attention"),
         ("layers.0.self_attn.k_proj.weight", "attention"),
+        ("layers.0.self_attn.rotary_emb.inv_freq", "attention"),
         ("layers.0.mlp.down_proj.weight", "mlp"),
         ("norm.weight", None),
         ("layers.0.self_attn.q_proj.bias", None),

@@ -49,6 +49,8 @@ public final class DolphinCoreML {
     }
 
     public let model: MLModel
+    private let decodeModel: MLModel
+    private let encodeModel: MLModel
     public let vocabSize: Int
     public let hiddenSize: Int
     public let numLayers: Int
@@ -63,7 +65,15 @@ public final class DolphinCoreML {
     {
         let cfg = MLModelConfiguration()
         cfg.computeUnits = computeUnits.coreML
-        self.model = try MLModel(contentsOf: modelURL, configuration: cfg)
+        self.model = try DolphinCoreML.loadFunctionModel(at: modelURL,
+                                                         functionName: "init",
+                                                         configuration: cfg)
+        self.decodeModel = try DolphinCoreML.loadFunctionModel(at: modelURL,
+                                                               functionName: "decode",
+                                                               configuration: cfg)
+        self.encodeModel = try DolphinCoreML.loadFunctionModel(at: modelURL,
+                                                               functionName: "encode",
+                                                               configuration: cfg)
 
         self.vocabSize  = metadata.vocabSize
         self.hiddenSize = metadata.hiddenSize
@@ -86,10 +96,8 @@ public final class DolphinCoreML {
             "input_ids": inputIds,
             "attention_mask": attentionMask
         ]
-        let provider = MLDictionaryFeatureProvider(dictionary: inputs)
-        let options = MLPredictionOptions()
-        options.predictionFunctionName = "init"
-        let out = try model.prediction(from: provider, options: options)
+        let provider = try MLDictionaryFeatureProvider(dictionary: inputs)
+        let out = try model.prediction(from: provider)
 
         guard let logits = out.featureValue(for: "logits")?.multiArrayValue,
               let lastHidden = out.featureValue(for: "last_hidden")?.multiArrayValue
@@ -128,10 +136,8 @@ public final class DolphinCoreML {
             dict["in_k_\(i)"] = pastK[i]
             dict["in_v_\(i)"] = pastV[i]
         }
-        let provider = MLDictionaryFeatureProvider(dictionary: dict)
-        let options = MLPredictionOptions()
-        options.predictionFunctionName = "decode"
-        let out = try model.prediction(from: provider, options: options)
+        let provider = try MLDictionaryFeatureProvider(dictionary: dict)
+        let out = try decodeModel.prediction(from: provider)
 
         guard let logits = out.featureValue(for: "logits")?.multiArrayValue,
               let lastHidden = out.featureValue(for: "last_hidden")?.multiArrayValue
@@ -159,17 +165,15 @@ public final class DolphinCoreML {
             "input_ids": inputIds,
             "attention_mask": attentionMask
         ]
-        let provider = MLDictionaryFeatureProvider(dictionary: inputs)
-        let options = MLPredictionOptions()
-        options.predictionFunctionName = "encode"
-        let out = try model.prediction(from: provider, options: options)
+        let provider = try MLDictionaryFeatureProvider(dictionary: inputs)
+        let out = try encodeModel.prediction(from: provider)
         guard let emb = out.featureValue(for: "embedding")?.multiArrayValue else {
             throw NSError(domain: "DolphinCoreML", code: -5, userInfo: [NSLocalizedDescriptionKey: "Missing embedding"])
         }
         return emb
     }
 
-    /// Convenience helper that evaluates ``encode`` for multiple sequences using ``MLBatchProvider``.
+    /// Convenience helper that evaluates ``encode`` for multiple sequences in order.
     /// - Parameter batches: Sequence of (input IDs, attention mask) tuples with shape ``[1, seqLen]`` each.
     /// - Returns: ``MLMultiArray`` embeddings in the same order as the input.
     /// - Throws: ``NSError`` when Core ML fails to produce an embedding for any element.
@@ -211,14 +215,14 @@ public final class DolphinCoreML {
                     ]
                 )
             }
-            let validInputTypes: Set<MLMultiArrayDataType> = [.int32, .int64]
+            let validInputTypes: Set<MLMultiArrayDataType> = [.int32]
             if !validInputTypes.contains(batch.inputIds.dataType) ||
                 !validInputTypes.contains(batch.attentionMask.dataType) {
                 throw NSError(
                     domain: "DolphinCoreML",
                     code: -10,
                     userInfo: [
-                        NSLocalizedDescriptionKey: "Expected Int32/Int64 input_ids and attention_mask for element \(index)."
+                        NSLocalizedDescriptionKey: "Expected Int32 input_ids and attention_mask for element \(index)."
                     ]
                 )
             }
@@ -231,24 +235,25 @@ public final class DolphinCoreML {
             providers.append(provider)
         }
 
-        let batchProvider = MLArrayBatchProvider(array: providers)
-        let options = MLPredictionOptions()
-        options.predictionFunctionName = "encode"
-        let results = try model.predictions(fromBatch: batchProvider, options: options)
+        var outputs: [MLFeatureProvider] = []
+        outputs.reserveCapacity(providers.count)
+        for provider in providers {
+            let prediction = try encodeModel.prediction(from: provider)
+            outputs.append(prediction)
+        }
 
         var embeddings: [MLMultiArray] = []
-        embeddings.reserveCapacity(results.count)
-        if results.count != providers.count {
+        embeddings.reserveCapacity(outputs.count)
+        if outputs.count != providers.count {
             throw NSError(
                 domain: "DolphinCoreML",
                 code: -11,
                 userInfo: [
-                    NSLocalizedDescriptionKey: "Batched result count \(results.count) does not match input count \(providers.count)."
+                    NSLocalizedDescriptionKey: "Batched result count \(outputs.count) does not match input count \(providers.count)."
                 ]
             )
         }
-        for index in 0..<results.count {
-            let provider = results.featureProvider(at: index)
+        for (index, provider) in outputs.enumerated() {
             guard let embedding = provider.featureValue(for: "embedding")?.multiArrayValue else {
                 throw NSError(
                     domain: "DolphinCoreML",
@@ -281,6 +286,55 @@ public final class DolphinCoreML {
             embeddings.append(embedding)
         }
         return embeddings
+    }
+
+    private static func loadFunctionModel(at baseURL: URL,
+                                          functionName: String,
+                                          configuration: MLModelConfiguration) throws -> MLModel
+    {
+        let fm = FileManager.default
+
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: baseURL.path, isDirectory: &isDirectory) else {
+            throw NSError(
+                domain: "DolphinCoreML",
+                code: -20,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Model package not found at \(baseURL.path)."
+                ]
+            )
+        }
+
+        if baseURL.pathExtension == "mlmodelc" {
+            return try MLModel(contentsOf: baseURL, configuration: configuration)
+        }
+
+        let expectedName = "\(functionName).mlmodelc"
+        var discovered: URL?
+        if let enumerator = fm.enumerator(at: baseURL,
+                                          includingPropertiesForKeys: [.isDirectoryKey],
+                                          options: [.skipsHiddenFiles],
+                                          errorHandler: nil) {
+            for case let url as URL in enumerator {
+                if url.pathExtension == "mlmodelc" &&
+                    url.lastPathComponent.caseInsensitiveCompare(expectedName) == .orderedSame {
+                    discovered = url
+                    break
+                }
+            }
+        }
+
+        guard let resolvedURL = discovered else {
+            throw NSError(
+                domain: "DolphinCoreML",
+                code: -21,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Unable to locate function \(functionName) within package at \(baseURL.path)."
+                ]
+            )
+        }
+
+        return try MLModel(contentsOf: resolvedURL, configuration: configuration)
     }
 
     // MARK: - Convenience samplers

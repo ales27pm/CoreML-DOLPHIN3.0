@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections import Counter
 
-import numpy as np
-
 import pytest
+
+np = pytest.importorskip("numpy")
+
 import torch
 from transformers import LlamaConfig, LlamaForCausalLM
 

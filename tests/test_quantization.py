@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy")
 
 import sys
 from pathlib import Path

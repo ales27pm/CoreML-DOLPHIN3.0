@@ -1907,7 +1907,7 @@ def main(argv: Sequence[str]) -> int:
         quant_results[0].validation_passed = not validation_failed
 
     if args.quant_sweep:
-        _render_sweep_summary(quant_results, baseline_size_bytes)
+        _render_sweep_summary(quant_results, baseline_size=baseline_size_bytes)
         if args.sweep_report:
             _write_sweep_report(
                 Path(args.sweep_report),

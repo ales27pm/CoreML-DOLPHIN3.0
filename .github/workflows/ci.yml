@@ -183,14 +183,33 @@ jobs:
         if: matrix.platform == 'ios'
         run: |
           set -euo pipefail
+          SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "Failed to locate iphonesimulator SDK at ${SDK_PATH}" >&2
+              exit 1
+          fi
+
+          DESTINATION_FILE="$(mktemp)"
+          TOOLCHAIN_BIN_DIR="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+          cat >"${DESTINATION_FILE}" <<EOF
+          {
+            "version": 1,
+            "target": "arm64-apple-ios18.0-simulator",
+            "sdk": "${SDK_PATH}",
+            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}"
+          }
+          EOF
+
+          trap 'rm -f "${DESTINATION_FILE}"' EXIT
+
           swift build \
             --configuration release \
-            --triple arm64-apple-ios18.0-simulator \
-            --product DolphinCoreMLRuntime
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinCoreMLRuntime
           swift build \
             --configuration release \
-            --triple arm64-apple-ios18.0-simulator \
-            --product DolphinBenchmarkHarness
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinBenchmarkHarness
       - name: Validate visionOS simulator SDK
         if: matrix.platform == 'visionos'
         run: |
@@ -211,14 +230,33 @@ jobs:
         if: matrix.platform == 'visionos'
         run: |
           set -euo pipefail
+          SDK_PATH="$(xcrun --sdk xrsimulator --show-sdk-path)"
+          if [ ! -d "${SDK_PATH}" ]; then
+              echo "Failed to locate xrsimulator SDK at ${SDK_PATH}" >&2
+              exit 1
+          fi
+
+          DESTINATION_FILE="$(mktemp)"
+          TOOLCHAIN_BIN_DIR="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+          cat >"${DESTINATION_FILE}" <<EOF
+          {
+            "version": 1,
+            "target": "arm64-apple-xros2.0-simulator",
+            "sdk": "${SDK_PATH}",
+            "toolchain-bin-dir": "${TOOLCHAIN_BIN_DIR}"
+          }
+          EOF
+
+          trap 'rm -f "${DESTINATION_FILE}"' EXIT
+
           swift build \
             --configuration release \
-            --triple arm64-apple-xros2.0-simulator \
-            --product DolphinCoreMLRuntime
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinCoreMLRuntime
           swift build \
             --configuration release \
-            --triple arm64-apple-xros2.0-simulator \
-            --product DolphinBenchmarkHarness
+            --destination "${DESTINATION_FILE}" \
+            --target DolphinBenchmarkHarness
       - name: Archive SwiftPM artifact
         if: matrix.platform == 'macos'
         run: |

@@ -30,7 +30,7 @@ public enum ComputeUnitSelection: String {
 /// Thin wrapper around a multifunction Core ML LLM package that exposes:
 ///  - init pass (first tokens → logits + KV cache)
 ///  - decode step (next token with KV cache → logits + updated KV)
-///  - encode_for_llm2vec (sequence → embedding)
+///  - encode (sequence → embedding)
 public final class DolphinCoreML {
     public struct InitOutput {
         public let logits: MLMultiArray          // [1, T, vocab]
@@ -84,7 +84,10 @@ public final class DolphinCoreML {
             "input_ids": inputIds,
             "attention_mask": attentionMask
         ]
-        let out = try model.prediction(from: MLDictionaryFeatureProvider(dictionary: inputs))
+        let provider = MLDictionaryFeatureProvider(dictionary: inputs)
+        let options = MLPredictionOptions()
+        options.predictionFunctionName = "init"
+        let out = try model.prediction(from: provider, options: options)
 
         guard let logits = out.featureValue(for: "logits")?.multiArrayValue,
               let lastHidden = out.featureValue(for: "last_hidden")?.multiArrayValue
@@ -111,6 +114,10 @@ public final class DolphinCoreML {
                            pastK: [MLMultiArray],
                            pastV: [MLMultiArray]) throws -> DecodeOutput
     {
+        guard pastK.count == numLayers, pastV.count == numLayers else {
+            throw NSError(domain: "DolphinCoreML", code: -8,
+                          userInfo: [NSLocalizedDescriptionKey: "pastK/pastV must contain \(numLayers) layers. Got K=\(pastK.count), V=\(pastV.count)."])
+        }
         var dict: [String: Any] = [
             "input_ids": nextId,
             "attention_mask": nextMask
@@ -119,7 +126,10 @@ public final class DolphinCoreML {
             dict["in_k_\(i)"] = pastK[i]
             dict["in_v_\(i)"] = pastV[i]
         }
-        let out = try model.prediction(from: MLDictionaryFeatureProvider(dictionary: dict))
+        let provider = MLDictionaryFeatureProvider(dictionary: dict)
+        let options = MLPredictionOptions()
+        options.predictionFunctionName = "decode"
+        let out = try model.prediction(from: provider, options: options)
 
         guard let logits = out.featureValue(for: "logits")?.multiArrayValue,
               let lastHidden = out.featureValue(for: "last_hidden")?.multiArrayValue
@@ -188,6 +198,28 @@ public final class DolphinCoreML {
                     ]
                 )
             }
+            if batch.inputIds.shape.count != 2 || batch.attentionMask.shape.count != 2 ||
+                batch.inputIds.shape[0].intValue != 1 || batch.attentionMask.shape[0].intValue != 1 ||
+                batch.inputIds.shape[1].intValue != seqLen || batch.attentionMask.shape[1].intValue != seqLen {
+                throw NSError(
+                    domain: "DolphinCoreML",
+                    code: -9,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Expected [1, seqLen=\(seqLen)] input tensors for element \(index)."
+                    ]
+                )
+            }
+            let validInputTypes: Set<MLMultiArrayDataType> = [.int32, .int64]
+            if !validInputTypes.contains(batch.inputIds.dataType) ||
+                !validInputTypes.contains(batch.attentionMask.dataType) {
+                throw NSError(
+                    domain: "DolphinCoreML",
+                    code: -10,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Expected Int32/Int64 input_ids and attention_mask for element \(index)."
+                    ]
+                )
+            }
             let provider = try MLDictionaryFeatureProvider(
                 dictionary: [
                     "input_ids": batch.inputIds,
@@ -204,6 +236,15 @@ public final class DolphinCoreML {
 
         var embeddings: [MLMultiArray] = []
         embeddings.reserveCapacity(results.count)
+        if results.count != providers.count {
+            throw NSError(
+                domain: "DolphinCoreML",
+                code: -11,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Batched result count \(results.count) does not match input count \(providers.count)."
+                ]
+            )
+        }
         for index in 0..<results.count {
             let provider = results.featureProvider(at: index)
             guard let embedding = provider.featureValue(for: "embedding")?.multiArrayValue else {
@@ -212,6 +253,26 @@ public final class DolphinCoreML {
                     code: -7,
                     userInfo: [
                         NSLocalizedDescriptionKey: "Missing embedding in batched result at index \(index).",
+                    ]
+                )
+            }
+            if embedding.shape.count != 2 || embedding.shape[0].intValue != 1 ||
+                embedding.shape[1].intValue != hiddenSize {
+                throw NSError(
+                    domain: "DolphinCoreML",
+                    code: -12,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Unexpected embedding shape \(embedding.shape) at index \(index); expected [1, hiddenSize=\(hiddenSize)]."
+                    ]
+                )
+            }
+            let validEmbeddingTypes: Set<MLMultiArrayDataType> = [.float16, .float32, .double]
+            if !validEmbeddingTypes.contains(embedding.dataType) {
+                throw NSError(
+                    domain: "DolphinCoreML",
+                    code: -13,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Unsupported embedding dtype \(embedding.dataType) at index \(index)."
                     ]
                 )
             }
@@ -226,6 +287,7 @@ public final class DolphinCoreML {
     public func greedySample(from logits: MLMultiArray) -> Int32 {
         precondition(logits.dataType == .float16 || logits.dataType == .float32)
         let vocab = vocabSize
+        precondition(logits.count >= vocab, "Logits tensor smaller than vocab.")
         // take last time-step
         let lastOffset = logits.count - vocab
         if logits.dataType == .float16 {

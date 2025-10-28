@@ -25,7 +25,7 @@ pyproject.toml           # Packaging metadata for the conversion script
 ## Conversion Workflow
 
 Run the pipeline to produce a compressed `.mlpackage` that exposes `init`,
-`decode`, and `encode_for_llm2vec` entry points.
+`decode`, and `encode` entry points.
 
 ```bash
 python dolphin2coreml_full.py \

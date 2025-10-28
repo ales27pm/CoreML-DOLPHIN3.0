@@ -6,6 +6,7 @@ LoRA adapters via Unsloth, applies 4-bit quantization, and delivers multifunctio
 chat + LLM2Vec capabilities through a Swift runtime wrapper.
 
 ## Guiding Principles
+
 - **Single-command conversion** – Maintain `dolphin2coreml_full.py` as the only
   entry point for end-to-end export, dependency bootstrap, and artifact cleanup.
 - **Feature completeness** – Every release must validate LoRA merging, 4-bit
@@ -15,66 +16,70 @@ chat + LLM2Vec capabilities through a Swift runtime wrapper.
   and documentation remain compatible with current iOS, macOS, and visionOS
   toolchains.
 
-## Current State (Q1 FY25)
-- Conversion pipeline successfully merges LoRA weights with Unsloth and exports
-  init/decode/encode graphs to Core ML.
-- Quantization defaults to 4-bit palettization with grouped channels (size 16)
-  and optional profile validation.
-- Swift runtime (`Sources/App/LLM`) exposes streaming decode, embedding
-  generation, and benchmarking utilities.
-- Documentation reduced to README + this roadmap; contributor flow relies on
-  `python -m compileall` for pre-commit checks.
+## Current State (Q2 FY25)
+
+- Conversion pipeline merges LoRA weights with Unsloth, exports
+  init/decode/encode graphs, and persists multifunction `.mlpackage` bundles.
+- Quantization defaults to 4-bit grouped-channel palettization, with
+  CLI-configurable group sizes, mixed-precision overrides, and backend-specific
+  guard rails.
+- `--profile-validate` executes golden transcript comparisons, reports decode
+  latency percentiles + KV-cache residency, and enforces ≥0.99 cosine similarity
+  for LLM2Vec embeddings.
+- Swift runtime (`Sources/App/LLM`) includes streaming decode helpers,
+  background-task patterns, and batched embedding APIs documented in the README.
 
 ## Near-Term Objectives (0-2 sprints)
-1. **Deterministic validation suite**
-   - Add golden transcripts comparing Core ML decode outputs against PyTorch for
-     representative prompts.
-   - Extend `--profile-validate` to surface latency percentiles and KV-cache
-     residency metrics.
-2. **LLM2Vec feature parity**
-   - Confirm embedding cosine similarity against upstream checkpoints exceeds
-     0.99 on benchmark sentences.
-   - Ship sample Swift code demonstrating batched embedding extraction.
-3. **Pipeline resilience**
-   - Harden temporary directory management and error handling around dependency
-     installation, ensuring retries and actionable logging.
+
+1. **Automated quantization sweeps**
+   - Introduce a mode that sweeps through permitted `--wbits`/group sizes and
+     records size/perf trade-offs for target hardware classes.
+   - Surface summary reports consumable by CI dashboards.
+2. **Validation extensibility**
+   - Support loading golden prompts from an external YAML/JSON config so teams
+     can maintain domain-specific suites without editing the script.
+   - Emit machine-readable validation artefacts (e.g., JSON) alongside the Rich
+     tables for automated diffing.
+3. **Swift runtime ergonomics**
+   - Provide async/await wrappers around `decodeStep` and KV-cache management to
+     simplify integration with Swift Concurrency call-sites.
 
 ## Mid-Term Initiatives (2-4 sprints)
-1. **Quantization flexibility**
-   - Parameterize group size and bit width via CLI with guardrails for supported
-     Core ML backends.
-   - Investigate mixed-precision schemes (e.g., 6-bit attention, 4-bit MLP)
-     while preserving decode latency.
-2. **Swift runtime distribution**
-   - Package the runtime as a Swift Package Manager artifact with CI validation
-     on iOS, macOS, and visionOS targets.
-   - Document integration patterns for background execution and streaming UI.
-3. **Telemetry & benchmarking**
-   - Automate benchmarking runs on Apple Silicon CI to produce historical
-     latency/regression charts.
+
+1. **Model variant support**
+   - Generalise the exporter to additional Dolphin checkpoints (3B, 70B) with
+     metadata-driven Swift runtime configuration.
+   - Document adapter-merging strategies when stacking multiple task-specific
+     LoRAs.
+2. **Telemetry & benchmarking automation**
+   - Run the benchmarking harness on Apple Silicon CI, storing historical
+     latency trends and surfacing regressions in pull requests.
+3. **Distribution hardening**
+   - Publish signed SwiftPM artifacts from CI and attach SBOM/provenance data to
+     exported `.mlpackage` bundles.
 
 ## Long-Term Goals (4+ sprints)
-1. **Model variants**
-   - Generalize the pipeline to additional Dolphin sizes (3B, 70B) while
-     preserving the core feature set.
-   - Provide guidance for adapter merging when multiple task-specific Loras are
-     chained.
-2. **Tooling ecosystem integration**
-   - Publish the Core ML package and Swift runtime in an internal registry with
-     reproducible build metadata and provenance tracking.
-   - Offer sample apps showcasing chat + embedding hybrid workflows using
-     Apple-native UI frameworks.
-3. **Operational excellence**
-   - Establish monitoring hooks for production deployments (memory footprint,
+
+1. **Operational excellence**
+   - Embed monitoring hooks for production deployments (memory footprint,
      decode throughput) and feed insights back into quantization decisions.
+2. **Tooling ecosystem integration**
+   - Integrate with internal registries for reproducible downloads of Core ML
+     packages and Swift runtime releases.
+   - Offer sample apps showcasing chat + embedding hybrid workflows using
+     Apple-native UI frameworks across iOS, macOS, and visionOS.
+3. **Research collaboration**
+   - Provide documented hooks for importing external evaluation sets and sharing
+     validation results across research + product teams.
 
 ## Checkpoints & Milestones
-- **Milestone A:** Deterministic validation + enhanced profile report ready for
-  inclusion in CI (target: Sprint 2).
-- **Milestone B:** SPM distribution with multi-platform Swift CI (target:
-  Sprint 4).
-- **Milestone C:** Multi-variant export support with registry publishing
-  pipeline (target: Sprint 6+).
+
+- **Milestone A:** Quantization sweep mode with CI-ready reports (target:
+  Sprint 2).
+- **Milestone B:** Externalised validation suites with JSON artefacts (target:
+  Sprint 3).
+- **Milestone C:** Multi-variant export support + signed artifact publication
+  (target: Sprint 6+).
 
 Progress should be reviewed at the end of each sprint, verifying that new work
 continues to reinforce the core mission: high-quality, quantized Core ML exports

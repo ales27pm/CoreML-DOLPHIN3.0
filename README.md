@@ -18,7 +18,7 @@ focuses exclusively on the original goals of the project:
 dolphin2coreml_full.py   # End-to-end conversion script
 Sources/App/LLM/         # Swift runtime wrapper for chat + embeddings
 Sources/App/Bench/       # Optional benchmarking harness for Core ML packages
-requirements-dev.txt     # Lightweight development dependencies
+requirements-dev.txt     # Heavier dev/test dependencies (Torch, Transformers, Core ML Tools, etc.)
 pyproject.toml           # Packaging metadata for the conversion script
 ```
 
@@ -52,9 +52,10 @@ Key stages:
 5. **Configurable quantization** – Executes palettization followed by linear
    quantization. `--wbits` and `--palett-group-size` tune the global compression
    level, with guard rails keeping Neural Engine / GPU builds on supported group
-   sizes {8, 16, 32, 64}. Provide `--mixed-precision attention=6,mlp=4` to keep
-   attention projections at 6-bit while compressing MLP blocks to 4-bit without
-   sacrificing decode latency.
+   sizes {8, 16, 32, 64} while CPU-only exports accept any positive group size.
+   Provide `--mixed-precision attention=6,mlp=4` to keep attention projections
+   at 6-bit while compressing MLP blocks to 4-bit without sacrificing decode
+   latency.
 6. **Optional validation** – When `--profile-validate` is set the script now
    compares deterministic golden transcripts between the PyTorch model and the
    exported Core ML package, reporting decode latency percentiles and KV-cache
@@ -103,7 +104,8 @@ sentences.
 
 - `--wbits` selects the global palettization bit-width (2/4/6/8).
 - `--palett-group-size` adjusts grouped-channel LUT size; Neural Engine and GPU
-  builds are clamped to {8, 16, 32, 64} to match Core ML hardware support.
+  builds are clamped to {8, 16, 32, 64} to match Core ML hardware support while
+  `CPU_ONLY` accepts any positive value.
 - `--mixed-precision attention=6,mlp=4` applies mixed schemes, keeping
   attention projections at a higher precision while compressing MLP blocks more
   aggressively to preserve decode latency on Apple Silicon.

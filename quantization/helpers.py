@@ -1,4 +1,5 @@
 """Helper utilities for quantization configuration and validation."""
+
 from __future__ import annotations
 
 import argparse
@@ -48,12 +49,15 @@ def _validate_group_size_for_backend(group_size: int, compute_units: str) -> Non
     """Validate that the requested group size is supported by the backend."""
 
     if group_size <= 0:
-        raise ValueError("Palettization group size must be positive.")
+        raise ValueError("Palettization group size must be positive.")  # noqa: TRY003
 
-    if compute_units in {"ALL", "CPU_AND_GPU"} and group_size not in NEURAL_ENGINE_GROUP_SIZES:
+    if (
+        compute_units in {"ALL", "CPU_AND_GPU"}
+        and group_size not in NEURAL_ENGINE_GROUP_SIZES
+    ):
         raise ValueError(
             "Neural Engine / GPU palettization requires group sizes in {8, 16, 32, 64}."
-        )
+        )  # noqa: TRY003
 
 
 def _parse_mixed_precision_overrides(raw: Optional[str]) -> Dict[str, int]:
@@ -71,13 +75,15 @@ def _parse_mixed_precision_overrides(raw: Optional[str]) -> Dict[str, int]:
         if "=" not in entry:
             raise ValueError(
                 "Mixed precision overrides must use key=value format (e.g., attention=6)."
-            )
+            )  # noqa: TRY003
         key, value = entry.split("=", 1)
         key = key.strip().lower()
         value = value.strip()
         if key not in SUPPORTED_MIXED_PRECISION_KEYS:
             supported = ", ".join(SUPPORTED_MIXED_PRECISION_KEYS.keys())
-            raise ValueError(f"Unsupported mixed precision key '{key}'. Use one of: {supported}.")
+            raise ValueError(
+                f"Unsupported mixed precision key '{key}'. Use one of: {supported}."
+            )  # noqa: TRY003
         if key in overrides:
             raise ValueError(f"Duplicate mixed precision override for '{key}'.")
         try:
@@ -88,7 +94,7 @@ def _parse_mixed_precision_overrides(raw: Optional[str]) -> Dict[str, int]:
             supported_bits = ", ".join(str(bit) for bit in SUPPORTED_WBITS)
             raise ValueError(
                 f"Bit-width {nbits} is not supported. Choose from: {supported_bits}."
-            )
+            )  # noqa: TRY003
         overrides[key] = nbits
     return overrides
 
@@ -129,11 +135,11 @@ def _mixed_precision_arg(value: str) -> Dict[str, int]:
 
 
 __all__ = [
+    "NEURAL_ENGINE_GROUP_SIZES",
     "SUPPORTED_MIXED_PRECISION_KEYS",
     "SUPPORTED_WBITS",
-    "NEURAL_ENGINE_GROUP_SIZES",
-    "_validate_group_size_for_backend",
+    "_mixed_precision_arg",
     "_parse_mixed_precision_overrides",
     "_resolve_mixed_precision_plan",
-    "_mixed_precision_arg",
+    "_validate_group_size_for_backend",
 ]

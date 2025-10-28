@@ -33,7 +33,9 @@ def test_cosine_similarity_matches_expected(vector: np.ndarray) -> None:
 
 def test_cosine_similarity_rejects_zero_norm() -> None:
     with pytest.raises(ValueError, match="zero-norm"):
-        _cosine_similarity(np.zeros((1, 3), dtype=np.float32), np.ones((1, 3), dtype=np.float32))
+        _cosine_similarity(
+            np.zeros((1, 3), dtype=np.float32), np.ones((1, 3), dtype=np.float32)
+        )
 
 
 def test_parse_mixed_precision_overrides() -> None:
@@ -42,7 +44,9 @@ def test_parse_mixed_precision_overrides() -> None:
 
 
 @pytest.mark.parametrize("invalid_spec", ["foo=4", "attention=5", "attention:"])
-def test_parse_mixed_precision_overrides_rejects_invalid_entries(invalid_spec: str) -> None:
+def test_parse_mixed_precision_overrides_rejects_invalid_entries(
+    invalid_spec: str,
+) -> None:
     with pytest.raises(ValueError):
         _parse_mixed_precision_overrides(invalid_spec)
 
@@ -54,8 +58,15 @@ def test_parse_mixed_precision_overrides_rejects_duplicates() -> None:
 
 @pytest.mark.parametrize("compute_units", ["ALL", "CPU_AND_GPU"])
 @pytest.mark.parametrize("group_size", NEURAL_ENGINE_GROUP_SIZES)
-def test_validate_group_size_for_backend_accepts_ne_group_sizes(group_size: int, compute_units: str) -> None:
+def test_validate_group_size_for_backend_accepts_ne_group_sizes(
+    group_size: int, compute_units: str
+) -> None:
     _validate_group_size_for_backend(group_size, compute_units)
+
+
+def test_validate_group_size_for_backend_accepts_cpu_only_arbitrary_positive() -> None:
+    for group_size in (1, 7, 13, 128):
+        _validate_group_size_for_backend(group_size, "CPU_ONLY")
 
 
 @pytest.mark.parametrize(
@@ -119,7 +130,9 @@ def test_resolve_mixed_precision_plan_counts() -> None:
 
 @pytest.mark.parametrize("bits", SUPPORTED_WBITS)
 @pytest.mark.parametrize("category", SUPPORTED_MIXED_PRECISION_KEYS.keys())
-def test_mixed_precision_overrides_allow_supported_bits(category: str, bits: int) -> None:
+def test_mixed_precision_overrides_allow_supported_bits(
+    category: str, bits: int
+) -> None:
     spec = f"{category}={bits}"
     overrides = _parse_mixed_precision_overrides(spec)
     assert overrides[category] == bits

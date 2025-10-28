@@ -119,10 +119,15 @@ def _resolve_mixed_precision_plan(
         if "__" in name:
             continue
         segments = tuple(segment.strip() for segment in name.split("."))
+        if not segments or segments[-1] != "weight":
+            continue
+        trunk = segments[:-1]
+        if not trunk:
+            continue
         for category, patterns in _MIXED_PRECISION_PATTERNS.items():
             if category not in overrides:
                 continue
-            if any(token in segments for token in patterns):
+            if any(token in trunk for token in patterns):
                 plan[name] = overrides[category]
                 counts[category] += 1
                 break

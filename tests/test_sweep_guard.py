@@ -12,7 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tasks.sweep_guard import compare_reports, main  # noqa: E402  -- imported after sys.path mutation
+from tasks.sweep_guard import (
+    compare_reports,
+    main,
+)  # noqa: E402  -- imported after sys.path mutation
 
 
 def _write_report(path: Path, *, size_bytes: float, latency: float) -> None:
@@ -76,7 +79,9 @@ def test_compare_reports_fails_on_regression(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("missing_baseline", [None, "absent.json"])
-def test_main_skips_when_baseline_missing(tmp_path: Path, missing_baseline: str | None) -> None:
+def test_main_skips_when_baseline_missing(
+    tmp_path: Path, missing_baseline: str | None
+) -> None:
     report_path = tmp_path / "report.json"
     _write_report(report_path, size_bytes=100.0, latency=10.0)
 

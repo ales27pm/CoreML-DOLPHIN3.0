@@ -33,7 +33,10 @@ def test_resolve_model_variant_label_auto() -> None:
     assert resolve_model_variant_label("auto", hidden_size=4096, num_layers=32) == "8B"
     assert resolve_model_variant_label("auto", hidden_size=8192, num_layers=80) == "70B"
     assert resolve_model_variant_label("auto", hidden_size=3072, num_layers=28) == "3B"
-    assert resolve_model_variant_label("CUSTOM", hidden_size=4096, num_layers=32) == "CUSTOM"
+    assert (
+        resolve_model_variant_label("CUSTOM", hidden_size=4096, num_layers=32)
+        == "CUSTOM"
+    )
     assert resolve_model_variant_label("70B", hidden_size=1024, num_layers=8) == "70B"
 
 

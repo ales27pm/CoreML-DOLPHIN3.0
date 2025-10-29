@@ -39,10 +39,16 @@ def _load_report(path: Path) -> Mapping[str, Any]:
 def _variant_label(entry: Mapping[str, Any]) -> str:
     wbits = entry.get("wbits")
     group_size = entry.get("group_size")
-    return f"W{wbits}/G{group_size}" if wbits is not None and group_size is not None else "unknown"
+    return (
+        f"W{wbits}/G{group_size}"
+        if wbits is not None and group_size is not None
+        else "unknown"
+    )
 
 
-def _select_variant(report: Mapping[str, Any], label: Optional[str]) -> Optional[Mapping[str, Any]]:
+def _select_variant(
+    report: Mapping[str, Any], label: Optional[str]
+) -> Optional[Mapping[str, Any]]:
     variants = report.get("variants")
     if not isinstance(variants, Sequence):
         return None
@@ -86,13 +92,22 @@ def compare_reports(
     if baseline is not None:
         baseline_variant = _select_variant(baseline, variant_label)
         if baseline_variant is None:
-            reasons.append("Baseline report is missing the requested variant; skipping comparisons")
+            reasons.append(
+                "Baseline report is missing the requested variant; skipping comparisons"
+            )
         else:
             size_new = candidate.get("size_bytes")
             size_old = baseline_variant.get("size_bytes")
-            if isinstance(size_new, (int, float)) and isinstance(size_old, (int, float)) and size_old:
+            if (
+                isinstance(size_new, (int, float))
+                and isinstance(size_old, (int, float))
+                and size_old
+            ):
                 size_delta_pct = _percent_delta(float(size_new), float(size_old))
-                if size_delta_pct is not None and size_delta_pct > max_size_regression_pct:
+                if (
+                    size_delta_pct is not None
+                    and size_delta_pct > max_size_regression_pct
+                ):
                     reasons.append(
                         f"Package size regression {size_delta_pct:.2f}% exceeds {max_size_regression_pct:.2f}% limit"
                     )
@@ -107,9 +122,18 @@ def compare_reports(
                 if isinstance(agg_new, Mapping) and isinstance(agg_old, Mapping):
                     metric_new = agg_new.get(latency_metric)
                     metric_old = agg_old.get(latency_metric)
-                    if isinstance(metric_new, (int, float)) and isinstance(metric_old, (int, float)) and metric_old:
-                        latency_delta_pct = _percent_delta(float(metric_new), float(metric_old))
-                        if latency_delta_pct is not None and latency_delta_pct > max_latency_regression_pct:
+                    if (
+                        isinstance(metric_new, (int, float))
+                        and isinstance(metric_old, (int, float))
+                        and metric_old
+                    ):
+                        latency_delta_pct = _percent_delta(
+                            float(metric_new), float(metric_old)
+                        )
+                        if (
+                            latency_delta_pct is not None
+                            and latency_delta_pct > max_latency_regression_pct
+                        ):
                             reasons.append(
                                 f"Latency regression on {latency_metric} {latency_delta_pct:.2f}% exceeds {max_latency_regression_pct:.2f}% limit"
                             )
@@ -118,9 +142,13 @@ def compare_reports(
                             f"Missing latency metric '{latency_metric}' in report or baseline; skipping latency comparison"
                         )
                 else:
-                    reasons.append("Aggregate latency metrics unavailable; skipping latency comparison")
+                    reasons.append(
+                        "Aggregate latency metrics unavailable; skipping latency comparison"
+                    )
             else:
-                reasons.append("Performance metrics unavailable; skipping latency comparison")
+                reasons.append(
+                    "Performance metrics unavailable; skipping latency comparison"
+                )
     else:
         reasons.append("No baseline provided; skipping regression checks")
 
@@ -136,7 +164,9 @@ def compare_reports(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Quantization sweep regression guard")
-    parser.add_argument("--report", required=True, help="Path to the latest sweep report JSON")
+    parser.add_argument(
+        "--report", required=True, help="Path to the latest sweep report JSON"
+    )
     parser.add_argument("--baseline", help="Baseline sweep report JSON for comparison")
     parser.add_argument(
         "--variant",
@@ -179,7 +209,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if baseline_path.exists():
             baseline_data = _load_report(baseline_path)
         else:
-            print(f"[sweep-guard] Baseline report not found at {baseline_path}; skipping regression comparisons")
+            print(
+                f"[sweep-guard] Baseline report not found at {baseline_path}; skipping regression comparisons"
+            )
 
     result = compare_reports(
         report=report,

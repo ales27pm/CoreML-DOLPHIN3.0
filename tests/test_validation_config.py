@@ -39,7 +39,10 @@ def test_load_validation_config_from_json(tmp_path: Path) -> None:
 
     prompts, embeddings = _load_validation_config(str(config_path))
 
-    assert [item.prompt for item in prompts] == ["Explain deterministic validation.", "Summarise the exporter."]
+    assert [item.prompt for item in prompts] == [
+        "Explain deterministic validation.",
+        "Summarise the exporter.",
+    ]
     assert prompts[0].max_new_tokens == 16
     assert prompts[1].max_new_tokens == 32  # default when omitted
     assert list(embeddings) == ["Sentence A", "Sentence B"]
@@ -71,7 +74,12 @@ def test_load_validation_config_from_yaml(tmp_path: Path) -> None:
     [
         ("prompts: []", "At least one prompt"),
         (
-            json.dumps({"prompts": [{"prompt": "", "max_new_tokens": 4}], "embedding_sentences": ["ok"]}),
+            json.dumps(
+                {
+                    "prompts": [{"prompt": "", "max_new_tokens": 4}],
+                    "embedding_sentences": ["ok"],
+                }
+            ),
             "Prompt text must be a non-empty string",
         ),
     ],

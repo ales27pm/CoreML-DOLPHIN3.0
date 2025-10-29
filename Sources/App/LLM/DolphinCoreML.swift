@@ -109,14 +109,14 @@ public struct DolphinModelMetadata: Decodable {
 ///  - decode step (next token with KV cache → logits + updated KV)
 ///  - encode (sequence → embedding)
 public final class DolphinCoreML {
-    public struct InitOutput {
+    public struct InitOutput: @unchecked Sendable {
         public let logits: MLMultiArray          // [1, T, vocab]
         public let lastHidden: MLMultiArray      // [1, T, hidden]
         public let pastK: [MLMultiArray]         // per-layer [1, nH, T, headDim]
         public let pastV: [MLMultiArray]         // per-layer [1, nH, T, headDim]
     }
 
-    public struct DecodeOutput {
+    public struct DecodeOutput: @unchecked Sendable {
         public let logits: MLMultiArray          // [1, 1, vocab]
         public let lastHidden: MLMultiArray      // [1, 1, hidden]
         public let outK: [MLMultiArray]          // per-layer [1, nH, T+1, headDim]

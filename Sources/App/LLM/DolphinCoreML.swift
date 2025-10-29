@@ -11,6 +11,7 @@
 //
 
 import Foundation
+import Dispatch
 import CoreML
 
 public enum ComputeUnitSelection: String {
@@ -285,7 +286,7 @@ public final class DolphinCoreML {
         let provider = try makeDecodeInputProvider(nextId: nextId, nextMask: nextMask, pastK: pastK, pastV: pastV)
         let options = MLPredictionOptions()
         return try await withCheckedThrowingContinuation { continuation in
-            Task(priority: .userInitiated) {
+            DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     let predictionProvider = try self.decodeModel.prediction(from: provider, options: options)
                     let parsed = try self.parseDecodeOutput(predictionProvider)

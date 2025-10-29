@@ -285,17 +285,10 @@ public final class DolphinCoreML {
         let provider = try makeDecodeInputProvider(nextId: nextId, nextMask: nextMask, pastK: pastK, pastV: pastV)
         let options = MLPredictionOptions()
         return try await withCheckedThrowingContinuation { continuation in
-            decodeModel.prediction(from: provider, options: options) { result, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let provider = result else {
-                    continuation.resume(throwing: NSError(domain: "DolphinCoreML", code: -3, userInfo: [NSLocalizedDescriptionKey: "Decode output was nil."]))
-                    return
-                }
+            Task(priority: .userInitiated) {
                 do {
-                    let parsed = try self.parseDecodeOutput(provider)
+                    let predictionProvider = try self.decodeModel.prediction(from: provider, options: options)
+                    let parsed = try self.parseDecodeOutput(predictionProvider)
                     continuation.resume(returning: parsed)
                 } catch {
                     continuation.resume(throwing: error)

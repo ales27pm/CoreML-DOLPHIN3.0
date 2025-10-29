@@ -333,6 +333,23 @@ class QuantizationVariant:
     output_path: Path
 
 
+@dataclass(frozen=True)
+class _VariantHeuristic:
+    """Heuristic thresholds used to infer the Dolphin checkpoint variant."""
+
+    label: str
+    min_hidden: int
+    max_hidden: int
+    min_layers: int
+    max_layers: int
+
+    def matches(self, hidden_size: int, num_layers: int) -> bool:
+        return (
+            self.min_hidden <= hidden_size <= self.max_hidden
+            and self.min_layers <= num_layers <= self.max_layers
+        )
+
+
 @dataclass
 class QuantizationResult:
     """Outcome of quantizing and benchmarking a single variant."""
@@ -344,9 +361,162 @@ class QuantizationResult:
     performance_error: Optional[str]
     error: Optional[str]
     validation_passed: Optional[bool] = None
+    metadata_path: Optional[Path] = None
 
 
-GOLDEN_PROMPTS: Sequence[GoldenPrompt] = (
+METADATA_FILENAME = "dolphin-metadata.json"
+
+_VARIANT_HEURISTICS: Sequence[_VariantHeuristic] = (
+    _VariantHeuristic("3B", min_hidden=2800, max_hidden=3400, min_layers=24, max_layers=40),
+    _VariantHeuristic("8B", min_hidden=3600, max_hidden=4600, min_layers=30, max_layers=40),
+    _VariantHeuristic("70B", min_hidden=7600, max_hidden=8600, min_layers=70, max_layers=96),
+)
+
+
+def resolve_model_variant_label(
+    explicit_label: Optional[str], hidden_size: int, num_layers: int
+) -> str:
+    """Return the canonical Dolphin checkpoint label for export metadata."""
+
+    if explicit_label and explicit_label.lower() != "auto":
+        return explicit_label.upper()
+
+    for heuristic in _VARIANT_HEURISTICS:
+        if heuristic.matches(hidden_size, num_layers):
+            return heuristic.label
+
+    if hidden_size >= 7000 or num_layers >= 70:
+        return "70B"
+    if hidden_size >= 3600 or num_layers >= 30:
+        return "8B"
+    if hidden_size >= 2500:
+        return "3B"
+    return "CUSTOM"
+
+
+def _load_lora_descriptor(lora_dir: Path) -> Dict[str, Any]:
+    """Return metadata describing the merged LoRA adapters."""
+
+    descriptor: Dict[str, Any] = {"path": str(lora_dir)}
+    config_path = lora_dir / "adapter_config.json"
+    if not config_path.exists():
+        descriptor["config_available"] = False
+        return descriptor
+
+    try:
+        content = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # pragma: no cover - filesystem/encoding specific
+        descriptor["config_error"] = str(exc)
+        return descriptor
+
+    descriptor["config_available"] = True
+    descriptor["base_model_name"] = content.get("base_model_name_or_path")
+    descriptor["rank"] = content.get("r")
+    descriptor["alpha"] = content.get("lora_alpha")
+    descriptor["target_modules"] = content.get("target_modules")
+    descriptor["peft_type"] = content.get("peft_type")
+    descriptor["scaling"] = content.get("scaling")
+    return descriptor
+
+
+def _load_llm2vec_descriptor(llm2vec_dir: Path, embedding_dim: int) -> Dict[str, Any]:
+    """Return metadata describing the attached LLM2Vec encoder."""
+
+    descriptor: Dict[str, Any] = {
+        "path": str(llm2vec_dir),
+        "embedding_dimension": int(embedding_dim),
+    }
+    config_path = llm2vec_dir / "config.json"
+    if config_path.exists():
+        try:
+            content = json.loads(config_path.read_text(encoding="utf-8"))
+        except Exception as exc:  # pragma: no cover - filesystem/encoding specific
+            descriptor["config_error"] = str(exc)
+        else:
+            descriptor["projection_dim"] = content.get("projection_dim")
+            descriptor["pooling"] = content.get("pooling")
+            descriptor["normalize"] = content.get("normalize")
+    else:
+        descriptor["config_available"] = False
+    return descriptor
+
+
+def _build_model_metadata(
+    *,
+    model_identifier: str,
+    revision: Optional[str],
+    variant_label: str,
+    config: Any,
+    seq_len: int,
+    embedding_dim: int,
+    quantization: Mapping[str, Any],
+    compute_units: str,
+    lora: Mapping[str, Any],
+    llm2vec: Mapping[str, Any],
+    generated_at: str,
+    size_bytes: Optional[int],
+) -> Dict[str, Any]:
+    """Return the metadata payload embedded in each exported package."""
+
+    hidden_size = int(getattr(config, "hidden_size", 0))
+    num_heads = int(getattr(config, "num_attention_heads", 0)) or 1
+    head_dim = hidden_size // num_heads
+    kv_heads = int(getattr(config, "num_key_value_heads", num_heads))
+    payload: Dict[str, Any] = {
+        "model": {
+            "identifier": model_identifier,
+            "revision": revision,
+            "variant": variant_label,
+            "family": getattr(config, "model_type", None),
+            "context_length": int(seq_len),
+            "vocab_size": int(getattr(config, "vocab_size", 0)),
+            "hidden_size": hidden_size,
+            "num_layers": int(getattr(config, "num_hidden_layers", 0)),
+            "num_attention_heads": int(getattr(config, "num_attention_heads", 0)),
+            "num_key_value_heads": kv_heads,
+            "head_dim": int(head_dim),
+            "rope_theta": getattr(config, "rope_theta", None),
+            "rope_scaling": getattr(config, "rope_scaling", None),
+            "embedding_dimension": int(embedding_dim),
+        },
+        "quantization": {
+            "wbits": quantization.get("wbits"),
+            "group_size": quantization.get("group_size"),
+            "palett_granularity": quantization.get("palett_granularity"),
+            "mixed_precision_overrides": quantization.get("mixed_precision_overrides"),
+            "size_bytes": size_bytes,
+        },
+        "lora": dict(lora),
+        "llm2vec": dict(llm2vec),
+        "pipeline": {
+            "generated_at": generated_at,
+            "compute_units": compute_units,
+            "script": Path(__file__).name,
+        },
+    }
+
+    parameter_count = getattr(config, "num_params", None)
+    if parameter_count is not None:
+        try:
+            payload["model"]["parameter_count"] = int(parameter_count)
+        except (TypeError, ValueError):
+            payload["model"]["parameter_count"] = parameter_count
+
+    return payload
+
+
+def _write_model_metadata(package_dir: Path, payload: Mapping[str, Any]) -> Path:
+    """Persist the export metadata JSON alongside the Core ML package."""
+
+    if not package_dir.exists():
+        raise FileNotFoundError(f"Core ML package directory does not exist: {package_dir}")
+
+    metadata_path = package_dir / METADATA_FILENAME
+    metadata_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return metadata_path
+
+
+DEFAULT_GOLDEN_PROMPTS: Sequence[GoldenPrompt] = (
     GoldenPrompt(
         "You are Dolphin, a helpful AI assistant. Explain why deterministic validation matters when exporting Core ML models.",
         max_new_tokens=32,
@@ -362,7 +532,7 @@ GOLDEN_PROMPTS: Sequence[GoldenPrompt] = (
 )
 
 
-EMBEDDING_BENCHMARKS: Sequence[str] = (
+DEFAULT_EMBEDDING_BENCHMARKS: Sequence[str] = (
     "Legitimate packet capture helps incident responders observe beaconing without disrupting production traffic.",
     "Deterministic validation builds trust in Core ML exports by catching parity gaps before shipping to devices.",
     "Batched LLM2Vec embeddings enable semantic clustering of security advisories for faster triage.",
@@ -370,6 +540,97 @@ EMBEDDING_BENCHMARKS: Sequence[str] = (
 
 
 EMBEDDING_COSINE_THRESHOLD = 0.99
+
+
+def _load_validation_config(
+    config_path: Optional[str],
+) -> Tuple[Tuple[GoldenPrompt, ...], Tuple[str, ...]]:
+    """Return the golden prompt and embedding configuration."""
+
+    if not config_path:
+        return tuple(DEFAULT_GOLDEN_PROMPTS), tuple(DEFAULT_EMBEDDING_BENCHMARKS)
+
+    path = Path(config_path).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"Golden prompt config not found at {path}")
+
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+    except Exception as exc:  # pragma: no cover - filesystem specific
+        raise RuntimeError(f"Unable to read golden prompt config: {exc}") from exc
+
+    parsed: Any
+    suffix = path.suffix.lower()
+    try:
+        if suffix in {".json"}:
+            parsed = json.loads(raw_text)
+        elif suffix in {".yaml", ".yml"}:
+            try:
+                import yaml  # type: ignore
+            except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
+                raise ModuleNotFoundError(
+                    "PyYAML is required to parse YAML golden prompt configs. "
+                    "Install it with 'python -m pip install pyyaml'."
+                ) from exc
+            parsed = yaml.safe_load(raw_text)
+        else:
+            try:
+                parsed = json.loads(raw_text)
+            except json.JSONDecodeError:
+                try:
+                    import yaml  # type: ignore
+                except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
+                    raise ValueError(
+                        "Golden prompt config is neither valid JSON nor YAML. Install PyYAML to parse YAML files."
+                    ) from exc
+                parsed = yaml.safe_load(raw_text)
+    except Exception as exc:
+        raise ValueError(f"Failed to parse golden prompt config {path}: {exc}") from exc
+
+    if parsed is None:
+        parsed = {}
+
+    if not isinstance(parsed, Mapping):
+        raise ValueError("Golden prompt config must be a JSON/YAML object")
+
+    prompts_raw = parsed.get("prompts", parsed.get("golden_prompts"))
+    prompts: List[GoldenPrompt]
+    if prompts_raw is None:
+        prompts = list(DEFAULT_GOLDEN_PROMPTS)
+    else:
+        if not isinstance(prompts_raw, Sequence):
+            raise ValueError("prompts must be a list of prompt objects")
+        prompts = []
+        for entry in prompts_raw:
+            if not isinstance(entry, Mapping):
+                raise ValueError("Each prompt entry must be an object with 'prompt' and optional 'max_new_tokens'")
+            prompt_text = entry.get("prompt")
+            if not isinstance(prompt_text, str) or not prompt_text.strip():
+                raise ValueError("Prompt text must be a non-empty string")
+            max_new_tokens = entry.get("max_new_tokens", 32)
+            if not isinstance(max_new_tokens, int) or max_new_tokens <= 0:
+                raise ValueError("max_new_tokens must be a positive integer")
+            prompts.append(
+                GoldenPrompt(prompt=prompt_text.strip(), max_new_tokens=int(max_new_tokens))
+            )
+        if not prompts:
+            raise ValueError("At least one prompt is required for validation")
+
+    embeddings_raw = parsed.get("embedding_sentences", parsed.get("embeddings"))
+    if embeddings_raw is None:
+        embeddings = list(DEFAULT_EMBEDDING_BENCHMARKS)
+    else:
+        if not isinstance(embeddings_raw, Sequence):
+            raise ValueError("embedding_sentences must be a list of strings")
+        embeddings = []
+        for sentence in embeddings_raw:
+            if not isinstance(sentence, str) or not sentence.strip():
+                raise ValueError("Embedding sentences must be non-empty strings")
+            embeddings.append(sentence.strip())
+        if not embeddings:
+            raise ValueError("At least one embedding sentence is required for validation")
+
+    return tuple(prompts), tuple(embeddings)
 
 
 def _prepare_prompt_arrays(
@@ -872,6 +1133,7 @@ def _write_sweep_report(
     *,
     model: str,
     revision: Optional[str],
+    model_variant: str,
     compute_units: str,
     deployment_target: str,
     seq_len: int,
@@ -889,6 +1151,7 @@ def _write_sweep_report(
         "model": model,
         "revision": revision,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "model_variant": model_variant,
         "compute_units": compute_units,
         "minimum_deployment_target": deployment_target,
         "seq_len": seq_len,
@@ -918,6 +1181,8 @@ def _write_sweep_report(
             entry["error"] = result.error
         if result.validation_passed is not None:
             entry["validation_passed"] = result.validation_passed
+        if result.metadata_path is not None:
+            entry["metadata_path"] = str(result.metadata_path)
         payload["variants"].append(entry)
 
     try:
@@ -928,6 +1193,29 @@ def _write_sweep_report(
     console.print(
         Panel.fit(
             f"[bold green]Quantization sweep report written to {resolved_path}",
+            border_style="green",
+        )
+    )
+
+
+def _write_validation_report(path: Path, payload: Mapping[str, Any]) -> None:
+    """Persist machine-readable validation metrics."""
+
+    resolved_path = path.expanduser().resolve()
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        resolved_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+    except Exception as exc:  # pragma: no cover - filesystem specific
+        raise RuntimeError(
+            f"Failed to write validation report to {resolved_path}: {exc}"
+        ) from exc
+
+    console.print(
+        Panel.fit(
+            f"[bold green]Validation report written to {resolved_path}",
             border_style="green",
         )
     )
@@ -972,8 +1260,8 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--seq-len",
         dest="seq_len",
         type=int,
-        required=True,
-        help="Maximum sequence length for export",
+        default=None,
+        help="Maximum sequence length for export. Defaults to the model config context length.",
     )
     parser.add_argument(
         "--output",
@@ -1056,10 +1344,31 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Deployment target (e.g., iOS18 or macOS15)",
     )
     parser.add_argument(
+        "--model-variant",
+        dest="model_variant",
+        choices=["auto", "3B", "8B", "70B", "CUSTOM"],
+        default="auto",
+        help=(
+            "Label the Dolphin checkpoint being exported. Defaults to auto-detection based on hidden size/layers."
+        ),
+    )
+    parser.add_argument(
+        "--golden-config",
+        dest="golden_config",
+        default=None,
+        help="Optional YAML/JSON file with golden prompts and embedding sentences",
+    )
+    parser.add_argument(
         "--profile-validate",
         dest="profile_validate",
         action="store_true",
         help="Run a lightweight validation against the exported model",
+    )
+    parser.add_argument(
+        "--validation-report",
+        dest="validation_report",
+        default=None,
+        help="Optional JSON path for machine-readable validation metrics (requires --profile-validate)",
     )
     parser.add_argument(
         "--clean-tmp",
@@ -1125,10 +1434,30 @@ def main(argv: Sequence[str]) -> int:
         )
         return 2
 
+    if args.validation_report and not args.profile_validate:
+        console.print(
+            Panel.fit(
+                "[bold red]❌ --validation-report requires --profile-validate.",
+                border_style="red",
+            )
+        )
+        return 2
+
     try:
         _validate_group_size_for_backend(args.palett_group_size, args.compute_units)
     except ValueError as exc:
         console.print(Panel.fit(f"[bold red]❌ {exc}", border_style="red"))
+        return 2
+
+    try:
+        golden_prompts, embedding_sentences = _load_validation_config(args.golden_config)
+    except Exception as exc:
+        console.print(
+            Panel.fit(
+                f"[bold red]❌ Failed to load golden prompt config:[/] {exc}",
+                border_style="red",
+            )
+        )
         return 2
 
     mixed_precision_overrides = args.mixed_precision or {}
@@ -1203,6 +1532,47 @@ def main(argv: Sequence[str]) -> int:
     config = AutoConfig.from_pretrained(local_base)
     config.use_cache = True
     config.output_hidden_states = True
+
+    config_seq_len = getattr(config, "max_position_embeddings", None)
+    if args.seq_len is None:
+        if config_seq_len is None:
+            raise RuntimeError(
+                "--seq-len was not provided and the model config is missing max_position_embeddings"
+            )
+        args.seq_len = int(config_seq_len)
+        console.print(
+            Panel.fit(
+                f"[green]Sequence length defaulted to {args.seq_len} based on model configuration.",
+                title="Sequence Length",
+            )
+        )
+    elif config_seq_len is not None and args.seq_len > int(config_seq_len):
+        console.print(
+            Panel.fit(
+                (
+                    f"[bold yellow]⚠️ Requested seq-len {args.seq_len} exceeds model capacity ({config_seq_len})."
+                    " Proceeding but Core ML validation may fail."
+                ),
+                title="Sequence Length Warning",
+                border_style="yellow",
+            )
+        )
+
+    model_variant_label = resolve_model_variant_label(
+        args.model_variant,
+        int(getattr(config, "hidden_size", 0)),
+        int(getattr(config, "num_hidden_layers", 0)),
+    )
+    console.print(
+        Panel.fit(
+            (
+                "[green]Model variant resolved as "
+                f"{model_variant_label} (hidden={getattr(config, 'hidden_size', 'n/a')}, "
+                f"layers={getattr(config, 'num_hidden_layers', 'n/a')})."
+            ),
+            title="Model Variant",
+        )
+    )
 
     model = AutoModelForCausalLM.from_pretrained(
         local_base,
@@ -1371,6 +1741,10 @@ def main(argv: Sequence[str]) -> int:
             embed_dim = int(_probe.shape[-1])
     except Exception:
         embed_dim = int(config.hidden_size)
+
+    lora_descriptor = _load_lora_descriptor(Path(args.lora_checkpoint))
+    llm2vec_descriptor = _load_llm2vec_descriptor(Path(args.llm2vec_checkpoint), embed_dim)
+    export_timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     # ------------------------------------------------------------------
     # Step 6: Prepare export metadata for conversion
@@ -1629,6 +2003,34 @@ def main(argv: Sequence[str]) -> int:
             )
             model_quant.save(str(variant.output_path))
             size_bytes = _compute_package_size(variant.output_path)
+            metadata_payload = _build_model_metadata(
+                model_identifier=args.model,
+                revision=args.revision,
+                variant_label=model_variant_label,
+                config=config,
+                seq_len=args.seq_len,
+                embedding_dim=embed_dim,
+                quantization={
+                    "wbits": variant.wbits,
+                    "group_size": variant.group_size,
+                    "palett_granularity": args.palett_granularity,
+                    "mixed_precision_overrides": mixed_precision_overrides,
+                    "variant_index": index,
+                    "variant_count": len(quant_plan),
+                },
+                compute_units=args.compute_units,
+                lora=lora_descriptor,
+                llm2vec=llm2vec_descriptor,
+                generated_at=export_timestamp,
+                size_bytes=size_bytes,
+            )
+            metadata_path = _write_model_metadata(variant.output_path, metadata_payload)
+            console.print(
+                Panel.fit(
+                    f"[green]Export metadata written to {metadata_path}",
+                    title="Metadata",
+                )
+            )
         except Exception as exc:
             message = f"Failed to quantize variant {descriptor}: {exc}"
             if index == 0:
@@ -1647,6 +2049,7 @@ def main(argv: Sequence[str]) -> int:
                     performance=None,
                     performance_error=None,
                     error=str(exc),
+                    metadata_path=None,
                 )
             )
             continue
@@ -1668,7 +2071,7 @@ def main(argv: Sequence[str]) -> int:
                     tokenizer=tokenizer,
                     seq_len=seq_len,
                     num_layers=num_layers,
-                    prompts=GOLDEN_PROMPTS,
+                    prompts=golden_prompts,
                 )
             except Exception as exc:
                 performance_error = str(exc)
@@ -1687,6 +2090,7 @@ def main(argv: Sequence[str]) -> int:
                 performance=performance,
                 performance_error=performance_error,
                 error=None,
+                metadata_path=metadata_path,
             )
         )
         console.print(
@@ -1710,9 +2114,29 @@ def main(argv: Sequence[str]) -> int:
     # Step 10: Optional validation
     # ------------------------------------------------------------------
     validation_failed = False
+    validation_payload: Dict[str, Any] | None = None
 
     if args.profile_validate:
         console.print(Panel.fit("[bold green]Running deterministic validation suite…"))
+        if args.validation_report:
+            validation_payload = {
+                "model": args.model,
+                "revision": args.revision,
+                "model_variant": model_variant_label,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "compute_units": args.compute_units,
+                "seq_len": args.seq_len,
+                "golden_prompts": [
+                    {"prompt": prompt.prompt, "max_new_tokens": prompt.max_new_tokens}
+                    for prompt in golden_prompts
+                ],
+                "embedding_sentences": list(embedding_sentences),
+                "transcripts": [],
+            }
+            if primary_result.metadata_path is not None:
+                validation_payload["metadata_path"] = str(
+                    primary_result.metadata_path
+                )
         try:
             mlmodel = ct.models.MLModel(
                 str(primary_output_path),
@@ -1725,7 +2149,7 @@ def main(argv: Sequence[str]) -> int:
             total_evicted = 0
             all_match = True
 
-            for golden in GOLDEN_PROMPTS:
+            for golden in golden_prompts:
                 padded_ids, padded_mask, trimmed_prompt, effective_len = (
                     _prepare_prompt_arrays(tokenizer, golden.prompt, seq_len)
                 )
@@ -1759,6 +2183,30 @@ def main(argv: Sequence[str]) -> int:
                         "match": match,
                     }
                 )
+                if validation_payload is not None:
+                    validation_payload["transcripts"].append(
+                        {
+                            "prompt": golden.prompt,
+                            "max_new_tokens": golden.max_new_tokens,
+                            "reference": {
+                                "tokens": list(reference["tokens"]),
+                                "text": reference.get("text", ""),
+                            },
+                            "coreml": {
+                                "tokens": list(coreml_metrics["tokens"]),
+                                "text": coreml_metrics.get("text", ""),
+                                "init_ms": float(coreml_metrics["init_ms"]),
+                                "decode_ms": [
+                                    float(value) for value in coreml_metrics["decode_ms"]
+                                ],
+                                "residency": [
+                                    float(value) for value in coreml_metrics["residency"]
+                                ],
+                                "evicted": int(coreml_metrics["evicted"]),
+                            },
+                            "match": match,
+                        }
+                    )
                 decode_lat_all.extend(coreml_metrics["decode_ms"])
                 residency_all.extend(coreml_metrics["residency"])
                 total_evicted += coreml_metrics["evicted"]
@@ -1821,7 +2269,7 @@ def main(argv: Sequence[str]) -> int:
                     embedding_module,
                     tokenizer,
                     seq_len,
-                    EMBEDDING_BENCHMARKS,
+                    embedding_sentences,
                     minimum_cosine=EMBEDDING_COSINE_THRESHOLD,
                 )
             except Exception as exc:
@@ -1832,6 +2280,11 @@ def main(argv: Sequence[str]) -> int:
                         border_style="red",
                     )
                 )
+                if validation_payload is not None:
+                    validation_payload["embedding"] = {
+                        "threshold": EMBEDDING_COSINE_THRESHOLD,
+                        "error": str(exc),
+                    }
             else:
                 embed_table = Table(title="LLM2Vec Embedding Cosine Similarity")
                 embed_table.add_column("Sentence", justify="left")
@@ -1858,6 +2311,19 @@ def main(argv: Sequence[str]) -> int:
                             f"[green]LLM2Vec embedding parity confirmed (min cosine {min_cosine:.4f})."
                         )
                     )
+                if validation_payload is not None:
+                    validation_payload["embedding"] = {
+                        "threshold": EMBEDDING_COSINE_THRESHOLD,
+                        "minimum_cosine": float(min_cosine),
+                        "cases": [
+                            {
+                                "sentence": row["sentence"],
+                                "cosine": float(row["cosine"]),
+                                "pass": bool(row["pass"]),
+                            }
+                            for row in embedding_rows
+                        ],
+                    }
 
             if decode_lat_all:
                 overall = np.percentile(
@@ -1869,6 +2335,12 @@ def main(argv: Sequence[str]) -> int:
                         f"p50: {overall[0]:.2f} ms, p90: {overall[1]:.2f} ms, p99: {overall[2]:.2f} ms"
                     )
                 )
+                if validation_payload is not None:
+                    validation_payload["decode_latency"] = {
+                        "p50_ms": float(overall[0]),
+                        "p90_ms": float(overall[1]),
+                        "p99_ms": float(overall[2]),
+                    }
 
             if residency_all:
                 avg_residency = statistics.fmean(residency_all) * 100.0
@@ -1881,6 +2353,13 @@ def main(argv: Sequence[str]) -> int:
                         f"max: {max_residency:.2f}% • evicted tokens: {total_evicted}"
                     )
                 )
+                if validation_payload is not None:
+                    validation_payload["kv_cache"] = {
+                        "avg_residency_pct": float(avg_residency),
+                        "min_residency_pct": float(min_residency),
+                        "max_residency_pct": float(max_residency),
+                        "evicted_tokens": int(total_evicted),
+                    }
 
             if not all_match:
                 validation_failed = True
@@ -1894,6 +2373,8 @@ def main(argv: Sequence[str]) -> int:
                 console.print(
                     "[green]Validation run complete. Numerical parity confirmed."
                 )
+            if validation_payload is not None:
+                validation_payload["transcripts_passed"] = all_match
         except Exception as exc:  # pragma: no cover - device specific behaviour
             console.print(
                 Panel.fit(
@@ -1902,6 +2383,9 @@ def main(argv: Sequence[str]) -> int:
                 )
             )
             raise
+        if args.validation_report and validation_payload is not None:
+            validation_payload["validation_passed"] = not validation_failed
+            _write_validation_report(Path(args.validation_report), validation_payload)
 
     if quant_results and args.profile_validate:
         quant_results[0].validation_passed = not validation_failed
@@ -1913,6 +2397,7 @@ def main(argv: Sequence[str]) -> int:
                 Path(args.sweep_report),
                 model=args.model,
                 revision=args.revision,
+                model_variant=model_variant_label,
                 compute_units=args.compute_units,
                 deployment_target=args.minimum_deployment_target,
                 seq_len=args.seq_len,

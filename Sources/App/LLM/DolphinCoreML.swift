@@ -29,6 +29,81 @@ public enum ComputeUnitSelection: String {
     }
 }
 
+public struct DolphinModelMetadata: Decodable {
+    public struct RopeScaling: Decodable {
+        public let type: String?
+        public let factor: Double?
+        public let originalMaxPositionEmbeddings: Int?
+    }
+
+    public struct Model: Decodable {
+        public let identifier: String
+        public let revision: String?
+        public let variant: String
+        public let family: String?
+        public let contextLength: Int
+        public let vocabSize: Int
+        public let hiddenSize: Int
+        public let numLayers: Int
+        public let numAttentionHeads: Int
+        public let numKeyValueHeads: Int
+        public let headDim: Int
+        public let ropeTheta: Double?
+        public let ropeScaling: RopeScaling?
+        public let embeddingDimension: Int
+        public let parameterCount: Int?
+    }
+
+    public struct Quantization: Decodable {
+        public let wbits: Int?
+        public let groupSize: Int?
+        public let palettGranularity: String?
+        public let mixedPrecisionOverrides: [String: Int]?
+        public let sizeBytes: Int?
+        public let variantIndex: Int?
+        public let variantCount: Int?
+    }
+
+    public struct Pipeline: Decodable {
+        public let generatedAt: String
+        public let computeUnits: String
+        public let script: String
+    }
+
+    public struct Lora: Decodable {
+        public let path: String?
+        public let baseModelName: String?
+        public let rank: Int?
+        public let alpha: Int?
+        public let targetModules: [String]?
+        public let scaling: Double?
+    }
+
+    public struct LLM2Vec: Decodable {
+        public let path: String?
+        public let embeddingDimension: Int
+        public let projectionDim: Int?
+        public let pooling: String?
+        public let normalize: Bool?
+    }
+
+    public let model: Model
+    public let quantization: Quantization?
+    public let pipeline: Pipeline?
+    public let lora: Lora?
+    public let llm2vec: LLM2Vec?
+
+    public static let fileName = "dolphin-metadata.json"
+
+    public static func load(from packageURL: URL) throws -> DolphinModelMetadata {
+        let metadataURL = packageURL.appendingPathComponent(Self.fileName)
+        let data = try Data(contentsOf: metadataURL)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(DolphinModelMetadata.self, from: data)
+    }
+}
+
 /// Thin wrapper around a multifunction Core ML LLM package that exposes:
 ///  - init pass (first tokens → logits + KV cache)
 ///  - decode step (next token with KV cache → logits + updated KV)
@@ -48,6 +123,30 @@ public final class DolphinCoreML {
         public let outV: [MLMultiArray]          // per-layer [1, nH, T+1, headDim]
     }
 
+    public struct KVCache {
+        public internal(set) var keys: [MLMultiArray]
+        public internal(set) var values: [MLMultiArray]
+
+        public init(keys: [MLMultiArray], values: [MLMultiArray], expectedLayers: Int) throws {
+            guard keys.count == expectedLayers, values.count == expectedLayers else {
+                throw NSError(
+                    domain: "DolphinCoreML",
+                    code: -9,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "KVCache must contain \(expectedLayers) layers. Received K=\(keys.count), V=\(values.count)."
+                    ]
+                )
+            }
+            self.keys = keys
+            self.values = values
+        }
+
+        public mutating func update(with output: DecodeOutput) {
+            keys = output.outK
+            values = output.outV
+        }
+    }
+
     public let model: MLModel
     private let decodeModel: MLModel
     private let encodeModel: MLModel
@@ -57,6 +156,8 @@ public final class DolphinCoreML {
     public let numHeads: Int
     public let headDim: Int
     public let seqLen: Int
+    public private(set) var numKeyValueHeads: Int
+    public private(set) var modelMetadata: DolphinModelMetadata?
 
     /// Load a multifunction mlpackage from app bundle or file URL.
     public init(modelURL: URL,
@@ -81,6 +182,37 @@ public final class DolphinCoreML {
         self.numHeads   = metadata.numHeads
         self.headDim    = metadata.headDim
         self.seqLen     = metadata.seqLen
+        self.numKeyValueHeads = metadata.numHeads
+        self.modelMetadata = nil
+    }
+
+    /// Convenience initialiser that consumes the JSON metadata emitted by the exporter.
+    public convenience init(modelURL: URL,
+                            computeUnits: ComputeUnitSelection = .all,
+                            metadata: DolphinModelMetadata) throws
+    {
+        try self.init(
+            modelURL: modelURL,
+            computeUnits: computeUnits,
+            metadata: (
+                vocabSize: metadata.model.vocabSize,
+                hiddenSize: metadata.model.hiddenSize,
+                numLayers: metadata.model.numLayers,
+                numHeads: metadata.model.numAttentionHeads,
+                headDim: metadata.model.headDim,
+                seqLen: metadata.model.contextLength
+            )
+        )
+        self.numKeyValueHeads = metadata.model.numKeyValueHeads
+        self.modelMetadata = metadata
+    }
+
+    /// Convenience initialiser that loads metadata directly from the package directory.
+    public convenience init(modelURL: URL,
+                            computeUnits: ComputeUnitSelection = .all) throws
+    {
+        let metadata = try DolphinModelMetadata.load(from: modelURL)
+        try self.init(modelURL: modelURL, computeUnits: computeUnits, metadata: metadata)
     }
 
     // MARK: - Public API
@@ -114,6 +246,11 @@ public final class DolphinCoreML {
         return .init(logits: logits, lastHidden: lastHidden, pastK: pastK, pastV: pastV)
     }
 
+    /// Convenience helper that materialises a ``KVCache`` from the init pass output.
+    public func kvCache(from initOutput: InitOutput) throws -> KVCache {
+        try KVCache(keys: initOutput.pastK, values: initOutput.pastV, expectedLayers: numLayers)
+    }
+
     /// Decode one token step with KV cache.
     /// - Parameters:
     ///   - nextId: [1, 1]
@@ -124,34 +261,58 @@ public final class DolphinCoreML {
                            pastK: [MLMultiArray],
                            pastV: [MLMultiArray]) throws -> DecodeOutput
     {
-        guard pastK.count == numLayers, pastV.count == numLayers else {
-            throw NSError(domain: "DolphinCoreML", code: -8,
-                          userInfo: [NSLocalizedDescriptionKey: "pastK/pastV must contain \(numLayers) layers. Got K=\(pastK.count), V=\(pastV.count)."])
-        }
-        var dict: [String: Any] = [
-            "input_ids": nextId,
-            "attention_mask": nextMask
-        ]
-        for i in 0..<numLayers {
-            dict["in_k_\(i)"] = pastK[i]
-            dict["in_v_\(i)"] = pastV[i]
-        }
-        let provider = try MLDictionaryFeatureProvider(dictionary: dict)
+        let provider = try makeDecodeInputProvider(nextId: nextId, nextMask: nextMask, pastK: pastK, pastV: pastV)
         let out = try decodeModel.prediction(from: provider)
+        return try parseDecodeOutput(out)
+    }
 
-        guard let logits = out.featureValue(for: "logits")?.multiArrayValue,
-              let lastHidden = out.featureValue(for: "last_hidden")?.multiArrayValue
-        else { throw NSError(domain: "DolphinCoreML", code: -3, userInfo: [NSLocalizedDescriptionKey: "Missing logits/last_hidden"]) }
+    /// Convenience overload that updates ``KVCache`` in place.
+    public func decodeStep(nextId: MLMultiArray,
+                           nextMask: MLMultiArray,
+                           cache: inout KVCache) throws -> DecodeOutput
+    {
+        let output = try decodeStep(nextId: nextId, nextMask: nextMask, pastK: cache.keys, pastV: cache.values)
+        cache.update(with: output)
+        return output
+    }
 
-        var outK: [MLMultiArray] = []
-        var outV: [MLMultiArray] = []
-        for i in 0..<numLayers {
-            guard let k = out.featureValue(for: "out_k_\(i)")?.multiArrayValue,
-                  let v = out.featureValue(for: "out_v_\(i)")?.multiArrayValue
-            else { throw NSError(domain: "DolphinCoreML", code: -4, userInfo: [NSLocalizedDescriptionKey: "Missing out KV layer \(i)"]) }
-            outK.append(k); outV.append(v)
+    @available(iOS 15.0, macOS 12.0, *)
+    public func decodeStepAsync(nextId: MLMultiArray,
+                                nextMask: MLMultiArray,
+                                pastK: [MLMultiArray],
+                                pastV: [MLMultiArray]) async throws -> DecodeOutput
+    {
+        let provider = try makeDecodeInputProvider(nextId: nextId, nextMask: nextMask, pastK: pastK, pastV: pastV)
+        let options = MLPredictionOptions()
+        return try await withCheckedThrowingContinuation { continuation in
+            decodeModel.prediction(from: provider, options: options) { result, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let provider = result else {
+                    continuation.resume(throwing: NSError(domain: "DolphinCoreML", code: -3, userInfo: [NSLocalizedDescriptionKey: "Decode output was nil."]))
+                    return
+                }
+                do {
+                    let parsed = try self.parseDecodeOutput(provider)
+                    continuation.resume(returning: parsed)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
-        return .init(logits: logits, lastHidden: lastHidden, outK: outK, outV: outV)
+    }
+
+    @available(iOS 15.0, macOS 12.0, *)
+    public func decodeStepAsync(nextId: MLMultiArray,
+                                nextMask: MLMultiArray,
+                                cache: KVCache) async throws -> (DecodeOutput, KVCache)
+    {
+        let output = try await decodeStepAsync(nextId: nextId, nextMask: nextMask, pastK: cache.keys, pastV: cache.values)
+        var updated = cache
+        updated.update(with: output)
+        return (output, updated)
     }
 
     /// Embedding forward pass for LLM2Vec head (single shot).
@@ -286,6 +447,45 @@ public final class DolphinCoreML {
             embeddings.append(embedding)
         }
         return embeddings
+    }
+
+    // MARK: - Private helpers
+
+    private func makeDecodeInputProvider(nextId: MLMultiArray,
+                                         nextMask: MLMultiArray,
+                                         pastK: [MLMultiArray],
+                                         pastV: [MLMultiArray]) throws -> MLDictionaryFeatureProvider
+    {
+        guard pastK.count == numLayers, pastV.count == numLayers else {
+            throw NSError(domain: "DolphinCoreML", code: -8,
+                          userInfo: [NSLocalizedDescriptionKey: "pastK/pastV must contain \(numLayers) layers. Got K=\(pastK.count), V=\(pastV.count)."])
+        }
+        var dict: [String: Any] = [
+            "input_ids": nextId,
+            "attention_mask": nextMask
+        ]
+        for i in 0..<numLayers {
+            dict["in_k_\(i)"] = pastK[i]
+            dict["in_v_\(i)"] = pastV[i]
+        }
+        return try MLDictionaryFeatureProvider(dictionary: dict)
+    }
+
+    private func parseDecodeOutput(_ out: MLFeatureProvider) throws -> DecodeOutput {
+        guard let logits = out.featureValue(for: "logits")?.multiArrayValue,
+              let lastHidden = out.featureValue(for: "last_hidden")?.multiArrayValue
+        else { throw NSError(domain: "DolphinCoreML", code: -3, userInfo: [NSLocalizedDescriptionKey: "Missing logits/last_hidden"]) }
+
+        var outK: [MLMultiArray] = []
+        var outV: [MLMultiArray] = []
+        for i in 0..<numLayers {
+            guard let k = out.featureValue(for: "out_k_\(i)")?.multiArrayValue,
+                  let v = out.featureValue(for: "out_v_\(i)")?.multiArrayValue
+            else { throw NSError(domain: "DolphinCoreML", code: -4, userInfo: [NSLocalizedDescriptionKey: "Missing out KV layer\(i)"]) }
+            outK.append(k)
+            outV.append(v)
+        }
+        return .init(logits: logits, lastHidden: lastHidden, outK: outK, outV: outV)
     }
 
     private static func loadFunctionModel(at baseURL: URL,

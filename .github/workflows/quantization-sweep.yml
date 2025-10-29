@@ -1,0 +1,160 @@
+name: quantization-sweep
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Override the base model repository"
+        required: false
+      revision:
+        description: "Optional model revision/commit"
+        required: false
+      lora:
+        description: "Override the LoRA checkpoint path"
+        required: false
+      llm2vec:
+        description: "Override the LLM2Vec checkpoint path"
+        required: false
+      seq_len:
+        description: "Override the sequence length"
+        required: false
+
+jobs:
+  sweep:
+    name: Nightly quantization sweep (${{ matrix.compute_unit }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        compute_unit: [ALL, CPU_AND_GPU]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve sweep configuration
+        id: sweep_config
+        shell: bash
+        env:
+          MODEL_INPUT: ${{ github.event.inputs.model }}
+          REVISION_INPUT: ${{ github.event.inputs.revision }}
+          LORA_INPUT: ${{ github.event.inputs.lora }}
+          LLM2VEC_INPUT: ${{ github.event.inputs.llm2vec }}
+          SEQ_LEN_INPUT: ${{ github.event.inputs.seq_len }}
+          VAR_MODEL: ${{ vars.DOLPHIN_SWEEP_MODEL }}
+          VAR_REVISION: ${{ vars.DOLPHIN_SWEEP_REVISION }}
+          VAR_LORA: ${{ vars.DOLPHIN_SWEEP_LORA }}
+          VAR_LLM2VEC: ${{ vars.DOLPHIN_SWEEP_LLM2VEC }}
+          VAR_SEQ_LEN: ${{ vars.DOLPHIN_SWEEP_SEQ_LEN }}
+        run: |
+          set -euo pipefail
+
+          model_value="${MODEL_INPUT:-}"
+          if [[ -z "${model_value}" ]]; then
+            model_value="${VAR_MODEL:-}"
+          fi
+          if [[ -z "${model_value}" ]]; then
+            echo "skip=true" >>"$GITHUB_OUTPUT"
+            echo "No model configured via repository variables or workflow inputs; skipping sweep" >&2
+            exit 0
+          fi
+          echo "model=${model_value}" >>"$GITHUB_OUTPUT"
+
+          revision_value="${REVISION_INPUT:-}"
+          if [[ -z "${revision_value}" ]]; then
+            revision_value="${VAR_REVISION:-}"
+          fi
+          if [[ -n "${revision_value}" ]]; then
+            echo "revision=${revision_value}" >>"$GITHUB_OUTPUT"
+          fi
+
+          lora_value="${LORA_INPUT:-}"
+          if [[ -z "${lora_value}" ]]; then
+            lora_value="${VAR_LORA:-}"
+          fi
+          if [[ -z "${lora_value}" ]]; then
+            echo "skip=true" >>"$GITHUB_OUTPUT"
+            echo "No LoRA checkpoint configured; skipping sweep" >&2
+            exit 0
+          fi
+          echo "lora=${lora_value}" >>"$GITHUB_OUTPUT"
+
+          llm2vec_value="${LLM2VEC_INPUT:-}"
+          if [[ -z "${llm2vec_value}" ]]; then
+            llm2vec_value="${VAR_LLM2VEC:-}"
+          fi
+          if [[ -z "${llm2vec_value}" ]]; then
+            echo "skip=true" >>"$GITHUB_OUTPUT"
+            echo "No LLM2Vec checkpoint configured; skipping sweep" >&2
+            exit 0
+          fi
+          echo "llm2vec=${llm2vec_value}" >>"$GITHUB_OUTPUT"
+
+          seq_len_value="${SEQ_LEN_INPUT:-}"
+          if [[ -z "${seq_len_value}" ]]; then
+            seq_len_value="${VAR_SEQ_LEN:-}"
+          fi
+          if [[ -z "${seq_len_value}" ]]; then
+            seq_len_value="2048"
+          fi
+          echo "seq_len=${seq_len_value}" >>"$GITHUB_OUTPUT"
+
+      - name: Setup Python
+        if: steps.sweep_config.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        if: steps.sweep_config.outputs.skip != 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run quantization sweep
+        if: steps.sweep_config.outputs.skip != 'true'
+        env:
+          MODEL: ${{ steps.sweep_config.outputs.model }}
+          REVISION: ${{ steps.sweep_config.outputs.revision }}
+          LORA: ${{ steps.sweep_config.outputs.lora }}
+          LLM2VEC: ${{ steps.sweep_config.outputs.llm2vec }}
+          SEQ_LEN: ${{ steps.sweep_config.outputs.seq_len }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          COMPUTE_UNIT: ${{ matrix.compute_unit }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts sweeps
+          OUTPUT_DIR="sweeps/${COMPUTE_UNIT}"
+          REPORT_PATH="artifacts/sweep_${COMPUTE_UNIT}.json"
+          VALIDATION_PATH="artifacts/validation_${COMPUTE_UNIT}.json"
+
+          EXTRA_ARGS=()
+          if [[ -n "${REVISION}" ]]; then
+            EXTRA_ARGS+=(--revision "${REVISION}")
+          fi
+          if [[ -n "${HF_TOKEN}" ]]; then
+            EXTRA_ARGS+=(--hf-token "${HF_TOKEN}")
+          fi
+
+          python dolphin2coreml_full.py \
+            --model "${MODEL}" \
+            --lora-checkpoint "${LORA}" \
+            --llm2vec-checkpoint "${LLM2VEC}" \
+            --seq-len "${SEQ_LEN}" \
+            --output "${OUTPUT_DIR}" \
+            --tmp "build_tmp_${COMPUTE_UNIT}" \
+            --quant-sweep \
+            --compute-units "${COMPUTE_UNIT}" \
+            --sweep-report "${REPORT_PATH}" \
+            --profile-validate \
+            --validation-report "${VALIDATION_PATH}" \
+            --clean-tmp \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Upload sweep artefacts
+        if: steps.sweep_config.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantization-sweep-${{ matrix.compute_unit }}
+          path: artifacts
+          if-no-files-found: error

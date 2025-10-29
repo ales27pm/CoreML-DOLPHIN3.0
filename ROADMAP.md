@@ -33,25 +33,25 @@ wrapper.
 
 ## Near-Term Objectives (0-2 sprints)
 
-1. **Sweep automation in CI**
-   - Schedule nightly/device-matrix quantization sweeps and archive the JSON
-     artefacts for regression tracking.
-   - Gate pull requests on configurable thresholds for latency regression and
-     package size growth.
-2. **Validation extensibility**
-   - Support loading golden prompts from an external YAML/JSON config so teams
-     can maintain domain-specific suites without editing the script.
-   - Emit machine-readable validation artefacts (e.g., JSON) alongside the Rich
-     tables for automated diffing.
-3. **Swift runtime ergonomics**
-   - Provide async/await wrappers around `decodeStep` and KV-cache management to
-     simplify integration with Swift Concurrency call-sites.
+1. **Sweep automation in CI** (✅ Sprint 3)
+   - Nightly matrix sweeps now run via `.github/workflows/quantization-sweep.yml`
+     and publish JSON artefacts for regression tracking.
+   - `tasks/sweep_guard.py` enforces configurable latency and package-size
+     guardrails in pull requests.
+2. **Validation extensibility** (✅ Sprint 3)
+   - Golden prompts and embedding suites can be sourced from external
+     YAML/JSON, and validation runs emit machine-readable JSON alongside Rich
+     tables.
+3. **Swift runtime ergonomics** (✅ Sprint 3)
+   - Async/await wrappers and KV-cache utilities simplify concurrency-aware
+     integrations with the runtime.
 
 ## Mid-Term Initiatives (2-4 sprints)
 
-1. **Model variant support**
-   - Generalise the exporter to additional Dolphin checkpoints (3B, 70B) with
-     metadata-driven Swift runtime configuration.
+1. **Model variant support** (🚧 Sprint 4)
+   - Exporter auto-tags Dolphin 3B/8B/70B checkpoints, emits structured
+     `dolphin-metadata.json`, and the Swift runtime can load metadata directly
+     from the package for configuration.
    - Document adapter-merging strategies when stacking multiple task-specific
      LoRAs.
 2. **Telemetry & benchmarking automation**

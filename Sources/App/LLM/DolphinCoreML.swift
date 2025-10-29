@@ -57,11 +57,40 @@ public struct DolphinModelMetadata: Decodable {
     public struct Quantization: Decodable {
         public let wbits: Int?
         public let groupSize: Int?
-        public let palettGranularity: String?
+        public let paletteGranularity: String?
         public let mixedPrecisionOverrides: [String: Int]?
         public let sizeBytes: Int?
         public let variantIndex: Int?
         public let variantCount: Int?
+
+        @available(*, deprecated, message: "Use paletteGranularity instead")
+        public var palettGranularity: String? { paletteGranularity }
+
+        private enum CodingKeys: String, CodingKey {
+            case wbits
+            case groupSize
+            case paletteGranularity
+            case palettGranularity
+            case mixedPrecisionOverrides
+            case sizeBytes
+            case variantIndex
+            case variantCount
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.wbits = try container.decodeIfPresent(Int.self, forKey: .wbits)
+            self.groupSize = try container.decodeIfPresent(Int.self, forKey: .groupSize)
+            if let palette = try container.decodeIfPresent(String.self, forKey: .paletteGranularity) {
+                self.paletteGranularity = palette
+            } else {
+                self.paletteGranularity = try container.decodeIfPresent(String.self, forKey: .palettGranularity)
+            }
+            self.mixedPrecisionOverrides = try container.decodeIfPresent([String: Int].self, forKey: .mixedPrecisionOverrides)
+            self.sizeBytes = try container.decodeIfPresent(Int.self, forKey: .sizeBytes)
+            self.variantIndex = try container.decodeIfPresent(Int.self, forKey: .variantIndex)
+            self.variantCount = try container.decodeIfPresent(Int.self, forKey: .variantCount)
+        }
     }
 
     public struct Pipeline: Decodable {
@@ -131,7 +160,7 @@ public final class DolphinCoreML {
             guard keys.count == expectedLayers, values.count == expectedLayers else {
                 throw NSError(
                     domain: "DolphinCoreML",
-                    code: -9,
+                    code: -14,
                     userInfo: [
                         NSLocalizedDescriptionKey: "KVCache must contain \(expectedLayers) layers. Received K=\(keys.count), V=\(values.count)."
                     ]
@@ -287,12 +316,27 @@ public final class DolphinCoreML {
         let decodeModel = decodeModel
         let layerCount = numLayers
         return try await withCheckedThrowingContinuation { continuation in
-            do {
-                let predictionProvider = try decodeModel.prediction(from: provider, options: options)
-                let parsed = try Self.parseDecodeOutput(predictionProvider, layerCount: layerCount)
-                continuation.resume(returning: parsed)
-            } catch {
-                continuation.resume(throwing: error)
+            decodeModel.prediction(from: provider, options: options) { output, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let output else {
+                    continuation.resume(
+                        throwing: NSError(
+                            domain: "DolphinCoreML",
+                            code: -15,
+                            userInfo: [NSLocalizedDescriptionKey: "Decode prediction returned no outputs."]
+                        )
+                    )
+                    return
+                }
+                do {
+                    let parsed = try Self.parseDecodeOutput(output, layerCount: layerCount)
+                    continuation.resume(returning: parsed)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }

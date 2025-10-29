@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 from tasks.sweep_guard import (
     compare_reports,
     main,
-)  # noqa: E402  -- imported after sys.path mutation
+)  # imported after sys.path mutation
 
 
 def _write_report(path: Path, *, size_bytes: float, latency: float) -> None:

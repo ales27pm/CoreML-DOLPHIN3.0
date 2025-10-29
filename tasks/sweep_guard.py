@@ -28,11 +28,11 @@ def _load_report(path: Path) -> Mapping[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in sweep report {path}: {exc}") from exc
+        raise ValueError(f"Invalid JSON in sweep report: {path}") from exc
     if not isinstance(data, Mapping):
-        raise ValueError("Sweep report must be a JSON object")
+        raise TypeError("Sweep report must be a JSON object")
     if "variants" not in data or not isinstance(data["variants"], Sequence):
-        raise ValueError("Sweep report is missing a 'variants' array")
+        raise TypeError("Missing 'variants' array in sweep report")
     return data
 
 
@@ -81,7 +81,10 @@ def compare_reports(
 
     candidate = _select_variant(report, variant_label)
     if candidate is None:
-        raise ValueError("Unable to locate the requested variant in the sweep report")
+        label_hint = (
+            variant_label.upper() if isinstance(variant_label, str) else "<first>"
+        )
+        raise ValueError(f"Variant '{label_hint}' not found in sweep report")
 
     label = _variant_label(candidate)
     reasons: list[str] = []
@@ -200,7 +203,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     report_path = Path(args.report).expanduser()
     try:
         report = _load_report(report_path)
-    except Exception as exc:
+    except (FileNotFoundError, ValueError, TypeError) as exc:
         parser.error(str(exc))
 
     baseline_data: Mapping[str, Any] | None = None

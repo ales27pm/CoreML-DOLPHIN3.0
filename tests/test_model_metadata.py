@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import ClassVar, Dict
 
 import pytest
 
@@ -8,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from dolphin2coreml_full import (  # noqa: E402  - added to sys.path at runtime
+from dolphin2coreml_full import (  # imported after sys.path mutation
     METADATA_FILENAME,
     _build_model_metadata,
     _load_llm2vec_descriptor,
@@ -26,7 +27,7 @@ class DummyConfig:
     num_key_value_heads = 8
     vocab_size = 128256
     rope_theta = 10000.0
-    rope_scaling = {"type": "linear", "factor": 1.0}
+    rope_scaling: ClassVar[Dict[str, float]] = {"type": "linear", "factor": 1.0}
 
 
 def test_resolve_model_variant_label_auto() -> None:

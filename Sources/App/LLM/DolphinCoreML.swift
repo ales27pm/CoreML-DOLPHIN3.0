@@ -162,7 +162,7 @@ public final class DolphinCoreML {
     /// Load a multifunction mlpackage from app bundle or file URL.
     public init(modelURL: URL,
                 computeUnits: ComputeUnitSelection = .all,
-                metadata: (vocabSize: Int, hiddenSize: Int, numLayers: Int, numHeads: Int, headDim: Int, seqLen: Int)) throws
+                metadata: (vocabSize: Int, hiddenSize: Int, numLayers: Int, numHeads: Int, numKeyValueHeads: Int?, headDim: Int, seqLen: Int)) throws
     {
         let cfg = MLModelConfiguration()
         cfg.computeUnits = computeUnits.coreML
@@ -182,7 +182,7 @@ public final class DolphinCoreML {
         self.numHeads   = metadata.numHeads
         self.headDim    = metadata.headDim
         self.seqLen     = metadata.seqLen
-        self.numKeyValueHeads = metadata.numHeads
+        self.numKeyValueHeads = metadata.numKeyValueHeads ?? metadata.numHeads
         self.modelMetadata = nil
     }
 
@@ -199,11 +199,11 @@ public final class DolphinCoreML {
                 hiddenSize: metadata.model.hiddenSize,
                 numLayers: metadata.model.numLayers,
                 numHeads: metadata.model.numAttentionHeads,
+                numKeyValueHeads: metadata.model.numKeyValueHeads,
                 headDim: metadata.model.headDim,
                 seqLen: metadata.model.contextLength
             )
         )
-        self.numKeyValueHeads = metadata.model.numKeyValueHeads
         self.modelMetadata = metadata
     }
 

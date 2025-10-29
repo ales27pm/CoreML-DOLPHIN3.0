@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from dolphin2coreml_full import (  # noqa: E402  -- imported after sys.path mutation
+from dolphin2coreml_full import (  # imported after sys.path mutation
     DEFAULT_EMBEDDING_BENCHMARKS,
     DEFAULT_GOLDEN_PROMPTS,
     _load_validation_config,

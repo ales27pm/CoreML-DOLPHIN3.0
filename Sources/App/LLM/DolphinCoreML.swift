@@ -11,7 +11,6 @@
 //
 
 import Foundation
-import Dispatch
 import CoreML
 
 public enum ComputeUnitSelection: String {
@@ -264,7 +263,7 @@ public final class DolphinCoreML {
     {
         let provider = try makeDecodeInputProvider(nextId: nextId, nextMask: nextMask, pastK: pastK, pastV: pastV)
         let out = try decodeModel.prediction(from: provider)
-        return try parseDecodeOutput(out)
+        return try Self.parseDecodeOutput(out, layerCount: numLayers)
     }
 
     /// Convenience overload that updates ``KVCache`` in place.
@@ -285,15 +284,15 @@ public final class DolphinCoreML {
     {
         let provider = try makeDecodeInputProvider(nextId: nextId, nextMask: nextMask, pastK: pastK, pastV: pastV)
         let options = MLPredictionOptions()
+        let decodeModel = decodeModel
+        let layerCount = numLayers
         return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let predictionProvider = try self.decodeModel.prediction(from: provider, options: options)
-                    let parsed = try self.parseDecodeOutput(predictionProvider)
-                    continuation.resume(returning: parsed)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
+            do {
+                let predictionProvider = try decodeModel.prediction(from: provider, options: options)
+                let parsed = try Self.parseDecodeOutput(predictionProvider, layerCount: layerCount)
+                continuation.resume(returning: parsed)
+            } catch {
+                continuation.resume(throwing: error)
             }
         }
     }
@@ -465,14 +464,14 @@ public final class DolphinCoreML {
         return try MLDictionaryFeatureProvider(dictionary: dict)
     }
 
-    private func parseDecodeOutput(_ out: MLFeatureProvider) throws -> DecodeOutput {
+    private static func parseDecodeOutput(_ out: MLFeatureProvider, layerCount: Int) throws -> DecodeOutput {
         guard let logits = out.featureValue(for: "logits")?.multiArrayValue,
               let lastHidden = out.featureValue(for: "last_hidden")?.multiArrayValue
         else { throw NSError(domain: "DolphinCoreML", code: -3, userInfo: [NSLocalizedDescriptionKey: "Missing logits/last_hidden"]) }
 
         var outK: [MLMultiArray] = []
         var outV: [MLMultiArray] = []
-        for i in 0..<numLayers {
+        for i in 0..<layerCount {
             guard let k = out.featureValue(for: "out_k_\(i)")?.multiArrayValue,
                   let v = out.featureValue(for: "out_v_\(i)")?.multiArrayValue
             else { throw NSError(domain: "DolphinCoreML", code: -4, userInfo: [NSLocalizedDescriptionKey: "Missing out KV layer\(i)"]) }

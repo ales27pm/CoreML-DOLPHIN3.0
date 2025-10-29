@@ -86,7 +86,7 @@ and regression tracking. A shortened example payload:
       "size_bytes": 1234567890,
       "compression_ratio": 0.28,
       "performance": {
-        "aggregate": {"decode_p50_ms": 17.2, "avg_residency_pct": 82.4}
+        "aggregate": { "decode_p50_ms": 17.2, "avg_residency_pct": 82.4 }
       },
       "validation_passed": true
     }
@@ -96,6 +96,16 @@ and regression tracking. A shortened example payload:
 
 Downstream automation can diff the JSON artefacts to detect regressions across
 hardware configurations or Core ML toolchain updates.
+
+Nightly sweeps are orchestrated via `.github/workflows/quantization-sweep.yml`.
+Configure repository variables `DOLPHIN_SWEEP_MODEL`, `DOLPHIN_SWEEP_LORA`,
+`DOLPHIN_SWEEP_LLM2VEC`, and (optionally) `DOLPHIN_SWEEP_SEQ_LEN`, alongside an
+`HF_TOKEN` secret, to download the latest checkpoints, execute a compute-unit
+matrix, and upload JSON artefacts for regression tracking. Pull requests reuse
+the resulting reports through `tasks/sweep_guard.py`, which enforces
+configurable thresholds for package-size and latency regressions (defaulting to
+5%). Supply an updated baseline report to tighten or relax the guardrails as
+Core ML toolchains evolve.
 
 Key stages:
 
@@ -139,13 +149,34 @@ Key stages:
 - `--sweep-report` – Path to a JSON artefact containing size/latency metrics for each variant; useful for CI dashboards.
 - `--compute-units` – Choose Core ML compute units (`ALL`, `CPU_AND_GPU`, `CPU_ONLY`) for validation runs.
 - `--minimum-deployment-target` – Stamp the exported model with the minimum iOS/macOS version you intend to support.
+- `--model-variant` – Annotate the export with the Dolphin checkpoint label (`auto`, `3B`, `8B`, `70B`, `CUSTOM`) for downstream tooling.
+- `--golden-config` – Load golden prompts and embedding sentences from a YAML/JSON file instead of the baked-in defaults.
 - `--profile-validate` – Enable golden transcript + embedding parity checks with latency reporting.
+- `--validation-report` – Persist validation metrics as JSON alongside the Rich tables (requires `--profile-validate`).
 - `--clean-tmp` – Delete the temporary working directory after a successful run.
 
-Golden prompts for validation live in the `GOLDEN_PROMPTS` tuple within
-`dolphin2coreml_full.py`. Adjust the prompts, maximum new tokens, or expected
-behaviour there to tailor the suite for your domain. The validation report is
-rendered as Rich tables so deviations are obvious even in CI logs.
+If `--seq-len` is omitted the exporter now defaults to the model's
+`max_position_embeddings`. Metadata about the resolved variant, LoRA adapters,
+LLM2Vec head, and quantization plan is written to `dolphin-metadata.json`
+inside every exported `.mlpackage`.
+
+Golden prompts and embedding benchmarks can be externalised so teams can
+curate domain-specific suites without editing the exporter directly. Provide a
+configuration file to `--golden-config` with the following structure:
+
+```yaml
+prompts:
+  - prompt: "Explain deterministic validation for Core ML exports."
+    max_new_tokens: 24
+embedding_sentences:
+  - "Example benchmark sentence"
+  - "Another sentence"
+```
+
+During `--profile-validate` runs the pipeline now writes a machine-readable JSON
+report when `--validation-report` is supplied. The payload mirrors the console
+tables—detailing per-prompt transcript parity, aggregate latency percentiles,
+KV-cache residency, embedding cosine scores, and whether the suite passed.
 
 ## Swift Runtime Integration
 
@@ -153,20 +184,22 @@ Use the Swift wrapper under `Sources/App/LLM/` to integrate the exported package
 inside an iOS or macOS application.
 
 ```swift
-let dolphin = try DolphinCoreML(
-    modelURL: bundledModelURL,
-    computeUnits: .all,
-    metadata: (vocabSize: 32000, hiddenSize: 4096, numLayers: 32,
-               numHeads: 32, headDim: 128, seqLen: 2048)
-)
+let dolphin = try DolphinCoreML(modelURL: bundledModelURL, computeUnits: .all)
 
 let (promptIds, promptMask) = tokenizer.encodeToMultiArray(prompt, seqLen: dolphin.seqLen)
 let initResult = try dolphin.initPass(inputIds: promptIds, attentionMask: promptMask)
+var cache = try dolphin.kvCache(from: initResult)
 let decodeStep = try dolphin.decodeStep(
     nextId: tokenizer.firstNextIdArray(),
     nextMask: tokenizer.oneMaskArray(),
-    pastK: initResult.pastK,
-    pastV: initResult.pastV
+    cache: &cache
+)
+
+// Async/await wrappers are also available:
+let (asyncOutput, updatedCache) = try await dolphin.decodeStepAsync(
+    nextId: tokenizer.firstNextIdArray(),
+    nextMask: tokenizer.oneMaskArray(),
+    cache: cache
 )
 
 let prompts: [String] = ["security audit checklist", "wireless intrusion detection"]
@@ -178,6 +211,15 @@ The wrapper streams KV-cache updates, supports Float16 and Float32 logits, and
 propagates descriptive `NSError` payloads when Core ML outputs are missing. The
 optional benchmarking harness in `Sources/App/Bench/` measures init, per-token,
 and embedding latencies with warm-up control for regression tracking.
+
+`DolphinCoreML` retains the resolved metadata (variant label, quantisation
+profile, LoRA summary, etc.) so apps can surface it in diagnostics UIs or
+telemetry pipelines via `dolphin.modelMetadata`.
+
+`DolphinCoreML.kvCache(from:)` produces a strongly typed cache container so you
+can evolve decode state without juggling parallel arrays. When adopting Swift
+Concurrency the new `decodeStepAsync` overloads mirror the synchronous API,
+returning the decoded token plus an updated cache tuple.
 
 When the conversion pipeline is invoked with `--profile-validate`, it now
 verifies that LLM2Vec embeddings from the exported Core ML package stay within

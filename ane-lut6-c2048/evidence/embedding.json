@@ -1,0 +1,91 @@
+{
+  "specification_version": 9,
+  "inputs": {
+    "inputIds": [
+      1,
+      1
+    ]
+  },
+  "input_dtypes": {
+    "inputIds": "INT32"
+  },
+  "outputs": {
+    "hiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ]
+  },
+  "output_dtypes": {
+    "hiddenStates": "FLOAT16"
+  },
+  "states": {},
+  "operation_counts": {
+    "constexpr_lut_to_dense": 1,
+    "const": 9,
+    "greater_equal": 2,
+    "add": 2,
+    "select": 2,
+    "gather": 1,
+    "transpose": 1,
+    "expand_dims": 1
+  },
+  "stage": "lut6_compression",
+  "part": "embedding",
+  "index_bits": 6,
+  "weight_format": "LUT6 grouped-channel-16",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "context_length": 2048,
+  "layer_start": 0,
+  "layer_end": 0,
+  "seconds": 292.57099303599534,
+  "peak_rss_kib": 2658068,
+  "weights": [
+    {
+      "operation": "embed_tokens_weight_palettized",
+      "shape": [
+        128272,
+        3072
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        8017,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "61d788122c457da61ef2e9b4a0ddb081d4722d49efae15301a916cc61ff26088",
+      "parameter_name": "embed_tokens.weight"
+    }
+  ],
+  "compression": {
+    "index_bits": 6,
+    "group_size": 16,
+    "channel_axis": 0,
+    "algorithm": "Core ML Tools 9 bundled kmeans1d: globally optimal weighted scalar 1D k-means over unique FP16 values; 64 centers; no fallback",
+    "large_weight_tensors_expected": 1,
+    "large_weight_tensors_compressed": 1
+  },
+  "files": [
+    {
+      "path": "Data/com.apple.CoreML/model.mlmodel",
+      "bytes": 3657,
+      "sha256": "b5c487cbf7f84ef6357ada03152928c3eb871217a1ffd15cbfba453b73f924bf"
+    },
+    {
+      "path": "Data/com.apple.CoreML/weights/weight.bin",
+      "bytes": 296565056,
+      "sha256": "69d5f4eb75c4960ceab8c9ac7d1cf1e95a916e19b41f11609815ffaf86a01b49"
+    },
+    {
+      "path": "Manifest.json",
+      "bytes": 617,
+      "sha256": "1e890348ec9bc58b9e68d1dbc447d3ba65d93c70ce4b2b030da235bf7e989e94"
+    }
+  ],
+  "apple_runtime_verified": false,
+  "ane_hardware_verified": false
+}

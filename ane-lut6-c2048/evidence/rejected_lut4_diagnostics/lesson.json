@@ -1,0 +1,13 @@
+{
+  "status": "rejected_compression_strategy_not_in_release",
+  "symptom": "Initial quantile-initialized local-Lloyd LUT4 predicted token 95024 for all three prompts, disagreeing with FP16.",
+  "localization": "Layer 0 MLP down_proj: rare large weights coincide with strong activations; average weight MSE concealed severe activation error.",
+  "excluded_mechanisms": [
+    "mispacked palette indices on audited weights",
+    "reference output aliasing",
+    "cache reset failure",
+    "stale oneDNN weight packing"
+  ],
+  "correction": "LUT6 using Core ML Tools 9 bundled global weighted 1D k-means; verify full fixed-prompt predictions and saved-package dense-weight hashes before release.",
+  "reusable_lesson": "Weight MSE and structural validity alone are insufficient. Inspect activation-sensitive errors and enforce actual-model numerical sanity before distribution."
+}

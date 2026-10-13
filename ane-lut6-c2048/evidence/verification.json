@@ -1,0 +1,465 @@
+{
+  "schema_version": 2,
+  "verified_at_utc": "2026-10-13T00:07:12.470990+00:00",
+  "artifact_integrity_and_weight_parity_passed": true,
+  "compressed_weight_hash_parity_passed": true,
+  "serialized_lut_reconstruction_verified": true,
+  "apple_sdk_compiled": false,
+  "coreml_runtime_executed": false,
+  "ane_compute_plan_verified": false,
+  "ane_runtime_trace_verified": false,
+  "numerical_quality_gate_passed": true,
+  "quality_acceptance_decision": "not_assigned_beyond_fixed_prompt_sanity",
+  "packages": {
+    "embedding": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 3657,
+          "sha256": "b5c487cbf7f84ef6357ada03152928c3eb871217a1ffd15cbfba453b73f924bf"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 296565056,
+          "sha256": "69d5f4eb75c4960ceab8c9ac7d1cf1e95a916e19b41f11609815ffaf86a01b49"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "1e890348ec9bc58b9e68d1dbc447d3ba65d93c70ce4b2b030da235bf7e989e94"
+        }
+      ],
+      "package_bytes": 296569330,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 1,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {},
+      "state_bytes": 0
+    },
+    "block_00": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 695801,
+          "sha256": "872f3608825ce6cd134124928f41792d703feef205da921f82175fa092953fe4"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 302927936,
+          "sha256": "480bd423706d2f43c87f548ca714a0193cd31658947aac81c58231cc1eeca725"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "ff856be144ba1e4281f0f103535a034e7a3235dcd4439bba62764c2b20141002"
+        }
+      ],
+      "package_bytes": 303624354,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 28,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {
+        "keyCache": [
+          4,
+          1024,
+          1,
+          2048
+        ],
+        "valueCache": [
+          4,
+          1024,
+          1,
+          2048
+        ]
+      },
+      "state_bytes": 33554432
+    },
+    "block_01": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 695801,
+          "sha256": "6e1c2a6bfa7a88feb365d5b50bed5e0620f5ea57dbb9f401eb33972d6dd1c786"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 302927936,
+          "sha256": "3d69a329ad1559c0e7c8165f825ca2bcf2b522071aa1e5a7afc49f36894da9d2"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "7061d8b9cc320dd17e4ecd6f588e79297c5a956728b6ee7179694112bdbc0f18"
+        }
+      ],
+      "package_bytes": 303624354,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 28,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {
+        "keyCache": [
+          4,
+          1024,
+          1,
+          2048
+        ],
+        "valueCache": [
+          4,
+          1024,
+          1,
+          2048
+        ]
+      },
+      "state_bytes": 33554432
+    },
+    "block_02": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 695812,
+          "sha256": "217618e32f1a03968d9b08ef12b45a325437e76a48f897d69c983329ce0607cd"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 302927936,
+          "sha256": "b081deba79deb2948c83933ee8f0f34d4872cda5a5c8b8d8d825886f395ba16c"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "10a87c0878b3d101b2c056622dd00c579764b7a0c7e726fff0d4872650716c38"
+        }
+      ],
+      "package_bytes": 303624365,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 28,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {
+        "keyCache": [
+          4,
+          1024,
+          1,
+          2048
+        ],
+        "valueCache": [
+          4,
+          1024,
+          1,
+          2048
+        ]
+      },
+      "state_bytes": 33554432
+    },
+    "block_03": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 695813,
+          "sha256": "924bdb9db9cd34f1213326ff6060aa041394dbd41f1ec2172738119d0a18ef1a"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 302927936,
+          "sha256": "4c99bb61dfecb8efd91d766099c69b43959cc8bc50a1f9fa86b31b502c02db08"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "1fa66a64127efec7da1228c5150f8b9291974644f8911be1ef17fd9446f6e8f4"
+        }
+      ],
+      "package_bytes": 303624366,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 28,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {
+        "keyCache": [
+          4,
+          1024,
+          1,
+          2048
+        ],
+        "valueCache": [
+          4,
+          1024,
+          1,
+          2048
+        ]
+      },
+      "state_bytes": 33554432
+    },
+    "block_04": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 695813,
+          "sha256": "49378dc529a5c2d04f78305e908043cf7baa9d2265f70e46abc0b7c5c741ec03"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 302927936,
+          "sha256": "444c0f7b565b727f1e4a25c46c4cf19cbcab158686f1b8a1619d804d35f2f47c"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "4f7bbb74089003d7793af8a5a2fd624ce466596bacdf77c30d48153bb660fb3d"
+        }
+      ],
+      "package_bytes": 303624366,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 28,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {
+        "keyCache": [
+          4,
+          1024,
+          1,
+          2048
+        ],
+        "valueCache": [
+          4,
+          1024,
+          1,
+          2048
+        ]
+      },
+      "state_bytes": 33554432
+    },
+    "block_05": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 695813,
+          "sha256": "bbe99168973ad509ef0a7826daad3fd9b8ea5789f6039465c5fe50754bcae0fd"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 302927936,
+          "sha256": "b10954dafacd49c4684fcc5e60deb7894c0493c79940edd671f9538881820bad"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "ffe5576d47e623f5321e261b89fb81b88bd3ae37cc3f6b331c10f26a0d244e03"
+        }
+      ],
+      "package_bytes": 303624366,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 28,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {
+        "keyCache": [
+          4,
+          1024,
+          1,
+          2048
+        ],
+        "valueCache": [
+          4,
+          1024,
+          1,
+          2048
+        ]
+      },
+      "state_bytes": 33554432
+    },
+    "block_06": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 695813,
+          "sha256": "1b5498569e60096a355a766af392425a00e4c7efb2dfb5c89bfe48009900302d"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 302927936,
+          "sha256": "45664ee105d6cb048909cc5c79d90ae414cfbf35c762679c5341f39f787222ec"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "c8f36b04e9c8df886d83abfcb6cd2ec0e261fdf15e6edf1e67a9ac44323de5fc"
+        }
+      ],
+      "package_bytes": 303624366,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 28,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {
+        "keyCache": [
+          4,
+          1024,
+          1,
+          2048
+        ],
+        "valueCache": [
+          4,
+          1024,
+          1,
+          2048
+        ]
+      },
+      "state_bytes": 33554432
+    },
+    "head": {
+      "package_files_verified": [
+        {
+          "path": "Data/com.apple.CoreML/model.mlmodel",
+          "bytes": 14591,
+          "sha256": "79098626ba8c7ece8033c33c4c719a7b21c2bcbc3724e7808449c40521ecf7de"
+        },
+        {
+          "path": "Data/com.apple.CoreML/weights/weight.bin",
+          "bytes": 296572160,
+          "sha256": "42a24fda0aa9e056fa423f460601401ad89c07f1384db62f78cb9d705d043937"
+        },
+        {
+          "path": "Manifest.json",
+          "bytes": 617,
+          "sha256": "146247fe41d197e67436a9483ca69c182eca0df119af3e62401843d64ef79069"
+        }
+      ],
+      "package_bytes": 296587368,
+      "serialized_protobuf_checked": true,
+      "compressed_weights_verified": 8,
+      "serialized_lut_reconstruction_verified": true,
+      "compressed_weight_hash_parity_passed": true,
+      "states": {},
+      "state_bytes": 0
+    }
+  },
+  "index_bits": 6,
+  "numerical_quality_gate": {
+    "passed": true,
+    "required_fixture_ids": [
+      "greeting_en",
+      "arithmetic",
+      "greeting_fr"
+    ],
+    "criteria": "Complete finite FP16 logits for all three original prompts; candidate greedy next token agrees with the FP16 source for every fixture.",
+    "scope": "Three fixed next-token probes only; no generated-answer, multilingual breadth, long-context, or Apple device quality claim.",
+    "required_fixture_identity_verified": true,
+    "all_fixture_measurements_complete": true,
+    "fixture_count": 3,
+    "greedy_agreement_count": 3,
+    "all_fixture_greedy_agreement": true,
+    "degenerate_same_wrong_next_token": false,
+    "source_greedy_token_ids": [
+      9906,
+      19,
+      82681
+    ],
+    "candidate_greedy_token_ids": [
+      9906,
+      19,
+      82681
+    ]
+  },
+  "model_sidecar_files": [
+    {
+      "path": "config.json",
+      "bytes": 935,
+      "sha256": "e21ff53ea39726f972362beba869807216775d5e308bc2f531784846c06a0249",
+      "verification_source": "pinned source file SHA256",
+      "source_file": "config.json"
+    },
+    {
+      "path": "generation_config.json",
+      "bytes": 206,
+      "sha256": "e627b5a8b2dc371f90388947ada64fa6e71de0f991c04c835f0c0bc97e305a4f",
+      "verification_source": "pinned source file SHA256",
+      "source_file": "generation_config.json"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 17210298,
+      "sha256": "e40b93124a3e29f62d5f4ff41be56cb2af34ecacf9239acd9da53a98860380b5",
+      "verification_source": "pinned source file SHA256",
+      "source_file": "tokenizer.json"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 53573,
+      "sha256": "51ad9580aba8d00016efda43357185a0d8ff9884584dcc82ab58ca552afd14e1",
+      "verification_source": "pinned source file SHA256",
+      "source_file": "tokenizer_config.json"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "bytes": 444,
+      "sha256": "2df2c4620bb1a9eb877bc7c90c7fa04608bda9fa7c0cf2cdcc0a17b849649683",
+      "verification_source": "pinned source file SHA256",
+      "source_file": "special_tokens_map.json"
+    },
+    {
+      "path": "SOURCE_MODEL_CARD.md",
+      "bytes": 5840,
+      "sha256": "0c4007169c0ebeb8928283543a8f5115ef85414f437aa7cfa5ad2b85095c3336",
+      "verification_source": "pinned source file SHA256",
+      "source_file": "README.md"
+    },
+    {
+      "path": "rope_cos.fp16",
+      "bytes": 524288,
+      "sha256": "7a4e770a06b615795822b57e02f3eafd2c60c3859bd9d110ed7d68162c10794e",
+      "verification_source": "exact Llama3 RoPE recomputation from pinned config; FP16 little-endian bytes"
+    },
+    {
+      "path": "rope_sin.fp16",
+      "bytes": 524288,
+      "sha256": "ecc3cecff33021f825e995e163302e61dc66b96a860ce29964337091ae848d40",
+      "verification_source": "exact Llama3 RoPE recomputation from pinned config; FP16 little-endian bytes"
+    }
+  ],
+  "pinned_source_verification": {
+    "file": "/workspace/scratch/d39497149b10/dolphin_ane_work/source-verification.json",
+    "sha256": "01ecdd5cb495812ae1f2a1b772886b57d4926bd43a1fd5093ab3f4eaa2124123"
+  },
+  "rope_tables_recomputed_and_verified": true,
+  "package_count": 9,
+  "compressed_tensor_count": 205,
+  "package_bytes": 2718527235,
+  "total_state_bytes": 234881024,
+  "total_state_mib": 224.0,
+  "context_length": 2048,
+  "manifest_sha256": "8e8308b78b37614696363bb3e86d0f8966f27b2cb1e1c7a6fb5715bc4e9080f7",
+  "reference_files": [
+    {
+      "path": "reference-report.json",
+      "bytes": 24030,
+      "sha256": "a3ee61aeaa8474289fa7475aa887c2172010d7edb249c6a2dfed36c106c27e68"
+    },
+    {
+      "path": "reference-weight-hashes.json",
+      "bytes": 136197,
+      "sha256": "eee16555fc8a8e836203b253a727e277c487977dca79460ad5b7be143a140c76"
+    },
+    {
+      "path": "reference-fixtures.json",
+      "bytes": 10555,
+      "sha256": "6baf543a50fc3163af0c3c45bdb8d37832bf52a9acd853df3b5fb27e82890e28"
+    },
+    {
+      "path": "reference-logits.npz",
+      "bytes": 1369058,
+      "sha256": "9f4518f56c227e8f278d2181181685c5fcae58046ae3e7767e3c5ff2d0df44b5"
+    }
+  ],
+  "swift_fixtures": {
+    "file": "evidencefixtures.json",
+    "sha256": "86ec23164fe81d6cd4337a8390ca5b3051806bef31eb7417a78cbbe96916b660",
+    "case_count": 3,
+    "max_abs_logit_error": 1.0,
+    "tolerance_status": "provisional device acceptance tolerance; not measured or calibrated"
+  },
+  "interpretation": "Package integrity, exact reconstructed weight equality from saved LUT/index payloads, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified."
+}

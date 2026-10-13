@@ -1,0 +1,113 @@
+{
+  "specification_version": 9,
+  "inputs": {
+    "hiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ]
+  },
+  "input_dtypes": {
+    "hiddenStates": "FLOAT16"
+  },
+  "outputs": {
+    "logits_0": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_1": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_2": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_3": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_4": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_5": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_6": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_7": [
+      1,
+      16034,
+      1,
+      1
+    ]
+  },
+  "output_dtypes": {
+    "logits_0": "FLOAT16",
+    "logits_1": "FLOAT16",
+    "logits_2": "FLOAT16",
+    "logits_3": "FLOAT16",
+    "logits_4": "FLOAT16",
+    "logits_5": "FLOAT16",
+    "logits_6": "FLOAT16",
+    "logits_7": "FLOAT16"
+  },
+  "states": {},
+  "operation_counts": {
+    "const": 62,
+    "transpose": 2,
+    "mul": 2,
+    "concat": 1,
+    "layer_norm": 1,
+    "slice_by_index": 2,
+    "conv": 8
+  },
+  "stage": "fp16_conversion",
+  "part": "head",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "context_length": 2048,
+  "layer_start": 28,
+  "layer_end": 28,
+  "requested_compression_bits": 6,
+  "seconds": 16.295152242004406,
+  "peak_rss_kib": 5658848,
+  "files": [
+    {
+      "path": "Data/com.apple.CoreML/model.mlmodel",
+      "bytes": 13572,
+      "sha256": "01c7b8e24d99880a52ae0ba15764e657f58b4251c3f657d8b0b3f62539fe6994"
+    },
+    {
+      "path": "Data/com.apple.CoreML/weights/weight.bin",
+      "bytes": 788109952,
+      "sha256": "05607538d641166134ba184ea6a59268989f99b7b896512ab772aa175dd42a93"
+    },
+    {
+      "path": "Manifest.json",
+      "bytes": 617,
+      "sha256": "36b6055a5f99f9594ddee3f7c6be5e5ba6765c74970435e7a60febabd62d13a3"
+    }
+  ],
+  "apple_runtime_verified": false,
+  "ane_hardware_verified": false
+}

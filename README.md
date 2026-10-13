@@ -1,8 +1,51 @@
 # CoreML Dolphin 3.0 Conversion Toolkit
 
-This repository contains the production pipeline for exporting
-**Dolphin3.0-Llama3.1-8B** to a multifunction Core ML `.mlpackage`. The tooling
-focuses exclusively on the original goals of the project:
+This repository contains two separately versioned Dolphin Core ML paths:
+
+| Model | Export and runtime | Documentation |
+| --- | --- | --- |
+| **Dolphin3.0-Llama3.2-3B** | Nine stateful ML Programs, LUT6/group16, FP16 activations and KV state; `DolphinANEEngine` | [3B release and download guide](ane-lut6-c2048/README.md) |
+| **Dolphin3.0-Llama3.1-8B** | Existing LoRA/LLM2Vec multifunction pipeline; `Sources/App` runtime | [8B conversion workflow](#8b-conversion-workflow) |
+
+## 3B stateful release: `ane-lut6-c2048`
+
+The 3B release targets **iOS 18 / macOS 15**, a fixed **2048-token context**, and
+**one token per invocation** with token-by-token prefill. The pipeline chains an
+embedding, seven four-layer blocks, and a head; the seven blocks own native FP16
+KV states totaling 224 MiB. All
+128,258 vocabulary IDs are retained. The converter, separate Swift package,
+tests and small numerical evidence are under [ane-lut6-c2048/](ane-lut6-c2048/README.md).
+
+The [recorded verification](ane-lut6-c2048/evidence/verification.json) passed
+reconstruction and hash comparisons for **205 serialized compressed matrices**.
+The prior [Python suite](ane-lut6-c2048/evidence/unit-tests.xml) passed **84 tests**,
+and [three fixed prompts](ane-lut6-c2048/evidence/reference/reference-report.json)
+matched the FP16 source's greedy next token **3/3**. That is a limited numerical
+sanity check. **Apple SDK compilation, device inference and ANE execution remain
+unverified**; `.cpuAndNeuralEngine` alone does not establish ANE placement.
+
+Model download instructions target
+[`ales27pm/Dolphin3.0-CoreML/ane-lut6-c2048`](https://huggingface.co/ales27pm/Dolphin3.0-CoreML/tree/main/ane-lut6-c2048),
+with availability dependent on the publication commit. GitHub contains code and
+small evidence; packages, the full tokenizer and original weight shards are
+excluded. The [download guide](ane-lut6-c2048/README.md#download-the-model-files)
+places `models/` beside the new `toolkit/` so the Swift commands resolve correctly.
+
+The new CLI stages are `download_source.py`, `run_export.py --bits 6
+--palette-workers 4 --context 2048 --layers-per-block 4`, `python -m
+dolphin_ane.reference --bits 6 --palette-workers 4 --context 2048`, and
+`verify_export.py`; the [complete commands](ane-lut6-c2048/toolkit/README.md#reproduce-the-export)
+include their source/output paths. Use the version's isolated Python 3.12
+environment and [requirements](ane-lut6-c2048/toolkit/requirements.txt), separate
+from the 8B pins in `requirements-dev.txt`. No workflow is added for this release.
+
+The 3B multipart contract is documented with its own `DolphinANEEngine`; the
+existing 8B multifunction APIs below retain their original contract.
+
+## Existing 8B pipeline
+
+The existing production pipeline exports **Dolphin3.0-Llama3.1-8B** to a
+multifunction Core ML `.mlpackage` and supports the original project goals:
 
 - Merge LoRA adapters into the base model using Unsloth before export.
 - Quantize the Core ML weights with configurable palettization bit-width and
@@ -20,9 +63,10 @@ Sources/App/LLM/         # Swift runtime wrapper for chat + embeddings
 Sources/App/Bench/       # Optional benchmarking harness for Core ML packages
 requirements-dev.txt     # Heavier dev/test dependencies (Torch, Transformers, Core ML Tools, etc.)
 pyproject.toml           # Packaging metadata for the conversion script
+ane-lut6-c2048/          # Separate 3B stateful LUT6 toolkit, Swift runtime and evidence
 ```
 
-## Conversion Workflow
+## 8B Conversion Workflow
 
 Run the pipeline to produce a compressed `.mlpackage` that exposes `init`,
 `decode`, and `encode` entry points. The script bootstraps its own

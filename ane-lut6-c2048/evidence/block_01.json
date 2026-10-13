@@ -1,0 +1,713 @@
+{
+  "specification_version": 9,
+  "inputs": {
+    "hiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ],
+    "ropeCos": [
+      1,
+      128,
+      1,
+      1
+    ],
+    "ropeSin": [
+      1,
+      128,
+      1,
+      1
+    ],
+    "writeMask": [
+      1,
+      1,
+      1,
+      2048
+    ],
+    "causalMask": [
+      1,
+      1,
+      1,
+      2048
+    ]
+  },
+  "input_dtypes": {
+    "hiddenStates": "FLOAT16",
+    "ropeCos": "FLOAT16",
+    "ropeSin": "FLOAT16",
+    "writeMask": "FLOAT16",
+    "causalMask": "FLOAT16"
+  },
+  "outputs": {
+    "outputHiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ]
+  },
+  "output_dtypes": {
+    "outputHiddenStates": "FLOAT16"
+  },
+  "states": {
+    "keyCache": [
+      4,
+      1024,
+      1,
+      2048
+    ],
+    "valueCache": [
+      4,
+      1024,
+      1,
+      2048
+    ]
+  },
+  "operation_counts": {
+    "read_state": 8,
+    "const": 2553,
+    "slice_by_index": 464,
+    "transpose": 180,
+    "mul": 516,
+    "concat": 144,
+    "layer_norm": 8,
+    "constexpr_lut_to_dense": 28,
+    "conv": 28,
+    "add": 240,
+    "sub": 1,
+    "matmul": 192,
+    "softmax": 96,
+    "silu": 4,
+    "slice_update": 8,
+    "write_state": 8
+  },
+  "stage": "lut6_compression",
+  "part": "block",
+  "index_bits": 6,
+  "weight_format": "LUT6 grouped-channel-16",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "context_length": 2048,
+  "layer_start": 4,
+  "layer_end": 8,
+  "seconds": 249.0779237730021,
+  "peak_rss_kib": 2015112,
+  "weights": [
+    {
+      "operation": "layers_0_self_attn_q_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "0163bb2f7dc975c5e816c5db2e855b96913795d8a1ba4d2537d3579acfa7b113",
+      "parameter_name": "layers.0.self_attn.q_proj.weight"
+    },
+    {
+      "operation": "layers_0_self_attn_k_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "fb36991a74757ad65b0b2a5b090f5a1fdce41cc0e8b244528bbe794c730ba081",
+      "parameter_name": "layers.0.self_attn.k_proj.weight"
+    },
+    {
+      "operation": "layers_0_self_attn_v_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "130d7fa355ae98dd590cfb4b5d4d32f52fbc0c8e8b72fc5ffa9f8d68e71a99f1",
+      "parameter_name": "layers.0.self_attn.v_proj.weight"
+    },
+    {
+      "operation": "layers_0_self_attn_o_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "1411e907c35d253084debf691af86d98003b853f130142b25d0b8ecd9478e657",
+      "parameter_name": "layers.0.self_attn.o_proj.weight"
+    },
+    {
+      "operation": "layers_0_mlp_gate_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "924aeff35aa793db8ce65313995ecf234ee0e10eb085226d894dfd18961cce44",
+      "parameter_name": "layers.0.mlp.gate_proj.weight"
+    },
+    {
+      "operation": "layers_0_mlp_up_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "26cba42c1d3995d0ef8b0dd5c41a28a046b1c90f5ef0cdf1c80e53a1bd6c7ad5",
+      "parameter_name": "layers.0.mlp.up_proj.weight"
+    },
+    {
+      "operation": "layers_0_mlp_down_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        8192,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "d21ccdd9c0eb74329b197f047cc2542fca6aa92e703fda1c2415f909ca321c36",
+      "parameter_name": "layers.0.mlp.down_proj.weight"
+    },
+    {
+      "operation": "layers_1_self_attn_q_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "04778b762ad703053d4f842311c981ba376d7129adc1311c3e2d11012af3a632",
+      "parameter_name": "layers.1.self_attn.q_proj.weight"
+    },
+    {
+      "operation": "layers_1_self_attn_k_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "5a4980235dfaaa3a358c6d258e7a21d8fa0d7dbf0f517d70acb77333c23108a4",
+      "parameter_name": "layers.1.self_attn.k_proj.weight"
+    },
+    {
+      "operation": "layers_1_self_attn_v_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "9d27d38da62a6a19f073b83a966261c0499fca5ee75c5ed3867c2ee1d6e24495",
+      "parameter_name": "layers.1.self_attn.v_proj.weight"
+    },
+    {
+      "operation": "layers_1_self_attn_o_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "2d774df65c683de6e92b1a20c032eccba0d4d3d92e42ede741071516096afb0f",
+      "parameter_name": "layers.1.self_attn.o_proj.weight"
+    },
+    {
+      "operation": "layers_1_mlp_gate_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "5cecec2a0c29fe3d213ce81a5ab6c6a065ffd244277d08fcd82f8b064627f657",
+      "parameter_name": "layers.1.mlp.gate_proj.weight"
+    },
+    {
+      "operation": "layers_1_mlp_up_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "682987898044cce228cd0e6844ca957fbef616203e1ccf8dc586e278402536da",
+      "parameter_name": "layers.1.mlp.up_proj.weight"
+    },
+    {
+      "operation": "layers_1_mlp_down_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        8192,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "9f7c1c83bc49ab207943b30f69dd130f57fdd8377a63244ed49f2cdf33800b4f",
+      "parameter_name": "layers.1.mlp.down_proj.weight"
+    },
+    {
+      "operation": "layers_2_self_attn_q_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "d96546e1fec1692e0528223bab5e7591609a17d6269b3db16936515b2f0024fe",
+      "parameter_name": "layers.2.self_attn.q_proj.weight"
+    },
+    {
+      "operation": "layers_2_self_attn_k_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "9f7cd27857e65458514d1001573d3d39d4a1c7067e0637bdd09394ed2b5c2099",
+      "parameter_name": "layers.2.self_attn.k_proj.weight"
+    },
+    {
+      "operation": "layers_2_self_attn_v_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "793730febd59f5b9f9a86bc0ce5c4d44fe8cb8d0aab44ca25c4a63af9e08a37c",
+      "parameter_name": "layers.2.self_attn.v_proj.weight"
+    },
+    {
+      "operation": "layers_2_self_attn_o_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "f379fbd061537f1c52ed38dfe1e9629110e665cc3810c62427136c54ceac2c1e",
+      "parameter_name": "layers.2.self_attn.o_proj.weight"
+    },
+    {
+      "operation": "layers_2_mlp_gate_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "9abdb4dd5d3b0be1dbdd421bd6fd24559c07715ff6781988ee4d16b57c2c99fc",
+      "parameter_name": "layers.2.mlp.gate_proj.weight"
+    },
+    {
+      "operation": "layers_2_mlp_up_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "d21327f0778248e4c093be8fcb84125a34417e98972121b42d69b109c6acadf8",
+      "parameter_name": "layers.2.mlp.up_proj.weight"
+    },
+    {
+      "operation": "layers_2_mlp_down_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        8192,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "78f8bab88a9f26be94d7c6c4d4ea2b396dd04b9d38a10e949e18403c26041e00",
+      "parameter_name": "layers.2.mlp.down_proj.weight"
+    },
+    {
+      "operation": "layers_3_self_attn_q_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "6450b62d03032093b2ac5fd2a5266e84cbe23400fdc1b64d78ff21d79db27da2",
+      "parameter_name": "layers.3.self_attn.q_proj.weight"
+    },
+    {
+      "operation": "layers_3_self_attn_k_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "3beee25d99db823b3afbfc1e5bcb9a5aecc5be2e720550e0e630cd13e2d2ba72",
+      "parameter_name": "layers.3.self_attn.k_proj.weight"
+    },
+    {
+      "operation": "layers_3_self_attn_v_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        1024,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        64,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "ad1eeb7febbc0c75c5ef5b5f6ae81c85da47229c3713de2283b2cd9918ae8c59",
+      "parameter_name": "layers.3.self_attn.v_proj.weight"
+    },
+    {
+      "operation": "layers_3_self_attn_o_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "f43496225648eadba05442a44e740c76837121c7ee9363e49a2de170554e0ed9",
+      "parameter_name": "layers.3.self_attn.o_proj.weight"
+    },
+    {
+      "operation": "layers_3_mlp_gate_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "820e6138ddb66a30def7320225a11a0754273ad1952e841d8ec3e45e02553324",
+      "parameter_name": "layers.3.mlp.gate_proj.weight"
+    },
+    {
+      "operation": "layers_3_mlp_up_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        8192,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        512,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "609b54bb876ce6f2eed54d906764e30875d9aa83be46b31496fb4a51d09a80f3",
+      "parameter_name": "layers.3.mlp.up_proj.weight"
+    },
+    {
+      "operation": "layers_3_mlp_down_proj_weight_promoted_to_fp16_palettized",
+      "shape": [
+        3072,
+        8192,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        192,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "c5d4c16ff9e89237dd353784be49ae7b3d13bfdda5ad94e8c933d678dc18b1db",
+      "parameter_name": "layers.3.mlp.down_proj.weight"
+    }
+  ],
+  "compression": {
+    "index_bits": 6,
+    "group_size": 16,
+    "channel_axis": 0,
+    "algorithm": "Core ML Tools 9 bundled kmeans1d: globally optimal weighted scalar 1D k-means over unique FP16 values; 64 centers; no fallback",
+    "large_weight_tensors_expected": 28,
+    "large_weight_tensors_compressed": 28
+  },
+  "files": [
+    {
+      "path": "Data/com.apple.CoreML/model.mlmodel",
+      "bytes": 695801,
+      "sha256": "6e1c2a6bfa7a88feb365d5b50bed5e0620f5ea57dbb9f401eb33972d6dd1c786"
+    },
+    {
+      "path": "Data/com.apple.CoreML/weights/weight.bin",
+      "bytes": 302927936,
+      "sha256": "3d69a329ad1559c0e7c8165f825ca2bcf2b522071aa1e5a7afc49f36894da9d2"
+    },
+    {
+      "path": "Manifest.json",
+      "bytes": 617,
+      "sha256": "7061d8b9cc320dd17e4ecd6f588e79297c5a956728b6ee7179694112bdbc0f18"
+    }
+  ],
+  "apple_runtime_verified": false,
+  "ane_hardware_verified": false
+}

@@ -1,0 +1,18 @@
+# Downloaded/generated payloads stay out of the source repository.
+/models/
+*.mlpackage/
+*.mlmodelc/
+*.safetensors
+*.zip
+*.fp16
+**/tokenizer.json
+**/.venv/
+**/venv/
+**/.*-venv/
+**/.build/
+**/.cache/
+/toolkit/output/
+/toolkit/validation/
+**/device-validation.json
+**/device-parity-and-plan.json
+**/generated-example.json

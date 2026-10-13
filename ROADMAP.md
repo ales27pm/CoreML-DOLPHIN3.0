@@ -1,16 +1,36 @@
 # CoreML Dolphin 3.0 Roadmap
 
-This roadmap aligns ongoing development with the repository's single objective:
+The existing 8B roadmap aligns ongoing development with this objective:
 ship a production-ready Core ML export of **Dolphin3.0-Llama3.1-8B** that merges
 LoRA adapters via Unsloth, applies 4-bit quantization (with optional sweeps),
 and delivers multifunction chat + LLM2Vec capabilities through a Swift runtime
 wrapper.
 
+## Separately versioned 3B stateful release
+
+[`ane-lut6-c2048/`](ane-lut6-c2048/README.md) adds Dolphin3.0-Llama3.2-3B as a
+separate nine-package pipeline and Swift runtime. The iOS 18 / macOS 15 export
+uses LUT6/group16, FP16 activations and native KV states, a fixed 2048-token
+context and query length 1. The existing 8B pipeline and `Sources/App` APIs
+retain their multifunction contract.
+
+- Completed: package export, all 205 serialized weight reconstruction checks,
+  the recorded 84-test Python suite, and 3/3 fixed-prompt next-token agreement
+  with the FP16 source. This evidence has limited numerical scope.
+- Publication target: GitHub code/evidence plus model files under
+  `ales27pm/Dolphin3.0-CoreML/ane-lut6-c2048/`; the version README documents the
+  layout and separate dependency environment.
+- Pending: Apple SDK compilation, Core ML device parity, ANE plan inspection
+  and runtime tracing, followed by measured device performance and broader
+  generation/context evaluation. No Apple result is inferred from Linux export.
+
+The remaining principles and milestones describe the existing 8B workstream.
+
 ## Guiding Principles
 
-- **Single-command conversion** – Maintain `dolphin2coreml_full.py` as the only
+- **Single-command conversion** – Maintain `dolphin2coreml_full.py` as the 8B
   entry point for end-to-end export, dependency bootstrap, and artifact cleanup.
-- **Feature completeness** – Every release must validate LoRA merging, 4-bit
+- **Feature completeness** – Every 8B release must validate LoRA merging, 4-bit
   palettization, multifunction Core ML outputs (init/decode/encode), and
   embedding parity with the upstream LLM2Vec checkpoint.
 - **Apple platform readiness** – Ensure exported packages, Swift runtime code,

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-13T00:46:54.371092+00:00",
+  "scope": "Publication integration of the already verified conversion; no repeat model conversion or Apple hardware execution.",
+  "base_commit": "f79b3d943a56ef417a63f9264e7620949714b7e7",
+  "unchanged_toolkit_files": [
+    "build_release.py",
+    "dolphin_ane/__init__.py",
+    "dolphin_ane/exporter.py",
+    "dolphin_ane/model.py",
+    "dolphin_ane/palette.py",
+    "dolphin_ane/reference.py",
+    "dolphin_ane/source.py",
+    "download_source.py",
+    "environment-lock.txt",
+    "licenses/LLAMA_3_2_LICENSE.txt",
+    "licenses/LLAMA_3_2_USE_POLICY.md",
+    "licenses/sources.json",
+    "requirements.txt",
+    "run_export.py",
+    "source-verification.json",
+    "source/README.md",
+    "source/config.json",
+    "source/generation_config.json",
+    "source/model.safetensors.index.json",
+    "source/special_tokens_map.json",
+    "source/tokenizer_config.json",
+    "swift/Package.swift",
+    "swift/Sources/DolphinANE/DolphinANE.swift",
+    "swift/Sources/Validate/Validate.swift",
+    "tests/test_exporter.py",
+    "tests/test_model.py",
+    "tests/test_palette.py",
+    "tests/test_reference.py",
+    "tests/test_source.py",
+    "tests/test_verify_export.py",
+    "tokenize_prompt.py",
+    "verify_export.py"
+  ],
+  "publication_document_changes": [
+    "CONVERSION_REPORT.md",
+    "README.md",
+    "swift/README.md"
+  ],
+  "added_toolkit_documentation": [
+    "source/DOWNLOAD.md"
+  ],
+  "staged_whitespace_check": {
+    "exit_code": 2,
+    "findings": [
+      "ane-lut6-c2048/toolkit/build_release.py:124: trailing whitespace.",
+      "ane-lut6-c2048/toolkit/source/README.md:116: trailing whitespace.",
+      "ane-lut6-c2048/toolkit/source/README.md:120: new blank line at EOF."
+    ],
+    "retained_byte_identical_imports": [
+      {
+        "path": "ane-lut6-c2048/toolkit/build_release.py",
+        "sha256": "2b70d1d8dd0a13d658e29ad59ab1158b77eaaf307dc602794a15099a3c748694",
+        "matches_completed_toolkit": true
+      },
+      {
+        "path": "ane-lut6-c2048/toolkit/source/README.md",
+        "sha256": "0c4007169c0ebeb8928283543a8f5115ef85414f437aa7cfa5ad2b85095c3336",
+        "matches_completed_toolkit": true
+      }
+    ],
+    "decision": "Preserve imported toolkit and pinned upstream model-card bytes. The complete staged diff is not whitespace-clean."
+  },
+  "verification_lesson": "Use git diff --cached --check after staging newly copied files; git diff --check alone omits untracked additions.",
+  "prior_export_validation": {
+    "python_tests_passed": 84,
+    "compressed_matrices_verified": 205,
+    "fixed_prompt_next_token_agreement": "3/3"
+  },
+  "apple_sdk_compiled": false,
+  "coreml_runtime_executed": false,
+  "ane_compute_plan_verified": false,
+  "ane_runtime_trace_verified": false
+}

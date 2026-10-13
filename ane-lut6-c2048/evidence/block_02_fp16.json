@@ -1,0 +1,113 @@
+{
+  "specification_version": 9,
+  "inputs": {
+    "hiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ],
+    "ropeCos": [
+      1,
+      128,
+      1,
+      1
+    ],
+    "ropeSin": [
+      1,
+      128,
+      1,
+      1
+    ],
+    "writeMask": [
+      1,
+      1,
+      1,
+      2048
+    ],
+    "causalMask": [
+      1,
+      1,
+      1,
+      2048
+    ]
+  },
+  "input_dtypes": {
+    "hiddenStates": "FLOAT16",
+    "ropeCos": "FLOAT16",
+    "ropeSin": "FLOAT16",
+    "writeMask": "FLOAT16",
+    "causalMask": "FLOAT16"
+  },
+  "outputs": {
+    "outputHiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ]
+  },
+  "output_dtypes": {
+    "outputHiddenStates": "FLOAT16"
+  },
+  "states": {
+    "keyCache": [
+      4,
+      1024,
+      1,
+      2048
+    ],
+    "valueCache": [
+      4,
+      1024,
+      1,
+      2048
+    ]
+  },
+  "operation_counts": {
+    "read_state": 8,
+    "const": 2581,
+    "slice_by_index": 464,
+    "transpose": 180,
+    "mul": 516,
+    "concat": 144,
+    "layer_norm": 8,
+    "conv": 28,
+    "add": 240,
+    "sub": 1,
+    "matmul": 192,
+    "softmax": 96,
+    "silu": 4,
+    "slice_update": 8,
+    "write_state": 8
+  },
+  "stage": "fp16_conversion",
+  "part": "block",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "context_length": 2048,
+  "layer_start": 8,
+  "layer_end": 12,
+  "requested_compression_bits": 6,
+  "seconds": 31.94276727900433,
+  "peak_rss_kib": 4809184,
+  "files": [
+    {
+      "path": "Data/com.apple.CoreML/model.mlmodel",
+      "bytes": 691121,
+      "sha256": "f57a92e42e3051b3786a2e25ecb8f3e9b10f8db85c28c3115c13ea31c1244e65"
+    },
+    {
+      "path": "Data/com.apple.CoreML/weights/weight.bin",
+      "bytes": 805357888,
+      "sha256": "988a0b7bf1048c5a2089b6d853d220cf3ad3e65d791b1c33b7dbeb3e14686237"
+    },
+    {
+      "path": "Manifest.json",
+      "bytes": 617,
+      "sha256": "c79c8f217c9ddef1156cc7590643aa5541d6f627ea935d6ec2426d7d70eb69f0"
+    }
+  ],
+  "apple_runtime_verified": false,
+  "ane_hardware_verified": false
+}

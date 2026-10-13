@@ -1,0 +1,319 @@
+{
+  "scope": "CPU PyTorch real arithmetic prompt; diagnostics are not Core ML runtime or ANE execution evidence",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "root_cause": "Legacy quantile-initialized local Lloyd fitting clipped rare large down-projection weights on highly active channels. Average scalar weight MSE did not expose the resulting large activation errors. Source execution and quantized-reference aliasing were independently checked.",
+  "grouping": {
+    "output_channel_axis": 0,
+    "group_size": 16,
+    "source_weight_precision": "BF16 rounded to FP16",
+    "activation_precision": "FP16"
+  },
+  "sampled_weight_groups": 39,
+  "non_nearest_index_assignments": 0,
+  "sampled_group_relative_weight_mse_range": [
+    0.010345872016425015,
+    0.04034119270272179
+  ],
+  "selected_policy": "64-centroid globally optimal weighted1D kmeans1d on sorted unique FP16 values; no local-candidate fallback",
+  "layer0_legacy4": {
+    "embedding_error": {
+      "relative_mse": 0.01947680674493313,
+      "cosine": 0.9902669787406921,
+      "rms_source": 0.018930518999695778,
+      "rms_quantized": 0.018541933968663216,
+      "abs_source_max": 0.234375,
+      "abs_error_max": 0.15924072265625,
+      "bias": -1.307348702539457e-05
+    },
+    "source_input_layer_output_error": {
+      "relative_mse": 0.46312955021858215,
+      "cosine": 0.7868974208831787,
+      "rms_source": 0.11012706160545349,
+      "rms_quantized": 0.0550587996840477,
+      "abs_source_max": 14.3671875,
+      "abs_error_max": 6.9375,
+      "bias": -0.0004181781259831041
+    },
+    "quantized_input_layer_output_error": {
+      "relative_mse": 0.5866056680679321,
+      "cosine": 0.7173416614532471,
+      "rms_source": 0.11012706160545349,
+      "rms_quantized": 0.04396802932024002,
+      "abs_source_max": 14.3671875,
+      "abs_error_max": 7.419921875,
+      "bias": -0.0005187284550629556
+    },
+    "last_token_error": {
+      "relative_mse": 0.2868376076221466,
+      "cosine": 0.8558430075645447,
+      "rms_source": 0.023947667330503464,
+      "rms_quantized": 0.023822853341698647,
+      "abs_source_max": 0.35888671875,
+      "abs_error_max": 0.246337890625,
+      "bias": -0.0001656191161600873
+    }
+  },
+  "layer0_selected6": {
+    "embedding_error": {
+      "relative_mse": 0.0008260502363555133,
+      "cosine": 0.9995817542076111,
+      "rms_source": 0.018930518999695778,
+      "rms_quantized": 0.018914738669991493,
+      "abs_source_max": 0.234375,
+      "abs_error_max": 0.0164794921875,
+      "bias": -1.137835965892009e-06
+    },
+    "source_input_layer_output_error": {
+      "relative_mse": 0.0013922391226515174,
+      "cosine": 0.999310314655304,
+      "rms_source": 0.11012706160545349,
+      "rms_quantized": 0.11010291427373886,
+      "abs_source_max": 14.3671875,
+      "abs_error_max": 0.7265625,
+      "bias": -9.915111149894074e-06
+    },
+    "quantized_input_layer_output_error": {
+      "relative_mse": 0.0014957665698602796,
+      "cosine": 0.9992898106575012,
+      "rms_source": 0.11012706160545349,
+      "rms_quantized": 0.10920733958482742,
+      "abs_source_max": 14.3671875,
+      "abs_error_max": 0.5859375,
+      "bias": -1.579769559612032e-05
+    },
+    "last_token_error": {
+      "relative_mse": 0.0027246237732470036,
+      "cosine": 0.9986375570297241,
+      "rms_source": 0.023947667330503464,
+      "rms_quantized": 0.023950845003128052,
+      "abs_source_max": 0.35888671875,
+      "abs_error_max": 0.0103302001953125,
+      "bias": -1.9270617030997528e-06
+    }
+  },
+  "isolated_down_proj_variants": {
+    "current4": {
+      "seconds": 0.3690949579977314,
+      "activation_error": {
+        "relative_mse": 0.4278201242911208,
+        "cosine": 0.7945466496936587,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.05805660718076859,
+        "max_error": 6.703675627708435
+      },
+      "weight_error": {
+        "relative_mse": 0.014024320496535668,
+        "cosine": 0.992981353248344,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.017570646523926724,
+        "max_error": 0.392242431640625
+      },
+      "last_token_error": {
+        "relative_mse": 0.047223957485151166,
+        "cosine": 0.9761532052741688,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.010910588587231753,
+        "max_error": 0.04758179932832718
+      }
+    },
+    "uniform_init4": {
+      "seconds": 2.5287776499972097,
+      "activation_error": {
+        "relative_mse": 0.01967666368719859,
+        "cosine": 0.9908838710167619,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.10021613259339068,
+        "max_error": 1.7355954051017761
+      },
+      "weight_error": {
+        "relative_mse": 0.013804865912716324,
+        "cosine": 0.9930736114084865,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.01768402229899896,
+        "max_error": 0.1640625
+      },
+      "last_token_error": {
+        "relative_mse": 0.018067304344585186,
+        "cosine": 0.9909533859589201,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.01110565258391048,
+        "max_error": 0.02191080152988434
+      }
+    },
+    "quantile200_4": {
+      "seconds": 2.4417446779989405,
+      "activation_error": {
+        "relative_mse": 0.20617267805589756,
+        "cosine": 0.9051784498430214,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.07848677822047313,
+        "max_error": 5.978705525398254
+      },
+      "weight_error": {
+        "relative_mse": 0.012472018653208057,
+        "cosine": 0.9937444733216896,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.017685934180189492,
+        "max_error": 0.389373779296875
+      },
+      "last_token_error": {
+        "relative_mse": 0.03557694676447089,
+        "cosine": 0.982086208503163,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.010995305156685873,
+        "max_error": 0.033460330218076706
+      }
+    },
+    "stock4": {
+      "seconds": 3.614745765000407,
+      "activation_error": {
+        "relative_mse": 0.07609453652228199,
+        "cosine": 0.9656058520435165,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.09196852229056518,
+        "max_error": 3.4095013439655304
+      },
+      "weight_error": {
+        "relative_mse": 0.012208259079697806,
+        "cosine": 0.993877125671437,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.01769390091285967,
+        "max_error": 0.2423095703125
+      },
+      "last_token_error": {
+        "relative_mse": 0.026987104791716135,
+        "cosine": 0.9864783342315976,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.011012499363981812,
+        "max_error": 0.031250627245754004
+      }
+    },
+    "current6": {
+      "seconds": 2.6007825109991245,
+      "activation_error": {
+        "relative_mse": 0.07991593014172252,
+        "cosine": 0.9678112264608485,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.08834653203406355,
+        "max_error": 2.6803133487701416
+      },
+      "weight_error": {
+        "relative_mse": 0.0028499206211799223,
+        "cosine": 0.9985802917052667,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.017714575714776824,
+        "max_error": 0.371337890625
+      },
+      "last_token_error": {
+        "relative_mse": 0.019183888606601255,
+        "cosine": 0.990429598856557,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.011053131071643484,
+        "max_error": 0.031424470245838165
+      }
+    },
+    "stock6": {
+      "seconds": 8.253322418997413,
+      "activation_error": {
+        "relative_mse": 0.001296139814184926,
+        "cosine": 0.9993544108904567,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.1054673203649738,
+        "max_error": 0.6544990539550781
+      },
+      "weight_error": {
+        "relative_mse": 0.000796896409549407,
+        "cosine": 0.9996014723845665,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.017795723341985786,
+        "max_error": 0.04931640625
+      },
+      "last_token_error": {
+        "relative_mse": 0.0010383823575169902,
+        "cosine": 0.9994810769830834,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.011296526007280601,
+        "max_error": 0.004834495484828949
+      }
+    },
+    "uniform30_4": {
+      "seconds": 2.2756548499964993,
+      "activation_error": {
+        "relative_mse": 0.014965832919596113,
+        "cosine": 0.9925085671039569,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.10384403966911991,
+        "max_error": 1.469042956829071
+      },
+      "weight_error": {
+        "relative_mse": 0.01858268749108523,
+        "cosine": 0.990729721385709,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.017839275053896275,
+        "max_error": 0.11505126953125
+      },
+      "last_token_error": {
+        "relative_mse": 0.020556527323932476,
+        "cosine": 0.9897458729715027,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.01131632741439233,
+        "max_error": 0.01972019486129284
+      }
+    },
+    "uniform30_6": {
+      "seconds": 2.4015496310021263,
+      "activation_error": {
+        "relative_mse": 0.001521735545704416,
+        "cosine": 0.9992395348881563,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.10533489238113357,
+        "max_error": 0.13633966445922852
+      },
+      "weight_error": {
+        "relative_mse": 0.0044923925288386365,
+        "cosine": 0.9977575584340881,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.017825958610498762,
+        "max_error": 0.024658203125
+      },
+      "last_token_error": {
+        "relative_mse": 0.004177388186857581,
+        "cosine": 0.9979190101380377,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.011318921200842453,
+        "max_error": 0.0050482600927352905
+      }
+    },
+    "uniform200_6": {
+      "seconds": 2.775885012000799,
+      "activation_error": {
+        "relative_mse": 0.0009893652433971686,
+        "cosine": 0.999505390052285,
+        "rms_source": 0.10529111101144757,
+        "rms_recon": 0.10517327979926737,
+        "max_error": 0.28568077087402344
+      },
+      "weight_error": {
+        "relative_mse": 0.002941525059741582,
+        "cosine": 0.9985282250731535,
+        "rms_source": 0.017802842442167784,
+        "rms_recon": 0.01778333336443838,
+        "max_error": 0.0423583984375
+      },
+      "last_token_error": {
+        "relative_mse": 0.002612834874551219,
+        "cosine": 0.9986929006688193,
+        "rms_source": 0.01129225040136719,
+        "rms_recon": 0.011270860297007945,
+        "max_error": 0.0029607806354761124
+      }
+    }
+  },
+  "tests": {
+    "palette_passed": 27,
+    "serialized_exporter_passed": 17,
+    "serialized_exporter_scope": "saved/reloaded uint4 and uint6 Core ML programs; per-weight materialization/hash identity; state and feature contracts"
+  },
+  "remaining_gate": "Complete full-model6-bit next-token fixture evaluation, serialized full-model reconstruction hashes, and Apple runtime/device validation."
+}

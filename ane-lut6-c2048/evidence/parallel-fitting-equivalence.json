@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "scope": "Every group of the actual padded Dolphin embedding; independently fitted serial and four-worker implementations",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "index_bits": 6,
+  "group_size": 16,
+  "shape": [
+    128272,
+    3072
+  ],
+  "group_count": 8017,
+  "serial_workers": 1,
+  "parallel_workers": 4,
+  "palette_batch_groups": 8,
+  "source_fp16_sha256": "2aa1253bf5be8cc7f0d26fd57fb0d1fbcc30143402ed9ff46fdf0c9423bc91b5",
+  "dense_reference_sha256": "61d788122c457da61ef2e9b4a0ddb081d4722d49efae15301a916cc61ff26088",
+  "complete_parameter_records_equal": true,
+  "serial_evidence": "/tmp/dolphin3-ane-reference-lut6-c2048-serial-incomplete/reference-weight-hashes.json",
+  "serial_evidence_sha256": "397b20a2a17c6a3e08098de20fe2b7f24c7a8bcff2f4296a9dcff77bf6a56970",
+  "parallel_evidence": "/tmp/dolphin3-ane-reference-lut6-c2048/reference-weight-hashes.json",
+  "parallel_evidence_sha256_at_comparison": "0f3ce8cb6aec6ee7b1db5477f98e3afeb09a37479bd912db0e848bd4d14694da",
+  "serial_embedding_seconds": 368.189,
+  "parallel_embedding_seconds": 84.416,
+  "no_extra_fitting": true
+}

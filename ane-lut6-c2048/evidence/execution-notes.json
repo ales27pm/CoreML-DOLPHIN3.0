@@ -1,0 +1,24 @@
+{
+  "large_source_relocation": {
+    "symptom": "Individual shard symlinks outside the source directory correctly failed the loader containment check before package writing.",
+    "correction": "Relocated the complete verified source tree, preserving real shard files within the resolved source directory.",
+    "loader_guard_unchanged": true,
+    "reusable_lesson": "Keep configuration, index and physical shards in the same resolved source tree when relocating large downloads."
+  },
+  "packaging_identity_gate": {
+    "legitimate_inputs_accepted": true,
+    "stale_input_classes_rejected": [
+      "manifest",
+      "package weight file",
+      "reference report",
+      "RoPE sidecar",
+      "Swift reference fixtures"
+    ],
+    "input_directories_modified_by_packager": false
+  },
+  "process_control": {
+    "observed_issue": "An OS signal targeting a process ID observed through /proc returned ProcessLookupError.",
+    "authoritative_followup": "The exec tool session reported the export still running; no pause marker was written and no model output was removed.",
+    "reusable_lesson": "Control long-running jobs through their owning tool session; do not rely on an unvalidated process ID from a separate execution context."
+  }
+}

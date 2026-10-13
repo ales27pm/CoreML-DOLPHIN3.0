@@ -1,0 +1,130 @@
+{
+  "groups": 64,
+  "rows_per_group": 16,
+  "columns": 3072,
+  "source_row_starts": [
+    0,
+    2032,
+    4064,
+    6096,
+    8128,
+    10176,
+    12208,
+    14240,
+    16272,
+    18320,
+    20352,
+    22384,
+    24416,
+    26464,
+    28496,
+    30528,
+    32560,
+    34608,
+    36640,
+    38672,
+    40704,
+    42752,
+    44784,
+    46816,
+    48848,
+    50880,
+    52928,
+    54960,
+    56992,
+    59024,
+    61072,
+    63104,
+    65136,
+    67168,
+    69216,
+    71248,
+    73280,
+    75312,
+    77360,
+    79392,
+    81424,
+    83456,
+    85504,
+    87536,
+    89568,
+    91600,
+    93632,
+    95680,
+    97712,
+    99744,
+    101776,
+    103824,
+    105856,
+    107888,
+    109920,
+    111968,
+    114000,
+    116032,
+    118064,
+    120112,
+    122144,
+    124176,
+    126208,
+    128256
+  ],
+  "bytes_live_source_groups": 6291456,
+  "ctypes_cdll_doc": "An instance of this class represents a loaded dll/shared\n    library, exporting functions using the standard C calling\n    convention (named 'cdecl' on Windows).\n\n    The exported functions can be accessed as attributes, or by\n    indexing with the function name.  Examples:\n\n    <obj>.qsort -> callable object\n    <obj>['qsort'] -> callable object\n\n    Calling the functions releases the Python GIL during the call and\n    reacquires it afterwards.\n    ",
+  "available_cpu_affinity": 9,
+  "results": [
+    {
+      "workers": 1,
+      "repeat": 0,
+      "seconds": 2.166472729004454,
+      "bit_identical": true
+    },
+    {
+      "workers": 1,
+      "repeat": 1,
+      "seconds": 2.3421808340062853,
+      "bit_identical": true
+    },
+    {
+      "workers": 1,
+      "repeat": 2,
+      "seconds": 2.2645880009949906,
+      "bit_identical": true
+    },
+    {
+      "workers": 2,
+      "repeat": 0,
+      "seconds": 1.0802745789987966,
+      "bit_identical": true
+    },
+    {
+      "workers": 2,
+      "repeat": 1,
+      "seconds": 1.159495033993153,
+      "bit_identical": true
+    },
+    {
+      "workers": 2,
+      "repeat": 2,
+      "seconds": 1.21379185099795,
+      "bit_identical": true
+    },
+    {
+      "workers": 4,
+      "repeat": 0,
+      "seconds": 0.5965504380001221,
+      "bit_identical": true
+    },
+    {
+      "workers": 4,
+      "repeat": 1,
+      "seconds": 0.6025489239982562,
+      "bit_identical": true
+    },
+    {
+      "workers": 4,
+      "repeat": 2,
+      "seconds": 0.5829344189987751,
+      "bit_identical": true
+    }
+  ]
+}

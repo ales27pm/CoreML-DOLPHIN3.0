@@ -1,0 +1,305 @@
+{
+  "specification_version": 9,
+  "inputs": {
+    "hiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ]
+  },
+  "input_dtypes": {
+    "hiddenStates": "FLOAT16"
+  },
+  "outputs": {
+    "logits_0": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_1": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_2": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_3": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_4": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_5": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_6": [
+      1,
+      16032,
+      1,
+      1
+    ],
+    "logits_7": [
+      1,
+      16034,
+      1,
+      1
+    ]
+  },
+  "output_dtypes": {
+    "logits_0": "FLOAT16",
+    "logits_1": "FLOAT16",
+    "logits_2": "FLOAT16",
+    "logits_3": "FLOAT16",
+    "logits_4": "FLOAT16",
+    "logits_5": "FLOAT16",
+    "logits_6": "FLOAT16",
+    "logits_7": "FLOAT16"
+  },
+  "states": {},
+  "operation_counts": {
+    "const": 54,
+    "transpose": 2,
+    "mul": 2,
+    "concat": 1,
+    "layer_norm": 1,
+    "slice_by_index": 2,
+    "constexpr_lut_to_dense": 8,
+    "conv": 8
+  },
+  "stage": "lut6_compression",
+  "part": "head",
+  "index_bits": 6,
+  "weight_format": "LUT6 grouped-channel-16",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "context_length": 2048,
+  "layer_start": 28,
+  "layer_end": 28,
+  "seconds": 92.90153978399758,
+  "peak_rss_kib": 2397952,
+  "weights": [
+    {
+      "operation": "lm_heads_0_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16032,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1002,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "b3582f4a6a243af602610e953d7a28c846b446067d51c97896023c9bc1a82c6a",
+      "parameter_name": "lm_heads.0.weight"
+    },
+    {
+      "operation": "lm_heads_1_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16032,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1002,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "bf72c2349af15c97e141f18b72941506949ab76d982c56e0443153a0e4ebd1a1",
+      "parameter_name": "lm_heads.1.weight"
+    },
+    {
+      "operation": "lm_heads_2_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16032,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1002,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "7196308b38531b0f7f16858755da0c501fb7b4a4914012f1517f10938050d4b5",
+      "parameter_name": "lm_heads.2.weight"
+    },
+    {
+      "operation": "lm_heads_3_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16032,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1002,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "72ca138778f860c428af3121bb0cc2ae64297ba2790d5ad47af1eb3fab8edb6e",
+      "parameter_name": "lm_heads.3.weight"
+    },
+    {
+      "operation": "lm_heads_4_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16032,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1002,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "73540b39d1954490293b8b038543f6faa9b9079e67dcf66d3d27f1df326609ca",
+      "parameter_name": "lm_heads.4.weight"
+    },
+    {
+      "operation": "lm_heads_5_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16032,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1002,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "db358a40103d4e926bf43c604245bd8ab372b451d9ce7117fa3dde46bcecf445",
+      "parameter_name": "lm_heads.5.weight"
+    },
+    {
+      "operation": "lm_heads_6_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16032,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1002,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "6d800c9b84a61ee5a2862f9a52c33f4a6d420ecc60e602fac49c1dfd45fb79b9",
+      "parameter_name": "lm_heads.6.weight"
+    },
+    {
+      "operation": "lm_heads_7_weight_promoted_to_fp16_palettized",
+      "shape": [
+        16048,
+        3072,
+        1,
+        1
+      ],
+      "index_dtype": "uint6",
+      "index_bits": 6,
+      "lut_shape": [
+        1003,
+        1,
+        1,
+        1,
+        64,
+        1
+      ],
+      "dense_fp16_sha256": "e4543874bc386cfda7c291640b025005248857b2d3bab4d22cff7b4610247825",
+      "parameter_name": "lm_heads.7.weight"
+    }
+  ],
+  "palette_execution": {
+    "workers": 4,
+    "batch_size": 8,
+    "group_count": 8017,
+    "unique_groups": 8017,
+    "cache_hits": 8017,
+    "cache_misses": 0,
+    "remaining_groups": 0,
+    "peak_cache_bytes": 395077760,
+    "fit_seconds": 87.14311130400165,
+    "mechanism": "bounded thread fitting; byte-addressed CUSTOM callback with reference counts"
+  },
+  "compression": {
+    "index_bits": 6,
+    "group_size": 16,
+    "channel_axis": 0,
+    "algorithm": "Core ML Tools 9 bundled kmeans1d: globally optimal weighted scalar 1D k-means over unique FP16 values; 64 centers; no fallback",
+    "large_weight_tensors_expected": 8,
+    "large_weight_tensors_compressed": 8
+  },
+  "files": [
+    {
+      "path": "Data/com.apple.CoreML/model.mlmodel",
+      "bytes": 14591,
+      "sha256": "79098626ba8c7ece8033c33c4c719a7b21c2bcbc3724e7808449c40521ecf7de"
+    },
+    {
+      "path": "Data/com.apple.CoreML/weights/weight.bin",
+      "bytes": 296572160,
+      "sha256": "42a24fda0aa9e056fa423f460601401ad89c07f1384db62f78cb9d705d043937"
+    },
+    {
+      "path": "Manifest.json",
+      "bytes": 617,
+      "sha256": "146247fe41d197e67436a9483ca69c182eca0df119af3e62401843d64ef79069"
+    }
+  ],
+  "apple_runtime_verified": false,
+  "ane_hardware_verified": false
+}

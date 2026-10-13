@@ -1,0 +1,803 @@
+{
+  "current4": {
+    "seconds": 0.3690949579977314,
+    "activation_error": {
+      "relative_mse": 0.4278201242911208,
+      "cosine": 0.7945466496936587,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.05805660718076859,
+      "max_error": 6.703675627708435
+    },
+    "weight_error": {
+      "relative_mse": 0.014024320496535668,
+      "cosine": 0.992981353248344,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.017570646523926724,
+      "max_error": 0.392242431640625
+    },
+    "last_token_error": {
+      "relative_mse": 0.047223957485151166,
+      "cosine": 0.9761532052741688,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.010910588587231753,
+      "max_error": 0.04758179932832718
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      1121
+    ],
+    "worst_output_source": -8.14078426361084,
+    "worst_output_quant": -1.4371086359024048,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": 0.275390625,
+        "quant_weight": 0.050384521484375,
+        "abs_error_contribution": 3.4172801971435547
+      },
+      {
+        "input_channel": 6057,
+        "activation": -10.0234375,
+        "source_weight": 0.322265625,
+        "quant_weight": 0.050384521484375,
+        "abs_error_contribution": 2.7251832485198975
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": -0.26953125,
+        "quant_weight": -0.049163818359375,
+        "abs_error_contribution": 0.24576133489608765
+      },
+      {
+        "input_channel": 6757,
+        "activation": 0.4384765625,
+        "source_weight": -0.263671875,
+        "quant_weight": -0.049163818359375,
+        "abs_error_contribution": 0.09405675530433655
+      },
+      {
+        "input_channel": 5234,
+        "activation": -0.303955078125,
+        "source_weight": 0.234375,
+        "quant_weight": 0.050384521484375,
+        "abs_error_contribution": 0.05592484027147293
+      },
+      {
+        "input_channel": 710,
+        "activation": -0.195556640625,
+        "source_weight": 0.251953125,
+        "quant_weight": 0.050384521484375,
+        "abs_error_contribution": 0.03941807895898819
+      },
+      {
+        "input_channel": 1547,
+        "activation": -0.1739501953125,
+        "source_weight": 0.23828125,
+        "quant_weight": 0.050384521484375,
+        "abs_error_contribution": 0.03268467262387276
+      },
+      {
+        "input_channel": 6362,
+        "activation": 0.1610107421875,
+        "source_weight": -0.2412109375,
+        "quant_weight": -0.049163818359375,
+        "abs_error_contribution": 0.03092164918780327
+      }
+    ]
+  },
+  "uniform_init4": {
+    "seconds": 2.5287776499972097,
+    "activation_error": {
+      "relative_mse": 0.01967666368719859,
+      "cosine": 0.9908838710167619,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.10021613259339068,
+      "max_error": 1.7355954051017761
+    },
+    "weight_error": {
+      "relative_mse": 0.013804865912716324,
+      "cosine": 0.9930736114084865,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.01768402229899896,
+      "max_error": 0.1640625
+    },
+    "last_token_error": {
+      "relative_mse": 0.018067304344585186,
+      "cosine": 0.9909533859589201,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.01110565258391048,
+      "max_error": 0.02191080152988434
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      1326
+    ],
+    "worst_output_source": -0.8990560173988342,
+    "worst_output_quant": -2.6346514225006104,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": -0.1884765625,
+        "quant_weight": -0.07366943359375,
+        "abs_error_contribution": 1.7436332702636719
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": 0.056884765625,
+        "quant_weight": 0.060943603515625,
+        "abs_error_contribution": 0.00452655553817749
+      },
+      {
+        "input_channel": 7926,
+        "activation": 0.09344482421875,
+        "source_weight": -0.11376953125,
+        "quant_weight": -0.07366943359375,
+        "abs_error_contribution": 0.00374714657664299
+      },
+      {
+        "input_channel": 6757,
+        "activation": 0.4384765625,
+        "source_weight": -0.03466796875,
+        "quant_weight": -0.030731201171875,
+        "abs_error_contribution": 0.0017261803150177002
+      },
+      {
+        "input_channel": 4827,
+        "activation": 0.73583984375,
+        "source_weight": -0.07177734375,
+        "quant_weight": -0.07366943359375,
+        "abs_error_contribution": 0.001392275094985962
+      },
+      {
+        "input_channel": 6362,
+        "activation": 0.1610107421875,
+        "source_weight": -0.0498046875,
+        "quant_weight": -0.04315185546875,
+        "abs_error_contribution": 0.0010711774230003357
+      },
+      {
+        "input_channel": 7896,
+        "activation": 0.016845703125,
+        "source_weight": 0.11767578125,
+        "quant_weight": 0.060943603515625,
+        "abs_error_contribution": 0.0009556934237480164
+      },
+      {
+        "input_channel": 760,
+        "activation": -0.056610107421875,
+        "source_weight": -0.0576171875,
+        "quant_weight": -0.04315185546875,
+        "abs_error_contribution": 0.0008188840001821518
+      }
+    ]
+  },
+  "quantile200_4": {
+    "seconds": 2.4417446779989405,
+    "activation_error": {
+      "relative_mse": 0.20617267805589756,
+      "cosine": 0.9051784498430214,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.07848677822047313,
+      "max_error": 5.978705525398254
+    },
+    "weight_error": {
+      "relative_mse": 0.012472018653208057,
+      "cosine": 0.9937444733216896,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.017685934180189492,
+      "max_error": 0.389373779296875
+    },
+    "last_token_error": {
+      "relative_mse": 0.03557694676447089,
+      "cosine": 0.982086208503163,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.010995305156685873,
+      "max_error": 0.033460330218076706
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      599
+    ],
+    "worst_output_source": 7.551852703094482,
+    "worst_output_quant": 1.573147177696228,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": -0.326171875,
+        "quant_weight": -0.05511474609375,
+        "abs_error_contribution": 4.116680145263672
+      },
+      {
+        "input_channel": 6057,
+        "activation": -10.0234375,
+        "source_weight": -0.2060546875,
+        "quant_weight": -0.05511474609375,
+        "abs_error_contribution": 1.512937068939209
+      },
+      {
+        "input_channel": 4827,
+        "activation": 0.73583984375,
+        "source_weight": 0.279296875,
+        "quant_weight": 0.048736572265625,
+        "abs_error_contribution": 0.1696554571390152
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": 0.19140625,
+        "quant_weight": 0.048736572265625,
+        "abs_error_contribution": 0.15911012887954712
+      },
+      {
+        "input_channel": 6757,
+        "activation": 0.4384765625,
+        "source_weight": -0.1396484375,
+        "quant_weight": -0.05511474609375,
+        "abs_error_contribution": 0.03706604242324829
+      },
+      {
+        "input_channel": 7855,
+        "activation": -0.1021728515625,
+        "source_weight": -0.1669921875,
+        "quant_weight": -0.05511474609375,
+        "abs_error_contribution": 0.011430837213993073
+      },
+      {
+        "input_channel": 5234,
+        "activation": -0.303955078125,
+        "source_weight": -0.09228515625,
+        "quant_weight": -0.05511474609375,
+        "abs_error_contribution": 0.011298134922981262
+      },
+      {
+        "input_channel": 1547,
+        "activation": -0.1739501953125,
+        "source_weight": -0.1103515625,
+        "quant_weight": -0.05511474609375,
+        "abs_error_contribution": 0.009608455002307892
+      }
+    ]
+  },
+  "stock4": {
+    "seconds": 3.614745765000407,
+    "activation_error": {
+      "relative_mse": 0.07609453652228199,
+      "cosine": 0.9656058520435165,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.09196852229056518,
+      "max_error": 3.4095013439655304
+    },
+    "weight_error": {
+      "relative_mse": 0.012208259079697806,
+      "cosine": 0.993877125671437,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.01769390091285967,
+      "max_error": 0.2423095703125
+    },
+    "last_token_error": {
+      "relative_mse": 0.026987104791716135,
+      "cosine": 0.9864783342315976,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.011012499363981812,
+      "max_error": 0.031250627245754004
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      1077
+    ],
+    "worst_output_source": 0.12720820307731628,
+    "worst_output_quant": 3.5367095470428467,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 6057,
+        "activation": -10.0234375,
+        "source_weight": 0.294921875,
+        "quant_weight": 0.0535888671875,
+        "abs_error_contribution": 2.4189863204956055
+      },
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": -0.2021484375,
+        "quant_weight": -0.26708984375,
+        "abs_error_contribution": 0.986297607421875
+      },
+      {
+        "input_channel": 7926,
+        "activation": 0.09344482421875,
+        "source_weight": -0.091796875,
+        "quant_weight": -0.049835205078125,
+        "abs_error_contribution": 0.003921100869774818
+      },
+      {
+        "input_channel": 4701,
+        "activation": 0.0272216796875,
+        "source_weight": -0.33203125,
+        "quant_weight": -0.26708984375,
+        "abs_error_contribution": 0.0017678141593933105
+      },
+      {
+        "input_channel": 4827,
+        "activation": 0.73583984375,
+        "source_weight": -0.025390625,
+        "quant_weight": -0.0277099609375,
+        "abs_error_contribution": 0.0017066597938537598
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": 0.05224609375,
+        "quant_weight": 0.0535888671875,
+        "abs_error_contribution": 0.001497507095336914
+      },
+      {
+        "input_channel": 7896,
+        "activation": 0.016845703125,
+        "source_weight": 0.0927734375,
+        "quant_weight": 0.0535888671875,
+        "abs_error_contribution": 0.0006600916385650635
+      },
+      {
+        "input_channel": 1547,
+        "activation": -0.1739501953125,
+        "source_weight": 0.0322265625,
+        "quant_weight": 0.029571533203125,
+        "abs_error_contribution": 0.0004618428647518158
+      }
+    ]
+  },
+  "current6": {
+    "seconds": 2.6007825109991245,
+    "activation_error": {
+      "relative_mse": 0.07991593014172252,
+      "cosine": 0.9678112264608485,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.08834653203406355,
+      "max_error": 2.6803133487701416
+    },
+    "weight_error": {
+      "relative_mse": 0.0028499206211799223,
+      "cosine": 0.9985802917052667,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.017714575714776824,
+      "max_error": 0.371337890625
+    },
+    "last_token_error": {
+      "relative_mse": 0.019183888606601255,
+      "cosine": 0.990429598856557,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.011053131071643484,
+      "max_error": 0.031424470245838165
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      1248
+    ],
+    "worst_output_source": -6.170793533325195,
+    "worst_output_quant": -3.4904801845550537,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": 0.255859375,
+        "quant_weight": 0.12347412109375,
+        "abs_error_contribution": 2.010601043701172
+      },
+      {
+        "input_channel": 6057,
+        "activation": -10.0234375,
+        "source_weight": 0.1806640625,
+        "quant_weight": 0.12347412109375,
+        "abs_error_contribution": 0.573239803314209
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": -0.1943359375,
+        "quant_weight": -0.1219482421875,
+        "abs_error_contribution": 0.08072924613952637
+      },
+      {
+        "input_channel": 6757,
+        "activation": 0.4384765625,
+        "source_weight": -0.1572265625,
+        "quant_weight": -0.1219482421875,
+        "abs_error_contribution": 0.015468716621398926
+      },
+      {
+        "input_channel": 5234,
+        "activation": -0.303955078125,
+        "source_weight": 0.1337890625,
+        "quant_weight": 0.12347412109375,
+        "abs_error_contribution": 0.003135278820991516
+      },
+      {
+        "input_channel": 4701,
+        "activation": 0.0272216796875,
+        "source_weight": 0.236328125,
+        "quant_weight": 0.12347412109375,
+        "abs_error_contribution": 0.0030720755457878113
+      },
+      {
+        "input_channel": 3173,
+        "activation": -0.1405029296875,
+        "source_weight": 0.10498046875,
+        "quant_weight": 0.12347412109375,
+        "abs_error_contribution": 0.002598412334918976
+      },
+      {
+        "input_channel": 6362,
+        "activation": 0.1610107421875,
+        "source_weight": -0.1376953125,
+        "quant_weight": -0.1219482421875,
+        "abs_error_contribution": 0.0025354474782943726
+      }
+    ]
+  },
+  "stock6": {
+    "seconds": 8.253322418997413,
+    "activation_error": {
+      "relative_mse": 0.001296139814184926,
+      "cosine": 0.9993544108904567,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.1054673203649738,
+      "max_error": 0.6544990539550781
+    },
+    "weight_error": {
+      "relative_mse": 0.000796896409549407,
+      "cosine": 0.9996014723845665,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.017795723341985786,
+      "max_error": 0.04931640625
+    },
+    "last_token_error": {
+      "relative_mse": 0.0010383823575169902,
+      "cosine": 0.9994810769830834,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.011296526007280601,
+      "max_error": 0.004834495484828949
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      221
+    ],
+    "worst_output_source": -13.66579532623291,
+    "worst_output_quant": -14.320294380187988,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": 0.39453125,
+        "quant_weight": 0.417724609375,
+        "abs_error_contribution": 0.3522491455078125
+      },
+      {
+        "input_channel": 6057,
+        "activation": -10.0234375,
+        "source_weight": 0.5703125,
+        "quant_weight": 0.6015625,
+        "abs_error_contribution": 0.313232421875
+      },
+      {
+        "input_channel": 4827,
+        "activation": 0.73583984375,
+        "source_weight": 0.404296875,
+        "quant_weight": 0.417724609375,
+        "abs_error_contribution": 0.009880661964416504
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": -0.65234375,
+        "quant_weight": -0.6455078125,
+        "abs_error_contribution": 0.0076236724853515625
+      },
+      {
+        "input_channel": 5234,
+        "activation": -0.303955078125,
+        "source_weight": 0.78125,
+        "quant_weight": 0.79296875,
+        "abs_error_contribution": 0.0035619735717773438
+      },
+      {
+        "input_channel": 6623,
+        "activation": -0.177490234375,
+        "source_weight": 0.1943359375,
+        "quant_weight": 0.1767578125,
+        "abs_error_contribution": 0.003119945526123047
+      },
+      {
+        "input_channel": 2701,
+        "activation": 0.07501220703125,
+        "source_weight": -0.609375,
+        "quant_weight": -0.6455078125,
+        "abs_error_contribution": 0.002710402011871338
+      },
+      {
+        "input_channel": 710,
+        "activation": -0.195556640625,
+        "source_weight": 0.8046875,
+        "quant_weight": 0.79296875,
+        "abs_error_contribution": 0.0022916793823242188
+      }
+    ]
+  },
+  "uniform30_4": {
+    "seconds": 2.2756548499964993,
+    "activation_error": {
+      "relative_mse": 0.014965832919596113,
+      "cosine": 0.9925085671039569,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.10384403966911991,
+      "max_error": 1.469042956829071
+    },
+    "weight_error": {
+      "relative_mse": 0.01858268749108523,
+      "cosine": 0.990729721385709,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.017839275053896275,
+      "max_error": 0.11505126953125
+    },
+    "last_token_error": {
+      "relative_mse": 0.020556527323932476,
+      "cosine": 0.9897458729715027,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.01131632741439233,
+      "max_error": 0.01972019486129284
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      1326
+    ],
+    "worst_output_source": -0.8990560173988342,
+    "worst_output_quant": -2.3680989742279053,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": -0.1884765625,
+        "quant_weight": -0.09228515625,
+        "abs_error_contribution": 1.460906982421875
+      },
+      {
+        "input_channel": 4827,
+        "activation": 0.73583984375,
+        "source_weight": -0.07177734375,
+        "quant_weight": -0.09228515625,
+        "abs_error_contribution": 0.015090465545654297
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": 0.056884765625,
+        "quant_weight": 0.06170654296875,
+        "abs_error_contribution": 0.005377411842346191
+      },
+      {
+        "input_channel": 7926,
+        "activation": 0.09344482421875,
+        "source_weight": -0.11376953125,
+        "quant_weight": -0.09228515625,
+        "abs_error_contribution": 0.002007603645324707
+      },
+      {
+        "input_channel": 7896,
+        "activation": 0.016845703125,
+        "source_weight": 0.11767578125,
+        "quant_weight": 0.06170654296875,
+        "abs_error_contribution": 0.0009428411722183228
+      },
+      {
+        "input_channel": 5234,
+        "activation": -0.303955078125,
+        "source_weight": 0.018798828125,
+        "quant_weight": 0.015777587890625,
+        "abs_error_contribution": 0.0009183213114738464
+      },
+      {
+        "input_channel": 6757,
+        "activation": 0.4384765625,
+        "source_weight": -0.03466796875,
+        "quant_weight": -0.032684326171875,
+        "abs_error_contribution": 0.0008697807788848877
+      },
+      {
+        "input_channel": 4572,
+        "activation": 0.0372314453125,
+        "source_weight": -0.07568359375,
+        "quant_weight": -0.09228515625,
+        "abs_error_contribution": 0.0006181001663208008
+      }
+    ]
+  },
+  "uniform30_6": {
+    "seconds": 2.4015496310021263,
+    "activation_error": {
+      "relative_mse": 0.001521735545704416,
+      "cosine": 0.9992395348881563,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.10533489238113357,
+      "max_error": 0.13633966445922852
+    },
+    "weight_error": {
+      "relative_mse": 0.0044923925288386365,
+      "cosine": 0.9977575584340881,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.017825958610498762,
+      "max_error": 0.024658203125
+    },
+    "last_token_error": {
+      "relative_mse": 0.004177388186857581,
+      "cosine": 0.9979190101380377,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.011318921200842453,
+      "max_error": 0.0050482600927352905
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      2,
+      209
+    ],
+    "worst_output_source": -4.052184581756592,
+    "worst_output_quant": -3.9158449172973633,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -10.109375,
+        "source_weight": 0.2490234375,
+        "quant_weight": 0.2379150390625,
+        "abs_error_contribution": 0.11229896545410156
+      },
+      {
+        "input_channel": 6057,
+        "activation": -2.044921875,
+        "source_weight": 0.0888671875,
+        "quant_weight": 0.10540771484375,
+        "abs_error_contribution": 0.03382408618927002
+      },
+      {
+        "input_channel": 4701,
+        "activation": -3.712890625,
+        "source_weight": 0.28125,
+        "quant_weight": 0.272216796875,
+        "abs_error_contribution": 0.0335392951965332
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.099609375,
+        "source_weight": -0.169921875,
+        "quant_weight": -0.15234375,
+        "abs_error_contribution": 0.019329071044921875
+      },
+      {
+        "input_channel": 710,
+        "activation": -0.18212890625,
+        "source_weight": 0.087890625,
+        "quant_weight": 0.10540771484375,
+        "abs_error_contribution": 0.003190368413925171
+      },
+      {
+        "input_channel": 227,
+        "activation": 0.28369140625,
+        "source_weight": -0.076171875,
+        "quant_weight": -0.067138671875,
+        "abs_error_contribution": 0.0025626420974731445
+      },
+      {
+        "input_channel": 4827,
+        "activation": -0.75732421875,
+        "source_weight": -0.0098876953125,
+        "quant_weight": -0.01303863525390625,
+        "abs_error_contribution": 0.002386283129453659
+      },
+      {
+        "input_channel": 6757,
+        "activation": 0.096435546875,
+        "source_weight": -0.1328125,
+        "quant_weight": -0.15234375,
+        "abs_error_contribution": 0.0018835067749023438
+      }
+    ]
+  },
+  "uniform200_6": {
+    "seconds": 2.775885012000799,
+    "activation_error": {
+      "relative_mse": 0.0009893652433971686,
+      "cosine": 0.999505390052285,
+      "rms_source": 0.10529111101144757,
+      "rms_recon": 0.10517327979926737,
+      "max_error": 0.28568077087402344
+    },
+    "weight_error": {
+      "relative_mse": 0.002941525059741582,
+      "cosine": 0.9985282250731535,
+      "rms_source": 0.017802842442167784,
+      "rms_recon": 0.01778333336443838,
+      "max_error": 0.0423583984375
+    },
+    "last_token_error": {
+      "relative_mse": 0.002612834874551219,
+      "cosine": 0.9986929006688193,
+      "rms_source": 0.01129225040136719,
+      "rms_recon": 0.011270860297007945,
+      "max_error": 0.0029607806354761124
+    },
+    "max_activation_token": 6,
+    "max_error_location": [
+      6,
+      209
+    ],
+    "worst_output_source": -5.066833972930908,
+    "worst_output_quant": -4.781153202056885,
+    "worst_output_weight_contributions": [
+      {
+        "input_channel": 289,
+        "activation": -15.1875,
+        "source_weight": 0.2490234375,
+        "quant_weight": 0.2379150390625,
+        "abs_error_contribution": 0.16870880126953125
+      },
+      {
+        "input_channel": 6057,
+        "activation": -10.0234375,
+        "source_weight": 0.0888671875,
+        "quant_weight": 0.07867431640625,
+        "abs_error_contribution": 0.10216760635375977
+      },
+      {
+        "input_channel": 6198,
+        "activation": 1.115234375,
+        "source_weight": -0.169921875,
+        "quant_weight": -0.1568603515625,
+        "abs_error_contribution": 0.014566659927368164
+      },
+      {
+        "input_channel": 6757,
+        "activation": 0.4384765625,
+        "source_weight": -0.1328125,
+        "quant_weight": -0.1568603515625,
+        "abs_error_contribution": 0.010544419288635254
+      },
+      {
+        "input_channel": 5234,
+        "activation": -0.303955078125,
+        "source_weight": 0.10400390625,
+        "quant_weight": 0.07867431640625,
+        "abs_error_contribution": 0.007699057459831238
+      },
+      {
+        "input_channel": 1547,
+        "activation": -0.1739501953125,
+        "source_weight": 0.115234375,
+        "quant_weight": 0.1328125,
+        "abs_error_contribution": 0.003057718276977539
+      },
+      {
+        "input_channel": 4827,
+        "activation": 0.73583984375,
+        "source_weight": -0.0098876953125,
+        "quant_weight": -0.007274627685546875,
+        "abs_error_contribution": 0.0019227992743253708
+      },
+      {
+        "input_channel": 710,
+        "activation": -0.195556640625,
+        "source_weight": 0.087890625,
+        "quant_weight": 0.07867431640625,
+        "abs_error_contribution": 0.0018023103475570679
+      }
+    ]
+  }
+}

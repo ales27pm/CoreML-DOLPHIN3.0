@@ -1,3 +1,6 @@
+# Existing 8B pipeline dependencies. The separately versioned 3B stateful toolkit
+# uses ane-lut6-c2048/toolkit/requirements.txt in its own Python 3.12 environment;
+# do not combine its Torch/Transformers/Core ML Tools pins with this environment.
 # Allow pulling CPU-only PyTorch wheels
 --extra-index-url https://download.pytorch.org/whl/cpu
 

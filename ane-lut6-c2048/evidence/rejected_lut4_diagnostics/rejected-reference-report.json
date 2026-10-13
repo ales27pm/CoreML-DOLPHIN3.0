@@ -1,0 +1,612 @@
+{
+  "schema_version": 1,
+  "complete": true,
+  "mode": "both",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision_requested": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "source_files": [
+    {
+      "file": "model-00001-of-00002.safetensors",
+      "bytes": 4965811384,
+      "tensor_count": 187
+    },
+    {
+      "file": "model-00002-of-00002.safetensors",
+      "bytes": 1459729952,
+      "tensor_count": 67
+    }
+  ],
+  "backend": "PyTorch CPU eager",
+  "torch_version": "2.5.0+cpu",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "threads": 4,
+  "context_length": 2048,
+  "query_length": 1,
+  "execution_order": "one model part across all fixture tokens before the next part",
+  "weight_quantization": "palette4, scalar LUT16, output-channel groups of 16; Conv2d/Embedding weights >65536 elements; norms unchanged",
+  "coreml_runtime_validation": "pending",
+  "ane_hardware_validation": "pending",
+  "measurement_scope": "Next-token distributions after three fixed short prompts; does not establish generated-answer quality or device performance.",
+  "quality_acceptance_decision": "not_assigned",
+  "fixtures": [
+    {
+      "id": "greeting_en",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Say hello in one short sentence."
+        }
+      ],
+      "token_ids": [
+        128257,
+        9125,
+        198,
+        2675,
+        527,
+        96096,
+        11,
+        3549,
+        555,
+        16645,
+        73220,
+        13,
+        1472,
+        527,
+        264,
+        11190,
+        18328,
+        13,
+        128256,
+        198,
+        128257,
+        882,
+        198,
+        46864,
+        24748,
+        304,
+        832,
+        2875,
+        11914,
+        13,
+        128256,
+        198,
+        128257,
+        78191,
+        198
+      ],
+      "prompt_token_count": 35,
+      "rendered_prompt": "<|im_start|>system\nYou are Dolphin, created by Eric Hartford. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nSay hello in one short sentence.<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "id": "arithmetic",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is 2 + 2? Answer with the number only."
+        }
+      ],
+      "token_ids": [
+        128257,
+        9125,
+        198,
+        2675,
+        527,
+        96096,
+        11,
+        3549,
+        555,
+        16645,
+        73220,
+        13,
+        1472,
+        527,
+        264,
+        11190,
+        18328,
+        13,
+        128256,
+        198,
+        128257,
+        882,
+        198,
+        3923,
+        374,
+        220,
+        17,
+        489,
+        220,
+        17,
+        30,
+        22559,
+        449,
+        279,
+        1396,
+        1193,
+        13,
+        128256,
+        198,
+        128257,
+        78191,
+        198
+      ],
+      "prompt_token_count": 42,
+      "rendered_prompt": "<|im_start|>system\nYou are Dolphin, created by Eric Hartford. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is 2 + 2? Answer with the number only.<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "id": "greeting_fr",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Dis bonjour en français, en une courte phrase."
+        }
+      ],
+      "token_ids": [
+        128257,
+        9125,
+        198,
+        2675,
+        527,
+        96096,
+        11,
+        3549,
+        555,
+        16645,
+        73220,
+        13,
+        1472,
+        527,
+        264,
+        11190,
+        18328,
+        13,
+        128256,
+        198,
+        128257,
+        882,
+        198,
+        4944,
+        7970,
+        30362,
+        665,
+        55467,
+        11,
+        665,
+        6316,
+        74999,
+        17571,
+        13,
+        128256,
+        198,
+        128257,
+        78191,
+        198
+      ],
+      "prompt_token_count": 39,
+      "rendered_prompt": "<|im_start|>system\nYou are Dolphin, created by Eric Hartford. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nDis bonjour en français, en une courte phrase.<|im_end|>\n<|im_start|>assistant\n"
+    }
+  ],
+  "results": {
+    "source_fp16": [
+      {
+        "fixture_id": "greeting_en",
+        "finite": true,
+        "vocabulary_size": 128258,
+        "greedy_token_id": 9906,
+        "greedy_tie_break": "lowest token id",
+        "greedy_token_text": "Hello",
+        "top_10": [
+          {
+            "token_id": 9906,
+            "token_text": "Hello",
+            "logit": 24.890625
+          },
+          {
+            "token_id": 1,
+            "token_text": "\"",
+            "logit": 20.453125
+          },
+          {
+            "token_id": 13347,
+            "token_text": "Hi",
+            "logit": 20.34375
+          },
+          {
+            "token_id": 40,
+            "token_text": "I",
+            "logit": 20.171875
+          },
+          {
+            "token_id": 40914,
+            "token_text": "Sure",
+            "logit": 19.5
+          },
+          {
+            "token_id": 92886,
+            "token_text": "Greetings",
+            "logit": 19.421875
+          },
+          {
+            "token_id": 19182,
+            "token_text": "Hey",
+            "logit": 19.265625
+          },
+          {
+            "token_id": 35,
+            "token_text": "D",
+            "logit": 18.515625
+          },
+          {
+            "token_id": 38,
+            "token_text": "G",
+            "logit": 18.109375
+          },
+          {
+            "token_id": 90299,
+            "token_text": "\"G",
+            "logit": 17.828125
+          }
+        ]
+      },
+      {
+        "fixture_id": "arithmetic",
+        "finite": true,
+        "vocabulary_size": 128258,
+        "greedy_token_id": 19,
+        "greedy_tie_break": "lowest token id",
+        "greedy_token_text": "4",
+        "top_10": [
+          {
+            "token_id": 19,
+            "token_text": "4",
+            "logit": 24.25
+          },
+          {
+            "token_id": 791,
+            "token_text": "The",
+            "logit": 19.96875
+          },
+          {
+            "token_id": 16533,
+            "token_text": "Answer",
+            "logit": 19.234375
+          },
+          {
+            "token_id": 17,
+            "token_text": "2",
+            "logit": 17.421875
+          },
+          {
+            "token_id": 40,
+            "token_text": "I",
+            "logit": 17.109375
+          },
+          {
+            "token_id": 28070,
+            "token_text": "Four",
+            "logit": 16.859375
+          },
+          {
+            "token_id": 8586,
+            "token_text": "Here",
+            "logit": 16.390625
+          },
+          {
+            "token_id": 35,
+            "token_text": "D",
+            "logit": 16.1875
+          },
+          {
+            "token_id": 2903,
+            "token_text": "Number",
+            "logit": 16.09375
+          },
+          {
+            "token_id": 9642,
+            "token_text": "Yes",
+            "logit": 16.078125
+          }
+        ]
+      },
+      {
+        "fixture_id": "greeting_fr",
+        "finite": true,
+        "vocabulary_size": 128258,
+        "greedy_token_id": 82681,
+        "greedy_tie_break": "lowest token id",
+        "greedy_token_text": "Bonjour",
+        "top_10": [
+          {
+            "token_id": 82681,
+            "token_text": "Bonjour",
+            "logit": 20.8125
+          },
+          {
+            "token_id": 4944,
+            "token_text": "Dis",
+            "logit": 17.71875
+          },
+          {
+            "token_id": 46,
+            "token_text": "O",
+            "logit": 17.34375
+          },
+          {
+            "token_id": 47696,
+            "token_text": "Bon",
+            "logit": 17.21875
+          },
+          {
+            "token_id": 1,
+            "token_text": "\"",
+            "logit": 17.1875
+          },
+          {
+            "token_id": 82606,
+            "token_text": "Bien",
+            "logit": 17.125
+          },
+          {
+            "token_id": 33,
+            "token_text": "B",
+            "logit": 16.640625
+          },
+          {
+            "token_id": 30854,
+            "token_text": "Je",
+            "logit": 16.625
+          },
+          {
+            "token_id": 17691,
+            "token_text": "Sal",
+            "logit": 16.5
+          },
+          {
+            "token_id": 1737,
+            "token_text": "En",
+            "logit": 15.8359375
+          }
+        ]
+      }
+    ],
+    "lut4_reference": [
+      {
+        "fixture_id": "greeting_en",
+        "finite": true,
+        "vocabulary_size": 128258,
+        "greedy_token_id": 95024,
+        "greedy_tie_break": "lowest token id",
+        "greedy_token_text": "onga",
+        "top_10": [
+          {
+            "token_id": 95024,
+            "token_text": "onga",
+            "logit": 7.91796875
+          },
+          {
+            "token_id": 5202,
+            "token_text": "strap",
+            "logit": 7.72265625
+          },
+          {
+            "token_id": 3244,
+            "token_text": "ón",
+            "logit": 7.546875
+          },
+          {
+            "token_id": 28562,
+            "token_text": "ooting",
+            "logit": 7.30078125
+          },
+          {
+            "token_id": 71853,
+            "token_text": "eba",
+            "logit": 7.203125
+          },
+          {
+            "token_id": 15622,
+            "token_text": "iami",
+            "logit": 7.09765625
+          },
+          {
+            "token_id": 28075,
+            "token_text": "ching",
+            "logit": 7.09765625
+          },
+          {
+            "token_id": 95537,
+            "token_text": " Wage",
+            "logit": 7.05078125
+          },
+          {
+            "token_id": 1944,
+            "token_text": "oot",
+            "logit": 6.94140625
+          },
+          {
+            "token_id": 27398,
+            "token_text": "sterdam",
+            "logit": 6.91015625
+          }
+        ]
+      },
+      {
+        "fixture_id": "arithmetic",
+        "finite": true,
+        "vocabulary_size": 128258,
+        "greedy_token_id": 95024,
+        "greedy_tie_break": "lowest token id",
+        "greedy_token_text": "onga",
+        "top_10": [
+          {
+            "token_id": 95024,
+            "token_text": "onga",
+            "logit": 8.2109375
+          },
+          {
+            "token_id": 15622,
+            "token_text": "iami",
+            "logit": 7.93359375
+          },
+          {
+            "token_id": 1944,
+            "token_text": "oot",
+            "logit": 7.6171875
+          },
+          {
+            "token_id": 5202,
+            "token_text": "strap",
+            "logit": 7.59765625
+          },
+          {
+            "token_id": 28562,
+            "token_text": "ooting",
+            "logit": 7.40625
+          },
+          {
+            "token_id": 71853,
+            "token_text": "eba",
+            "logit": 7.296875
+          },
+          {
+            "token_id": 105135,
+            "token_text": "ूट",
+            "logit": 7.2109375
+          },
+          {
+            "token_id": 3244,
+            "token_text": "ón",
+            "logit": 7.19140625
+          },
+          {
+            "token_id": 3043,
+            "token_text": "ike",
+            "logit": 6.94140625
+          },
+          {
+            "token_id": 28075,
+            "token_text": "ching",
+            "logit": 6.828125
+          }
+        ]
+      },
+      {
+        "fixture_id": "greeting_fr",
+        "finite": true,
+        "vocabulary_size": 128258,
+        "greedy_token_id": 95024,
+        "greedy_tie_break": "lowest token id",
+        "greedy_token_text": "onga",
+        "top_10": [
+          {
+            "token_id": 95024,
+            "token_text": "onga",
+            "logit": 8.046875
+          },
+          {
+            "token_id": 5202,
+            "token_text": "strap",
+            "logit": 7.796875
+          },
+          {
+            "token_id": 71853,
+            "token_text": "eba",
+            "logit": 7.47265625
+          },
+          {
+            "token_id": 28075,
+            "token_text": "ching",
+            "logit": 7.4609375
+          },
+          {
+            "token_id": 15622,
+            "token_text": "iami",
+            "logit": 7.41015625
+          },
+          {
+            "token_id": 3244,
+            "token_text": "ón",
+            "logit": 7.40625
+          },
+          {
+            "token_id": 1944,
+            "token_text": "oot",
+            "logit": 7.34375
+          },
+          {
+            "token_id": 28562,
+            "token_text": "ooting",
+            "logit": 7.33203125
+          },
+          {
+            "token_id": 95537,
+            "token_text": " Wage",
+            "logit": 7.2890625
+          },
+          {
+            "token_id": 105135,
+            "token_text": "ूट",
+            "logit": 7.2421875
+          }
+        ]
+      }
+    ]
+  },
+  "source_vs_lut4": [
+    {
+      "fixture_id": "greeting_en",
+      "greedy_token_equal": false,
+      "source_greedy_token_id": 9906,
+      "lut4_greedy_token_id": 95024,
+      "logit_max_absolute_difference": 27.078125,
+      "logit_mean_absolute_difference": 2.7370852460056896,
+      "logit_root_mean_square_difference": 3.4778111544426635,
+      "kl_source_to_lut4_nats": 15.137061434974374,
+      "top_10_overlap_count": 0,
+      "source_greedy_rank_in_lut4": 117165,
+      "source_greedy_probability_source": 0.9456719357928288,
+      "source_greedy_probability_lut4": 1.6090623741803367e-07
+    },
+    {
+      "fixture_id": "arithmetic",
+      "greedy_token_equal": false,
+      "source_greedy_token_id": 19,
+      "lut4_greedy_token_id": 95024,
+      "logit_max_absolute_difference": 24.689697265625,
+      "logit_mean_absolute_difference": 3.196636807480499,
+      "logit_root_mean_square_difference": 3.9115117313937895,
+      "kl_source_to_lut4_nats": 13.323211274022833,
+      "top_10_overlap_count": 0,
+      "source_greedy_rank_in_lut4": 69405,
+      "source_greedy_probability_source": 0.9709555355640392,
+      "source_greedy_probability_lut4": 1.2937791813182351e-06
+    },
+    {
+      "fixture_id": "greeting_fr",
+      "greedy_token_equal": false,
+      "source_greedy_token_id": 82681,
+      "lut4_greedy_token_id": 95024,
+      "logit_max_absolute_difference": 20.9957275390625,
+      "logit_mean_absolute_difference": 2.1666956835341913,
+      "logit_root_mean_square_difference": 2.751978054929902,
+      "kl_source_to_lut4_nats": 12.48256486011362,
+      "top_10_overlap_count": 0,
+      "source_greedy_rank_in_lut4": 74977,
+      "source_greedy_probability_source": 0.8040795613019027,
+      "source_greedy_probability_lut4": 1.1623658016766514e-06
+    }
+  ],
+  "part_seconds_including_load_hash_and_quantization": {
+    "embedding": 10.288070946000516,
+    "block_00": 84.46478049799771,
+    "block_01": 83.90358294299949,
+    "block_02": 85.53916323099838,
+    "block_03": 87.06575813000381,
+    "block_04": 85.10182366299705,
+    "block_05": 83.34930572000303,
+    "block_06": 82.92447764600365,
+    "head": 10.862785127996176
+  },
+  "total_seconds": 615.4898159400036,
+  "peak_process_rss_bytes": 2235912192
+}

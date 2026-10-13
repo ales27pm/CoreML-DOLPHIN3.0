@@ -1,0 +1,522 @@
+{
+  "schema_version": 2,
+  "backend": "PyTorch CPU eager, reconstructed LUT6 FP16 weights",
+  "index_bits": 6,
+  "numerical_quality_gate_passed": true,
+  "coreml_runtime_validation": "pending",
+  "ane_hardware_validation": "pending",
+  "interpretation": "Fixed-prompt numerical sanity is reported separately; Apple device parity and broad model quality are unverified.",
+  "context_length": 2048,
+  "fixtures": [
+    {
+      "id": "greeting_en",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Say hello in one short sentence."
+        }
+      ],
+      "token_ids": [
+        128257,
+        9125,
+        198,
+        2675,
+        527,
+        96096,
+        11,
+        3549,
+        555,
+        16645,
+        73220,
+        13,
+        1472,
+        527,
+        264,
+        11190,
+        18328,
+        13,
+        128256,
+        198,
+        128257,
+        882,
+        198,
+        46864,
+        24748,
+        304,
+        832,
+        2875,
+        11914,
+        13,
+        128256,
+        198,
+        128257,
+        78191,
+        198
+      ],
+      "prompt_token_count": 35,
+      "rendered_prompt": "<|im_start|>system\nYou are Dolphin, created by Eric Hartford. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nSay hello in one short sentence.<|im_end|>\n<|im_start|>assistant\n",
+      "logits_npz_key": "lut6_reference",
+      "logits_npz_row": 0,
+      "greedy_token_id": 9906,
+      "probe_logits": [
+        {
+          "token_id": 0,
+          "logit": 7.76171875
+        },
+        {
+          "token_id": 1,
+          "logit": 20.796875
+        },
+        {
+          "token_id": 35,
+          "logit": 18.8125
+        },
+        {
+          "token_id": 38,
+          "logit": 18.0625
+        },
+        {
+          "token_id": 40,
+          "logit": 19.90625
+        },
+        {
+          "token_id": 8016,
+          "logit": 1.5458984375
+        },
+        {
+          "token_id": 9906,
+          "logit": 24.9375
+        },
+        {
+          "token_id": 13347,
+          "logit": 20.328125
+        },
+        {
+          "token_id": 16032,
+          "logit": 4.296875
+        },
+        {
+          "token_id": 19182,
+          "logit": 19.140625
+        },
+        {
+          "token_id": 24048,
+          "logit": 0.6005859375
+        },
+        {
+          "token_id": 32064,
+          "logit": 1.251953125
+        },
+        {
+          "token_id": 40080,
+          "logit": 4.49609375
+        },
+        {
+          "token_id": 40914,
+          "logit": 18.5625
+        },
+        {
+          "token_id": 48096,
+          "logit": 0.970703125
+        },
+        {
+          "token_id": 56112,
+          "logit": 3.2890625
+        },
+        {
+          "token_id": 64128,
+          "logit": -0.2154541015625
+        },
+        {
+          "token_id": 72144,
+          "logit": 0.359130859375
+        },
+        {
+          "token_id": 80160,
+          "logit": 6.01953125
+        },
+        {
+          "token_id": 88176,
+          "logit": -0.9326171875
+        },
+        {
+          "token_id": 90299,
+          "logit": 17.90625
+        },
+        {
+          "token_id": 92886,
+          "logit": 19.484375
+        },
+        {
+          "token_id": 96192,
+          "logit": 5.671875
+        },
+        {
+          "token_id": 104208,
+          "logit": 2.81640625
+        },
+        {
+          "token_id": 112224,
+          "logit": 4.4921875
+        },
+        {
+          "token_id": 120240,
+          "logit": 2.49609375
+        },
+        {
+          "token_id": 128256,
+          "logit": 7.4921875
+        },
+        {
+          "token_id": 128257,
+          "logit": 1.115234375
+        }
+      ]
+    },
+    {
+      "id": "arithmetic",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is 2 + 2? Answer with the number only."
+        }
+      ],
+      "token_ids": [
+        128257,
+        9125,
+        198,
+        2675,
+        527,
+        96096,
+        11,
+        3549,
+        555,
+        16645,
+        73220,
+        13,
+        1472,
+        527,
+        264,
+        11190,
+        18328,
+        13,
+        128256,
+        198,
+        128257,
+        882,
+        198,
+        3923,
+        374,
+        220,
+        17,
+        489,
+        220,
+        17,
+        30,
+        22559,
+        449,
+        279,
+        1396,
+        1193,
+        13,
+        128256,
+        198,
+        128257,
+        78191,
+        198
+      ],
+      "prompt_token_count": 42,
+      "rendered_prompt": "<|im_start|>system\nYou are Dolphin, created by Eric Hartford. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is 2 + 2? Answer with the number only.<|im_end|>\n<|im_start|>assistant\n",
+      "logits_npz_key": "lut6_reference",
+      "logits_npz_row": 1,
+      "greedy_token_id": 19,
+      "probe_logits": [
+        {
+          "token_id": 0,
+          "logit": 8.3203125
+        },
+        {
+          "token_id": 1,
+          "logit": 13.7734375
+        },
+        {
+          "token_id": 17,
+          "logit": 16.859375
+        },
+        {
+          "token_id": 19,
+          "logit": 24.328125
+        },
+        {
+          "token_id": 20,
+          "logit": 16.15625
+        },
+        {
+          "token_id": 35,
+          "logit": 17.703125
+        },
+        {
+          "token_id": 40,
+          "logit": 17.71875
+        },
+        {
+          "token_id": 791,
+          "logit": 18.9375
+        },
+        {
+          "token_id": 8016,
+          "logit": 6.66015625
+        },
+        {
+          "token_id": 8586,
+          "logit": 16.34375
+        },
+        {
+          "token_id": 9642,
+          "logit": 16.375
+        },
+        {
+          "token_id": 16032,
+          "logit": 4.38671875
+        },
+        {
+          "token_id": 16533,
+          "logit": 18.203125
+        },
+        {
+          "token_id": 24048,
+          "logit": 2.91796875
+        },
+        {
+          "token_id": 28070,
+          "logit": 16.84375
+        },
+        {
+          "token_id": 32064,
+          "logit": 1.4208984375
+        },
+        {
+          "token_id": 40080,
+          "logit": 4.34375
+        },
+        {
+          "token_id": 48096,
+          "logit": 3.302734375
+        },
+        {
+          "token_id": 56112,
+          "logit": 3.56640625
+        },
+        {
+          "token_id": 64128,
+          "logit": 0.127197265625
+        },
+        {
+          "token_id": 72144,
+          "logit": 2.025390625
+        },
+        {
+          "token_id": 80160,
+          "logit": 5.54296875
+        },
+        {
+          "token_id": 88176,
+          "logit": 0.771484375
+        },
+        {
+          "token_id": 96192,
+          "logit": 3.732421875
+        },
+        {
+          "token_id": 104208,
+          "logit": 4.6875
+        },
+        {
+          "token_id": 112224,
+          "logit": 2.060546875
+        },
+        {
+          "token_id": 120240,
+          "logit": 3.59375
+        },
+        {
+          "token_id": 128256,
+          "logit": 15.2890625
+        },
+        {
+          "token_id": 128257,
+          "logit": -1.9443359375
+        }
+      ]
+    },
+    {
+      "id": "greeting_fr",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Dis bonjour en français, en une courte phrase."
+        }
+      ],
+      "token_ids": [
+        128257,
+        9125,
+        198,
+        2675,
+        527,
+        96096,
+        11,
+        3549,
+        555,
+        16645,
+        73220,
+        13,
+        1472,
+        527,
+        264,
+        11190,
+        18328,
+        13,
+        128256,
+        198,
+        128257,
+        882,
+        198,
+        4944,
+        7970,
+        30362,
+        665,
+        55467,
+        11,
+        665,
+        6316,
+        74999,
+        17571,
+        13,
+        128256,
+        198,
+        128257,
+        78191,
+        198
+      ],
+      "prompt_token_count": 39,
+      "rendered_prompt": "<|im_start|>system\nYou are Dolphin, created by Eric Hartford. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nDis bonjour en français, en une courte phrase.<|im_end|>\n<|im_start|>assistant\n",
+      "logits_npz_key": "lut6_reference",
+      "logits_npz_row": 2,
+      "greedy_token_id": 82681,
+      "probe_logits": [
+        {
+          "token_id": 0,
+          "logit": 6.046875
+        },
+        {
+          "token_id": 1,
+          "logit": 17.015625
+        },
+        {
+          "token_id": 33,
+          "logit": 16.515625
+        },
+        {
+          "token_id": 46,
+          "logit": 16.359375
+        },
+        {
+          "token_id": 1737,
+          "logit": 15.8515625
+        },
+        {
+          "token_id": 4944,
+          "logit": 17.5
+        },
+        {
+          "token_id": 8016,
+          "logit": -4.04296875
+        },
+        {
+          "token_id": 16032,
+          "logit": -0.52978515625
+        },
+        {
+          "token_id": 17691,
+          "logit": 16.859375
+        },
+        {
+          "token_id": 24048,
+          "logit": -2.435546875
+        },
+        {
+          "token_id": 30854,
+          "logit": 16.609375
+        },
+        {
+          "token_id": 32064,
+          "logit": -0.39892578125
+        },
+        {
+          "token_id": 40080,
+          "logit": 2.482421875
+        },
+        {
+          "token_id": 47696,
+          "logit": 17.203125
+        },
+        {
+          "token_id": 48096,
+          "logit": -0.7314453125
+        },
+        {
+          "token_id": 56112,
+          "logit": 1.66796875
+        },
+        {
+          "token_id": 64128,
+          "logit": -1.8212890625
+        },
+        {
+          "token_id": 72144,
+          "logit": -1.9833984375
+        },
+        {
+          "token_id": 80160,
+          "logit": -1.1953125
+        },
+        {
+          "token_id": 82606,
+          "logit": 16.6875
+        },
+        {
+          "token_id": 82681,
+          "logit": 20.84375
+        },
+        {
+          "token_id": 88176,
+          "logit": -1.4169921875
+        },
+        {
+          "token_id": 96192,
+          "logit": 3.3671875
+        },
+        {
+          "token_id": 104208,
+          "logit": -0.8173828125
+        },
+        {
+          "token_id": 112224,
+          "logit": 0.5048828125
+        },
+        {
+          "token_id": 120240,
+          "logit": -1.333984375
+        },
+        {
+          "token_id": 128256,
+          "logit": 6.49609375
+        },
+        {
+          "token_id": 128257,
+          "logit": 2.19140625
+        }
+      ]
+    }
+  ]
+}

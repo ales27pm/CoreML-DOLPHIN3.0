@@ -1,0 +1,112 @@
+{
+  "format_version": 2,
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "created_at_utc": "2026-10-13T00:04:44.763992+00:00",
+  "minimum_ios": "18.0",
+  "minimum_macos": "15.0",
+  "context_length": 2048,
+  "query_length": 1,
+  "prefill": "token_by_token",
+  "hidden_size": 3072,
+  "head_dim": 128,
+  "vocab_size": 128258,
+  "eos_token_ids": [
+    128256,
+    128001,
+    128008,
+    128009
+  ],
+  "head_sizes": [
+    16032,
+    16032,
+    16032,
+    16032,
+    16032,
+    16032,
+    16032,
+    16034
+  ],
+  "block_names": [
+    "block_00",
+    "block_01",
+    "block_02",
+    "block_03",
+    "block_04",
+    "block_05",
+    "block_06"
+  ],
+  "block_layer_ranges": [
+    [
+      0,
+      4
+    ],
+    [
+      4,
+      8
+    ],
+    [
+      8,
+      12
+    ],
+    [
+      12,
+      16
+    ],
+    [
+      16,
+      20
+    ],
+    [
+      20,
+      24
+    ],
+    [
+      24,
+      28
+    ]
+  ],
+  "model_files": [
+    "embedding.mlpackage",
+    "block_00.mlpackage",
+    "block_01.mlpackage",
+    "block_02.mlpackage",
+    "block_03.mlpackage",
+    "block_04.mlpackage",
+    "block_05.mlpackage",
+    "block_06.mlpackage",
+    "head.mlpackage"
+  ],
+  "weights": {
+    "format": "LUT6",
+    "index_bits": 6,
+    "group_size": 16,
+    "channel_axis": 0,
+    "lut_dtype": "float16",
+    "palette_method": "coremltools9_weighted_kmeans1d"
+  },
+  "activations": "float16",
+  "states": "float16",
+  "state_bytes": 234881024,
+  "rope_layout": {
+    "files": [
+      "rope_cos.fp16",
+      "rope_sin.fp16"
+    ],
+    "shape": [
+      2048,
+      128
+    ],
+    "dtype": "little_endian_float16"
+  },
+  "recommended_compute_units": "cpuAndNeuralEngine",
+  "validation": {
+    "model_specification_exported": true,
+    "compression_inspected": true,
+    "apple_sdk_compiled": false,
+    "coreml_runtime_executed": false,
+    "ane_compute_plan_verified": false,
+    "ane_runtime_trace_verified": false,
+    "numerical_quality_gate_passed": true
+  }
+}

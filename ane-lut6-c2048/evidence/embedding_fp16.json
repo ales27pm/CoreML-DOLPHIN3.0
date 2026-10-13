@@ -1,0 +1,62 @@
+{
+  "specification_version": 9,
+  "inputs": {
+    "inputIds": [
+      1,
+      1
+    ]
+  },
+  "input_dtypes": {
+    "inputIds": "INT32"
+  },
+  "outputs": {
+    "hiddenStates": [
+      1,
+      3072,
+      1,
+      1
+    ]
+  },
+  "output_dtypes": {
+    "hiddenStates": "FLOAT16"
+  },
+  "states": {},
+  "operation_counts": {
+    "const": 8,
+    "greater_equal": 1,
+    "add": 1,
+    "select": 1,
+    "gather": 1,
+    "transpose": 1,
+    "expand_dims": 1
+  },
+  "stage": "fp16_conversion",
+  "part": "embedding",
+  "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+  "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+  "context_length": 2048,
+  "layer_start": 0,
+  "layer_end": 0,
+  "requested_compression_bits": 6,
+  "seconds": 6.1492120690018055,
+  "peak_rss_kib": 2671548,
+  "files": [
+    {
+      "path": "Data/com.apple.CoreML/model.mlmodel",
+      "bytes": 3103,
+      "sha256": "47aecb07c6ebd26294c4e0406375bd656b856093a183481a977eb30edfa7bdae"
+    },
+    {
+      "path": "Data/com.apple.CoreML/weights/weight.bin",
+      "bytes": 788103296,
+      "sha256": "4385904fb9841415ff82a1afe05d436457bd774bd2a5d3b16ec983cfd5193c11"
+    },
+    {
+      "path": "Manifest.json",
+      "bytes": 617,
+      "sha256": "2f694b3be0ef8f355e00304cfab4da2ead375c94bdd9a1175b8c87bf8255b44a"
+    }
+  ],
+  "apple_runtime_verified": false,
+  "ane_hardware_verified": false
+}

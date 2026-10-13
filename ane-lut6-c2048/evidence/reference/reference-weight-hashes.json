@@ -1,0 +1,4312 @@
+{
+  "schema_version": 2,
+  "complete": true,
+  "index_bits": 6,
+  "group_size": 16,
+  "channel_axis": 0,
+  "palette_workers": 4,
+  "palette_batch_groups": 8,
+  "source_fp16_parameter_identity_sha256": "390935143506715415eb1881ceee6cab8f64fe0cce8767a261eefe2f16f898c9",
+  "dense_bytes": "little-endian FP16, C order",
+  "parts": {
+    "embedding": {
+      "embed_tokens.weight": {
+        "shape": [
+          128272,
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2aa1253bf5be8cc7f0d26fd57fb0d1fbcc30143402ed9ff46fdf0c9423bc91b5",
+        "dense_reference_sha256": "61d788122c457da61ef2e9b4a0ddb081d4722d49efae15301a916cc61ff26088",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "block_00": {
+      "layers.0.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4112ed1585bc6e9eff9bd1b2d3e4abe35e19376889654223e4cce0101dac4ebc",
+        "dense_reference_sha256": "4112ed1585bc6e9eff9bd1b2d3e4abe35e19376889654223e4cce0101dac4ebc",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f18b720d9527afd382e85b7df97c7ec2bb07d422b6962eab9d30b9d8353337bb",
+        "dense_reference_sha256": "c0989e4d374aa6059dc340a1c1b5d8517a4d90a5c71246ec95de6683a154355f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4d28d8ad47d61e4ef12db8537a55ab3156c347aed9304361cadae6779779d47d",
+        "dense_reference_sha256": "65ec976bc8d321aa8e1f6f7ee09c59765a3a0bf56e899155bb6b859983f0bb3b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "6d79d622653ecd708b73ba0ce99009fe69cf8e659fba36dc094fccd4839c11fe",
+        "dense_reference_sha256": "99289ddf349dfbaf3ed717b9cb140bac0f1fe7769a419765ac95294e8d7839fb",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ad35777a1ae73d1b71c491b233c6d50a136ace422ed4ed7fcd6976235a615d76",
+        "dense_reference_sha256": "39179dfe17895eb16066129b971d7c62e8951a21e85b1c1bd53b177b8a01bb5f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b5c114566c34db30ba46de130c74baf90efd5612d671e5ba9f2a69ce08f46a6e",
+        "dense_reference_sha256": "b5c114566c34db30ba46de130c74baf90efd5612d671e5ba9f2a69ce08f46a6e",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b56a1e84ebcf231956709a856bac3d8cdd26393a6659cfc415367cb0836081ca",
+        "dense_reference_sha256": "d4379966133486ce248a02d366dce64a9fc151ea77664a4eba56e1609bdba43a",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5df95f79c1eee5135eba02f46e9508c98d6da9958c392753ad3dd12efafc9445",
+        "dense_reference_sha256": "09ed8bbd7045c2805c7d2a4e85959c745e20522a2f3f59b815d129ee82ecf5b2",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "df3189863644e995ccf67866fef68f3b52cabb7af17f70d1a7f4efdc1b5e26bc",
+        "dense_reference_sha256": "ff6b8aade6ed1eb55841607626de1e36e2c8565085e8496fbb3c00e9550aaa9c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "99fb688587f73995bb43f57abc1bb3951012f8ea16b494f2c64f230df0d2b25b",
+        "dense_reference_sha256": "99fb688587f73995bb43f57abc1bb3951012f8ea16b494f2c64f230df0d2b25b",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8742a6397f11b0dad3df5014279ec9a0f91b20d10f06de9bae67675365936637",
+        "dense_reference_sha256": "1a70714d8620b3dcf966216394a2aeb33d6f47d5dd963ffe36bb8c0278a60ec0",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "9c0e8e2a4872ca1ce1e92195158580ef66749e4d9c4dd30c89b6f04c52f4d66c",
+        "dense_reference_sha256": "13b778b4190ca31806b7dcdb4491a8bfbfb8829f356b6bd8ed9b65cc783fe6c3",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f59e90b61670734d0c581e858b7192dfbe2085105678ef63e142a50bd4fa17de",
+        "dense_reference_sha256": "a9e40227232c103790f0eb6da976190c353ec51e9ce9e9df696e6ab7c2aa8bd4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c98322b5054abe4a43476d0ec776275923bffa337bbbd42975f3cc19778145a3",
+        "dense_reference_sha256": "3ecc3220ea0b47f68683a3653883741849bdfddaeef37865c73d792700e0e2b5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "72ae000b2ee095c9b2df8b09a4b5344d61ce69dd0906e7f652300aa6d99afe30",
+        "dense_reference_sha256": "72ae000b2ee095c9b2df8b09a4b5344d61ce69dd0906e7f652300aa6d99afe30",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f8890b3a9eb01ccd1b8c288cdcbe47ac1b3cb7661e58fbb619d051fafe0b5c07",
+        "dense_reference_sha256": "565ee3fdb2e79adcc70d776cea8b10acda0d3b1f481affad17455dabfe671cb6",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c0c98167856899ac2e5de7d72d845e905b16aa4125ce5eb989c7310ceb9642b8",
+        "dense_reference_sha256": "67e6c3b3f52822495008a883542b0982cefdc337f5f394fd5682387abe4ac5e4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2e3f3466696a48c41aa0ae036780c155f9d290b305f745cf77f96d9395b4c9b6",
+        "dense_reference_sha256": "105ac76fb492ddf07cfb5861fce763bce5e09e13fa8df1212a659e6fc38aaf9e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d8f10215a2f956ed726b76dab4fc292499b0444a27aebdd5e27fc3223bf04e68",
+        "dense_reference_sha256": "d8f10215a2f956ed726b76dab4fc292499b0444a27aebdd5e27fc3223bf04e68",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a43f8db2b4e3761414caecf875b8de292dc78ebbe6bc95998a5d4153596fac8e",
+        "dense_reference_sha256": "ceb9aabee1ceb160d99b381bbc5dd268256a6027340eb3fb402dbcdc997c766a",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f213f3ca3c0bc8fed458e0fa3f77e1718ebdce053d5466f68dac57ba8ea528d6",
+        "dense_reference_sha256": "52bc1a00761d5cdf6013928e8b3d1fc2134dc6e1b148731d2b5f7bcfbf441f74",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f4ff0ce238ea1429c40c8d070f82a6e166ac3258141c5d59f8aea5a3eb7ea51d",
+        "dense_reference_sha256": "e15837bd627594a389916ec021450c8369ee3a546cbb51b1672cb101ec2a96af",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "7595af303428142cde1a9e83791da38e7bd5e11e21cd03d47c0b2e2d736e040f",
+        "dense_reference_sha256": "f598162fdbec5b09cbfab33c08eef80f2107ae56f6cce78cec2fe8013dcf390c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "98b8683c5de17dbdb7cd07a72484ad6e6d00440e476e1f59fef6a27f1ea4c26e",
+        "dense_reference_sha256": "98b8683c5de17dbdb7cd07a72484ad6e6d00440e476e1f59fef6a27f1ea4c26e",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "58d54286889bc17234e98e1c091be7797cfb1c03d9a0a0a48a0e236219439e8b",
+        "dense_reference_sha256": "acdbc3fb504b99afcb78a556032a1f7c5aefb5b23fd7e93fd7609f146e598349",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c416fe478d39d021538499185c752cdff5d878018c0a4b7a5ec878fb1278b0a9",
+        "dense_reference_sha256": "5d55bc11f29411ac7a84ac6537396cb6b92bd57abf19879617a62afa42aeda2c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ee746f2ff36054f219d36fc625110a441fd81e9cf5b67aaaac00fcc597ef2c05",
+        "dense_reference_sha256": "db1a503c334a1ee31ca2b353cddffa8a7284eccc04a839b2fcf745f7051e8e8c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "cdf3dd80bf4ffe2e67aa10f23d7b94a9a4571bf51ea118fbe9ff4ee0699bd68b",
+        "dense_reference_sha256": "cdf3dd80bf4ffe2e67aa10f23d7b94a9a4571bf51ea118fbe9ff4ee0699bd68b",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5f8d3972d8f61a63cc41b42954f3a34d2d3d4c00ffbc2217a767617e0dd2ed20",
+        "dense_reference_sha256": "f0963dd20134345d6797da17ee7717b48be5c998e1f76bb8430d1ecc2a64ad62",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "358f4c5fadfb8a02c60cf03b75363a932fadddc8cd635d99cf82184eb9450c10",
+        "dense_reference_sha256": "64b42b379ece07e142772ee8bd36e464769a6efe73c90efe4d831fb1de94e765",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "30cee8e27d330afaacf0020d170f3853ce2fcd5f717a82d850811d9c329e22ed",
+        "dense_reference_sha256": "4cd357346752283296361166668c6f8855b5fb485fa7b87b69485026c00c6ed9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "79f2228ec8929878347d03044cb3e4238e6c86e0d311b055f27f7864ca7cad5b",
+        "dense_reference_sha256": "b27f3fd22ae5e2177159939779d5470cc95f1a389a92b4f04e8ff3da0b5d8022",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "055d3a77fa79ee2ba0725ab346add0dff5558d9b36c90cda636bff511b78a9be",
+        "dense_reference_sha256": "055d3a77fa79ee2ba0725ab346add0dff5558d9b36c90cda636bff511b78a9be",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a0eec5deaf5d8b68b428db75ccb5c453e461b7137719cf5a62a73327f13ccb00",
+        "dense_reference_sha256": "cb98bf73400f3f9e77dbb8997686e162d0f324e06c661a6d2b407bc6f9d561a3",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5708699b20b015594dd6e74d7b6cbf86d183598c5dac0bbde18c412f5123b865",
+        "dense_reference_sha256": "348f5a6d9fce671d34ce338ac2cbb7b4f1d5ab123602dfa0e88ddf1cd96b6628",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "342a1b79f6398a0a2a3c8a66a1ade0c5f7aa988339f5af6105152dcd2b32ca79",
+        "dense_reference_sha256": "6b551d33b84fd8fc55166e641fc9845ed38596025a3abb601ecef81e01981453",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "block_01": {
+      "layers.0.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "87b211d68522c0190390b252b334c820f88c6f9c38ac2f4b8bf3b40d2bd32877",
+        "dense_reference_sha256": "87b211d68522c0190390b252b334c820f88c6f9c38ac2f4b8bf3b40d2bd32877",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ac3cce1b7c5b60ebc3afbe5bd21fecea9e8bf770769e6961cfa186604bef7579",
+        "dense_reference_sha256": "0163bb2f7dc975c5e816c5db2e855b96913795d8a1ba4d2537d3579acfa7b113",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "887647443cb7db0deabda3faf81bed2e9bfb0fe2104d47f2297255965ca9c1ec",
+        "dense_reference_sha256": "fb36991a74757ad65b0b2a5b090f5a1fdce41cc0e8b244528bbe794c730ba081",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "032c8bbb7226f67d5318eff00421699a1645ea1c2fb2055510540701892be29a",
+        "dense_reference_sha256": "130d7fa355ae98dd590cfb4b5d4d32f52fbc0c8e8b72fc5ffa9f8d68e71a99f1",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "6ae05af236e007854cf06eb9aa96af7faf94d2c92b5cd012a913ad226c88ad4c",
+        "dense_reference_sha256": "1411e907c35d253084debf691af86d98003b853f130142b25d0b8ecd9478e657",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "76c53c2f7c3a15055274cd8eb33aa0e73f04d8e507a593c0201213e22959ca0f",
+        "dense_reference_sha256": "76c53c2f7c3a15055274cd8eb33aa0e73f04d8e507a593c0201213e22959ca0f",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "41ed01f0e7c042472f37d4df13d9455aa55f854eebd50b6655d9a8703fc76114",
+        "dense_reference_sha256": "924aeff35aa793db8ce65313995ecf234ee0e10eb085226d894dfd18961cce44",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "725746736337e15dfc113e4a5453dc947b9d3fbe83609606375da878c6445ad5",
+        "dense_reference_sha256": "26cba42c1d3995d0ef8b0dd5c41a28a046b1c90f5ef0cdf1c80e53a1bd6c7ad5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "3823d2f39257c431819eb92f58126a5726114a615d305944ae05d623b4107fed",
+        "dense_reference_sha256": "d21ccdd9c0eb74329b197f047cc2542fca6aa92e703fda1c2415f909ca321c36",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "41a7008db3e00558003f1b6435b13710bf2620ed45be21b640513f8d3d66b8fa",
+        "dense_reference_sha256": "41a7008db3e00558003f1b6435b13710bf2620ed45be21b640513f8d3d66b8fa",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c10baf27c0b9c454c4420ebc82cf54fcda9e86dc730d5916a343aea962de1830",
+        "dense_reference_sha256": "04778b762ad703053d4f842311c981ba376d7129adc1311c3e2d11012af3a632",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "84102c4a804643cf4947d9add9157d6bfaab8030098bf4befd5b55661fc72363",
+        "dense_reference_sha256": "5a4980235dfaaa3a358c6d258e7a21d8fa0d7dbf0f517d70acb77333c23108a4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c2c810c3d7877e10bc5264535a6e0968c3bae75a9b32648efe292ef5478b16b7",
+        "dense_reference_sha256": "9d27d38da62a6a19f073b83a966261c0499fca5ee75c5ed3867c2ee1d6e24495",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "1fd97e862c254fd4f3491f90ea03c1a7f65c21037ace4855089e3dcde5574a00",
+        "dense_reference_sha256": "2d774df65c683de6e92b1a20c032eccba0d4d3d92e42ede741071516096afb0f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "43c0b5a76d6c315a59af78bb5876c6a92df920388401967e340297a14a129b1f",
+        "dense_reference_sha256": "43c0b5a76d6c315a59af78bb5876c6a92df920388401967e340297a14a129b1f",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "df1af5f2197821dfca7055f6fbe29c2d0430b97a1272a49269fce2c462119d6b",
+        "dense_reference_sha256": "5cecec2a0c29fe3d213ce81a5ab6c6a065ffd244277d08fcd82f8b064627f657",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "9edba53361fd01a3a7580694c71936dc718c3d263ddaa4162fdeb4c7c5c654fc",
+        "dense_reference_sha256": "682987898044cce228cd0e6844ca957fbef616203e1ccf8dc586e278402536da",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "62612dc62fe065c73cc22289c6c65bda705a6ee8e968d3aed5b6418875f4b17f",
+        "dense_reference_sha256": "9f7c1c83bc49ab207943b30f69dd130f57fdd8377a63244ed49f2cdf33800b4f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a8f3ec8a723abce70d9ebd984d4a964c1e38cf674879dc451d4bf1b64f22195d",
+        "dense_reference_sha256": "a8f3ec8a723abce70d9ebd984d4a964c1e38cf674879dc451d4bf1b64f22195d",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a6632f86a78a367cf203f4947195c2c0264070ca54c0cef8335a11eba5f67f1f",
+        "dense_reference_sha256": "d96546e1fec1692e0528223bab5e7591609a17d6269b3db16936515b2f0024fe",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5715266099919bbc8e85fd10b95c80335c6cad7bdd7aa7496b6709c35270f876",
+        "dense_reference_sha256": "9f7cd27857e65458514d1001573d3d39d4a1c7067e0637bdd09394ed2b5c2099",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "80e216a35b89098e99b14c1bb01322ef5685195c2ab0e36775f553fba3e58bfc",
+        "dense_reference_sha256": "793730febd59f5b9f9a86bc0ce5c4d44fe8cb8d0aab44ca25c4a63af9e08a37c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "1d640e1e6b270df72b49b74de66463e3914a7c10e09880ad5559c00f2bc0dc05",
+        "dense_reference_sha256": "f379fbd061537f1c52ed38dfe1e9629110e665cc3810c62427136c54ceac2c1e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "59c2041cdd0cdf09b095d73504a4df98dee3f95f68eb33eca106ef769625853c",
+        "dense_reference_sha256": "59c2041cdd0cdf09b095d73504a4df98dee3f95f68eb33eca106ef769625853c",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "1de8796213fd374223a9f3939e6232930f5593f7abdffc08ff4632857e0a9d02",
+        "dense_reference_sha256": "9abdb4dd5d3b0be1dbdd421bd6fd24559c07715ff6781988ee4d16b57c2c99fc",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "839dc6bda76888633333faee9d0682095f256abefd9adf9bed3524ab09012301",
+        "dense_reference_sha256": "d21327f0778248e4c093be8fcb84125a34417e98972121b42d69b109c6acadf8",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e90bb473899f1db7d0e978c16dead295fce9c7c14b1a651b507bf46cd24f7543",
+        "dense_reference_sha256": "78f8bab88a9f26be94d7c6c4d4ea2b396dd04b9d38a10e949e18403c26041e00",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "06cbf47b9d947c2bf0bcab755b7b700a6495a580f8c2fc458acc407d415de934",
+        "dense_reference_sha256": "06cbf47b9d947c2bf0bcab755b7b700a6495a580f8c2fc458acc407d415de934",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5f344796edab1477ed8fde042af2a85c73e662dd5d5278f8d718f55d39912463",
+        "dense_reference_sha256": "6450b62d03032093b2ac5fd2a5266e84cbe23400fdc1b64d78ff21d79db27da2",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "952e56ad8ab30ad1067dbb782efb2bb728c740aa34f643f4c831370201e56e84",
+        "dense_reference_sha256": "3beee25d99db823b3afbfc1e5bcb9a5aecc5be2e720550e0e630cd13e2d2ba72",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "444be22f2acd941328883457c870d7360a50a5381623555fe57f3bdb5a579b30",
+        "dense_reference_sha256": "ad1eeb7febbc0c75c5ef5b5f6ae81c85da47229c3713de2283b2cd9918ae8c59",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a83d7799d6a89564902673e4893781acb55a46b7fe24ee44582c9c2343eec198",
+        "dense_reference_sha256": "f43496225648eadba05442a44e740c76837121c7ee9363e49a2de170554e0ed9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d7ae2660a40237f8a1dabf55caeb6576879350222536c6782fc77b7a77e6de4d",
+        "dense_reference_sha256": "d7ae2660a40237f8a1dabf55caeb6576879350222536c6782fc77b7a77e6de4d",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d0aed662e8eabef5e312e2a1a1e4705feb2ece24f90beb2fc75c580865433123",
+        "dense_reference_sha256": "820e6138ddb66a30def7320225a11a0754273ad1952e841d8ec3e45e02553324",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "3878dc895d3054bfbc5e0b46a3c83f1f9c3949254e927eaadfc727105ec8d7ef",
+        "dense_reference_sha256": "609b54bb876ce6f2eed54d906764e30875d9aa83be46b31496fb4a51d09a80f3",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "43aee278a65f0109675d865db5e78eff2e3747e753c2ba7c59e77e2fcd6fd11d",
+        "dense_reference_sha256": "c5d4c16ff9e89237dd353784be49ae7b3d13bfdda5ad94e8c933d678dc18b1db",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "block_02": {
+      "layers.0.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "30b4d18a01b18ba9ad23d2b3ebd82851f3421f5f69c54ef0d2300b831133df6b",
+        "dense_reference_sha256": "30b4d18a01b18ba9ad23d2b3ebd82851f3421f5f69c54ef0d2300b831133df6b",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5a716da0bf5a6cf1ae5ec50e4894cd91b88c79d2d16e5dbff1401d393feb9b92",
+        "dense_reference_sha256": "5e222cbf3472a21534f90afd38b3f6da6484b5f6770d1fb7edde65ab46278a1d",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b4e5b513aff822f1fb4eecfbddb81f8bd734a35700170fc768b235bf7be07b7b",
+        "dense_reference_sha256": "5139947ff044c534ca28372c5486ddf5c4a77843698ff781a9ce05fff13bd4ec",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5189a6818d55e4aa3211d0b2a57792ef3281ae53a8c43987ecaf1e6c668fcd32",
+        "dense_reference_sha256": "ba97ed1cc3113c4e8ef7871cbfa09ccd6c894b2e657a270e1ab268dfea5eac38",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d453bde4a33cc501f0e9b792f92f0cf7dde13d920211523a3ed08a2f58024f28",
+        "dense_reference_sha256": "cec5dd1f50cb13c0fb7fc7554045382b23cc4b14f515ecd05adab65ecb4cca99",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8db669b1a1e061c4228f6f211b86380ff326ea5c84b91140986710a09d50fca6",
+        "dense_reference_sha256": "8db669b1a1e061c4228f6f211b86380ff326ea5c84b91140986710a09d50fca6",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "510ccd3f5701ae304259a09d6c0cc879cfdcb822d9b35759349df79a7236ece9",
+        "dense_reference_sha256": "f3844ca36c4b0e3b9a51bd33f3967dabdb41b1662ba75c6148a041a0b8292a02",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "427cd1c7320f826dcb611cfa9f3e09319f3a64a77b8aab0ccce97b198a0f985e",
+        "dense_reference_sha256": "954fcff0e1672e8188e01ec0512f97901ef87ca84af798b8cc458c079d48c473",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "85ba60a19db5cf17a0cddc2b94f61bc3f539f0e1d58511b532d56c9d36a3eece",
+        "dense_reference_sha256": "73377dae6c07eceb9199cdd4f7949e0aa9eb3451349648ebf1a73ee4661f7a66",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "dc9b4eabff9f4349869972cddf6f5dec0edb1637fce96e7da4195bf2a78a6730",
+        "dense_reference_sha256": "dc9b4eabff9f4349869972cddf6f5dec0edb1637fce96e7da4195bf2a78a6730",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d1efadd4b05e865fb14e3c77ea5c9c9e38219625f6ee7617022e4831a9bdf4d9",
+        "dense_reference_sha256": "81eb23787bdcdd1eeedec9732d7f067343a08de17a52d723cc9b0e790d12dd85",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ebf41a0ca343a40aaef5ffd54d7ab0b3aa0ef8e9d25e13194f111c60a0818207",
+        "dense_reference_sha256": "646f9136d6f3d43432b79114c13d3867bd8e7f599fe5fbf0d693060ca2702f99",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f76458b861c34ded55111b0029061b33e4f290d59ef85de8155376fcf7852700",
+        "dense_reference_sha256": "f91b304e2d775bd93d87337904c21fbf687c8938c7cbbdfda7a9bdcfd2a2a5a1",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "06c812c1b66fe5630dc091ab77bcd6702f42d885c4c9d102b735876443f3adf0",
+        "dense_reference_sha256": "86e816fac5f959322145080e7db16cd3a765718d00eab41b3c3f5881ca92e0ef",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0c4272098e25a629c8f02f7aaae0de12bd407597b6373485d157926e9ddce90a",
+        "dense_reference_sha256": "0c4272098e25a629c8f02f7aaae0de12bd407597b6373485d157926e9ddce90a",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5a4935f41a0ea7a8c4ac56fa9edb798eab711acf982946b102d63114ad522ef8",
+        "dense_reference_sha256": "561d0c2f96c8a00b74932de6055d1dd7fc662309eb835b4bd9fa4a8e8defa3b1",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "00b54342e4ba993b928101ae21d8d2c6329fbbb987dcd3f13abe848bc1e1aaa8",
+        "dense_reference_sha256": "396cc81e1df3b60b02fa3be0e302425c10b0efe458a85b9b8c35c535b27f0d2e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "042a025b98f50b3449238e6f31a30e5b3bb82ed48a099260a8e893dcc8290f93",
+        "dense_reference_sha256": "66a91b3b76656dc2896fef4dc658999701e8bc3860a8ce3b67e882c250a32d4b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "6beae15651c07c251bbed3c2b4b255f8dad87eaddcff8395d179425f99883936",
+        "dense_reference_sha256": "6beae15651c07c251bbed3c2b4b255f8dad87eaddcff8395d179425f99883936",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e908b32fd1cac24a12271c36a5f89a90f4f82d9152af75416b9be7a2a2a6964b",
+        "dense_reference_sha256": "188f5fcfd803b38b1b714a679135d31f490c8ee91fbc0226b415bf5879c871b5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a5e28224bae0aeacb15659afcb5e7148f06a92011a338ba2d0e7aa9394352ff6",
+        "dense_reference_sha256": "b235ab9d756eb81a715deaa6874d161fb475d39754ab5de869ebc73bb053c0c9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f1106f70ef4a05f0432225ce6d6db5205cf8e4f30e8aecaeb73e981c7f224860",
+        "dense_reference_sha256": "ab32a7032527c73fc0dcc2acddba6e58526b264939aaad8723763777c4aad39a",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "42a1310950dd50741aaff526cbfa2ab748fbb680d27535c24ac6efd858786e5a",
+        "dense_reference_sha256": "677a3be9b1fef9b05e17b43645e87ddee4c8534013363da444e8ad572fdbdf90",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2174f615bfe45c0901dc03dae6b639c79619904e86fa0dd622c554dfc245b3a6",
+        "dense_reference_sha256": "2174f615bfe45c0901dc03dae6b639c79619904e86fa0dd622c554dfc245b3a6",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "3254964686c550a9e77cbe7351acf5247443ff054ed9b44a5c9f888fcab36b3f",
+        "dense_reference_sha256": "8075c517b7cc327af63195d301d3816a86e9caa4c5d9a9ec7a6183a758719eb8",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0723d781fd8ccabd5c36ecbd5c32816a90fd561e5fb6b92b4aa0c41ba55cfccd",
+        "dense_reference_sha256": "eb861abf8315d77d9c2ed89d0218f0a2c20908f2aa8f3780f21e9fa90e5fe9ce",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2e39eab3d1a234fd1706b3221c94af78e9fd8239d300158a1eb202dc2717a7fe",
+        "dense_reference_sha256": "8a694a7662eceaea5677dc9794d8ad4bbfb75477e00dad54e4adf0e7f050ebf4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "86d4e6559c03e66592b69a50f7a34cfa77d6904f52f343172ba571b3bcd9708f",
+        "dense_reference_sha256": "86d4e6559c03e66592b69a50f7a34cfa77d6904f52f343172ba571b3bcd9708f",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ba29caef60497a5690365bdc23df675ab191c3a85f89f8c4f02f7aa58db22619",
+        "dense_reference_sha256": "4460ac3179434ad13ec0b4332562a5abb82c0f30e95fa3931bc6328525f57fcd",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "9e7eb6b3687bc2df6af9aa3f76119260bdb4aec6f1a4fffb731b977af7eff445",
+        "dense_reference_sha256": "d0d2b2da0caafd1b503613e7f33e54b2ccc8fda2504e3a29894c073cfd7fe82b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "cf86b1093708cebee43f3dd9b09295216bb120c307bd8ebd23d73963a032fffb",
+        "dense_reference_sha256": "734082a6025465caf992896b09bdc4881936bc69b692cd7a7319b24616a790eb",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a0239d6fdba6d053e8adce813afa20229371c4b3897b6327d7ed577c00ba6fb5",
+        "dense_reference_sha256": "ee46e0126be62ced9eaa30b89339ab0119a4aecbbaf8e73bb709705ef93e4013",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "52cf1837e5769d8ec4be139a5bfb84c8a42de8b351f8b3c8e0ac2a12ff70d56b",
+        "dense_reference_sha256": "52cf1837e5769d8ec4be139a5bfb84c8a42de8b351f8b3c8e0ac2a12ff70d56b",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "bb160d3fd609eda0c18ee6091a0e21bd3033206010913dfffb417ec125ab8ec8",
+        "dense_reference_sha256": "a777f7c78ca0c5fdec275212a70c429455d9034cc5054ac2aabc23ebe1174773",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2db4983075b3358c48113460e97f59d94e5e5611a30f61d6f092d839930f41a5",
+        "dense_reference_sha256": "62fa8c6fe6eb7d4220b55c03127a54395e2ddd3e198ba01e6b170361c58800b9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b874c54e4ddc1e668f324fed58bb2ac71cd303abd4fd5023069ecedecf477f75",
+        "dense_reference_sha256": "5ec0f93524197f113587df085b79b13a2a4a486e5dad681f72dc4139441df3ba",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "block_03": {
+      "layers.0.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8b1c377f6d4c55a2c1105a4fa0622e9cb161c963acb5d941e1abbdcb91874792",
+        "dense_reference_sha256": "8b1c377f6d4c55a2c1105a4fa0622e9cb161c963acb5d941e1abbdcb91874792",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "88b0f5b880a64a30ab9c423fe0c772c7b480161e412990703da1ffd6d70f7be8",
+        "dense_reference_sha256": "5570d585c87c8fb66038dc025a186f102b2052236650060dbd69218070957e4c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b630f4e44bf788b394defd23dc185e377621bac46e187e1615697abdd134eb0c",
+        "dense_reference_sha256": "a0f30b8319edbbcab04c2b86d38ffa0b5b73969f41647d02dd3060106baa7b11",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "936a3f88e6b21724400b27c39e0fa3eae6a49f125d342e1feb4b65b3ec7a1fca",
+        "dense_reference_sha256": "8a977e57ce72fbcb40298128982f6f7b06a4827858318a56f174fa89c7ddda93",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4b5cc678eb45229b8d8485689accbcaf5450029a5dbf43b7b43b470e9249abba",
+        "dense_reference_sha256": "ae1df26e3cf832f3fd07aeb5515a53642dfde99a151cf57a0d1890fb87667962",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "38a11bd7695690a31402fe0b801b96c521c29cca71fd2dbb8888de1e32c168cf",
+        "dense_reference_sha256": "38a11bd7695690a31402fe0b801b96c521c29cca71fd2dbb8888de1e32c168cf",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a2dd77a054a035954e8f33a75e5a9cec2799256065d155279501769aef8e1a61",
+        "dense_reference_sha256": "56883b2c3c0662e98db84a838c2143b8dc9177de94ea3af0b8846fec8cafff08",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "145a6e17905df2cc88ecfc383c4255a50092bdfe7a859b72170d09e955a6a0e3",
+        "dense_reference_sha256": "51942dafa6f2d81391586f9bc564ab93540ea0f78d87352362268b0a2f9c05b5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "edb3f650feafc0248a2e1340ee10726d41fa6659a5dfa8f972b339e66e77d22c",
+        "dense_reference_sha256": "79b4e65e58c5b3038cb20f42355b11e83daab671898fe1d5111e296d5679c391",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5e0dd7d40270a7e8c5719ac6c6ba13aa6c92ddd095c5fd6fa8a59c7097d3d8ef",
+        "dense_reference_sha256": "5e0dd7d40270a7e8c5719ac6c6ba13aa6c92ddd095c5fd6fa8a59c7097d3d8ef",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "9c1178a77917d0d591ab2ac425c57385fe77a8f82e897038033ba0ca2d898c23",
+        "dense_reference_sha256": "94482255c1519746c6257c59479b29a2b228fe115411b5c96a7276ae1f3a6b4b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e3acb5043c8155b40018e0cb93854a59894eddbac863c7e215acb21234cccea0",
+        "dense_reference_sha256": "75a1155c2f078e5f94d5f336fa27df8aa0784c59e78872d83393eaf4c800b5f4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "293527d42f024f9ab6511d3f478bdd3cf7836e1cf373798af64e49641d591422",
+        "dense_reference_sha256": "c1dfda00f1224b8581ebb6ebbc4c4908ee6d0fdd0bf439af494e89ba9d2c2cd1",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c22d7afb21ce27ec57c53abee00fa47d7a02e3ed912877dc7ab51e3cf160f03a",
+        "dense_reference_sha256": "2f7b829239404dff2905d9501cb9d40defbe34c9931c5b03b1b4be9652c90cda",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a17d2e8a341408a5f95263f304d7128fb0ea682c6d443a4c43e06c5e3c42cea0",
+        "dense_reference_sha256": "a17d2e8a341408a5f95263f304d7128fb0ea682c6d443a4c43e06c5e3c42cea0",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "26630feda82356655a31f29e960fd9945b7f9bcd2b1cce939a0e9c48ba6e0ea4",
+        "dense_reference_sha256": "4551f30042d9e22abef9b6986d17d28bf60325129cfff93d7e57f32d6bc7764c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "992cefa05a6f9d8303b16dcbd52463a12270823f065fa892292373fa2738f054",
+        "dense_reference_sha256": "4afb835fa82d3881b428d7b143e4fca6ecb27375987197338aefec8e758ce6b9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b40643d4a76cbc840dfda46d4e7b4022aec55ad8f8c3de67c5d73d88a12c8901",
+        "dense_reference_sha256": "bcbe374c9344671904133a6494b8fce3c699b5479db16504cd4a78b46d8b5723",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "389e7022dfa35f152e437a18fe57961913c513975cca90ecc233f8ffd1cdfb01",
+        "dense_reference_sha256": "389e7022dfa35f152e437a18fe57961913c513975cca90ecc233f8ffd1cdfb01",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8f048982e6331f42b62abbfd7507913481e70952ddb42c5903604a6bc2e0d588",
+        "dense_reference_sha256": "87266888efe88c8f9ee28601de7bbd09a3c36be33b3a2ccfbdd3d82f8d297bb0",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a7f78a3fbc0d2ad8dc3b23028b4e00012d5177dbdcd14f3006a9bbd462f66b19",
+        "dense_reference_sha256": "28f0b6bf2d8086bd7e852c7a661e906d1785d1dc40768fa04193d9e0a6d89c47",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "84292df5522b9625ac240174987dfa653345f88db9d54da44c58e17a48445b1e",
+        "dense_reference_sha256": "cf52c5606ce10d9cb32341f4d49c7a839b7cb8f01bcf37ac9628038425c77fd5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4bc52e9a12cfd32a5d82920d759e6e31042974915dddbe56a2b14e775aa75173",
+        "dense_reference_sha256": "3ca3b02dbffa8480ee1246663cc68f8ff27bad8fc1b395ae39ff1b53ff59d022",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "3c2da6b2311cbc2f7c7f21c9acc440b40fbbd329a3244fdcd089fa27f029bbdf",
+        "dense_reference_sha256": "3c2da6b2311cbc2f7c7f21c9acc440b40fbbd329a3244fdcd089fa27f029bbdf",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "09fdc70ebf45a5547e755e18d644d53973fc2997178365543ab984dabdc436dd",
+        "dense_reference_sha256": "82029242ae1f012a6443ddba29340dbc437aa58076357e52e31ba81be727212d",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "82daa38069d1ed28c4941e6de75acd60f80d5b8fd971f9370d38956529353ddc",
+        "dense_reference_sha256": "9a25d79f290f24c106ef1486a08a173d658bb4019d8fef8b81677a1a25b5bb04",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "87d21d4ec89436c0c0bdcdf350c9515c46d3e6a9732e16ae04e81a54f2d45ad9",
+        "dense_reference_sha256": "410a54237e4cf15a757dc716463f51a7435505f00c047ae22d8b3d1f034684d9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "511f969a56af92ed9a4da6e5bff0772c314148d1112edaa3dcbe76f2559a4673",
+        "dense_reference_sha256": "511f969a56af92ed9a4da6e5bff0772c314148d1112edaa3dcbe76f2559a4673",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "79a90171716de11de558ec423887ea8f1081d750010c555537f3fc7df2dcf5a9",
+        "dense_reference_sha256": "a5d9f4d97a1ed288563d8f360dedb0971502b8916e0db956c666d54a3e8ecd4c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5b93bcdec9b98658edbf1de8991e51d8ec900dd42ddfda679c81c30b585a5fb3",
+        "dense_reference_sha256": "c32f34d3385f833dce0e256c4d49668e9e42a30924044425ead3c9a62871826c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "91e15f0d20400f4d4905ed0dbb2db9b732a075aa5e1771a40e166818093db326",
+        "dense_reference_sha256": "b728da2a251324d45562737dfde6162fbc75c4379b32740d1f632d0cfcf60cbe",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2f11889c64a5d7265802d29e439844da1010eb1e465578626b544ea966bcb146",
+        "dense_reference_sha256": "fc0a317d8e01b33a9a841efd9b9c478a4e56eee131ffcfd5e2ad2cfac70c0696",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0b60f0ee7be9ee7e512d385e3569829841247c07123509fec371d3034fb0550f",
+        "dense_reference_sha256": "0b60f0ee7be9ee7e512d385e3569829841247c07123509fec371d3034fb0550f",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "9369adb465dd5c541f7f543bad980eff078129f29df6b9fd9f9df6ce9d5bebea",
+        "dense_reference_sha256": "2fa0dcbcde3659059cf0693030f6be2e70d876cb1377dfb2d207565289ef305c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e9344118cde4e6836ebcb5ea8c4d5f934bc7d40fe1974594b79581d290497ddf",
+        "dense_reference_sha256": "d63085c07d0e23789fc033918b80fd72413e918e03c67fcf31165bcdaee7624e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2d62cc97f0ccb06ec17fb99d17a685f89c54eca148e7464fc6d0662998d5f794",
+        "dense_reference_sha256": "a0d5e53f955228b4872db9a70dae56e5fbcca5326915a5c6fb849100e80b76d5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "block_04": {
+      "layers.0.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "6d29704a36ff5d2db34e0848f74cdddd6cd8bacbb0319631748105d2fd5b5080",
+        "dense_reference_sha256": "6d29704a36ff5d2db34e0848f74cdddd6cd8bacbb0319631748105d2fd5b5080",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e5ba86639a9e726e9455ac638f78750ca3a96f45d45db3ad8db6e3dc4e2d32cd",
+        "dense_reference_sha256": "882f9864a56e855fbcce35c130f6d4503e0e59322189f85873c38909edc2140d",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "6427ee4cc185d75f5112aa04345635a5d49a44817f4b750e1b8156e62eacb1e5",
+        "dense_reference_sha256": "666fdd009cf8135e95881711a13ddab5b87e0f852637635995fb4ab23df8cedf",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "686c483777b551ddbe989659b27134bdca6f9fe9fe75231f4b762a341e290a43",
+        "dense_reference_sha256": "8e3c6f24c39b44228531ae31cb489896c621a3d8dd2ce741d6b613754e8f3fc7",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ef5597cc78ff58abed8d12f927220ce991c29a04ef64f7020066ceaeb8c93d7d",
+        "dense_reference_sha256": "b12fc3ff8b7d435bd4ad5fe373e3711a45b38633e59ba328ebdcd8fb322ba206",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a6c7f49c022bbd4b3a76109651ec1c4116e7611000577de74e79e59112a29d00",
+        "dense_reference_sha256": "a6c7f49c022bbd4b3a76109651ec1c4116e7611000577de74e79e59112a29d00",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ad9f0bd8556ca79ef36190c928b296b28af7e19c01155579a37318003a4a752f",
+        "dense_reference_sha256": "3fdc03c235a4998ae033260bd1c9260201b41bb9de926b32ee4e616c2fb195e1",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e60ce704787d1aba22bf8c8227ce528fe891eca890f518f072203dc6007f2aa8",
+        "dense_reference_sha256": "e20639b87d46883d5e904b1327b8c7bcda9f7d9feb896bda58ab25198fc239e8",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8d0ccdb5b1fcc946e0421627ccf6ec8f7b58c8992549a294b6a524e6347ce76f",
+        "dense_reference_sha256": "5074922bc3d662fae4ea9414f0bfac8524617fbcfd70ee647c2c4d02d615ad99",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "71b73ca0014b1ef9de1d030a57397e4e871cd478dd9963d5afb5a50a2b56051e",
+        "dense_reference_sha256": "71b73ca0014b1ef9de1d030a57397e4e871cd478dd9963d5afb5a50a2b56051e",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f6293428fc069216b5ec0701eec865f850289528a14d2ee393c332b8d1029675",
+        "dense_reference_sha256": "4c77fb2f1be01f680d0ee6496ed50556b1354e3e50f4803d24bb2e767298fbda",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4996bb9455b692a80aacc5386c80d53125bc4b1ca8c7f238bfe51b4bef5f46fb",
+        "dense_reference_sha256": "0d270dc73c6cda84370440a4f0d948a7c8d533eb4bcc5e6b669baef1f5b08fde",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ee1cd84279de34b44c735114fe866072cf21aa55b49bd89e89e5d8f81280d194",
+        "dense_reference_sha256": "e2878bf18f78aa00988fe84f47100a2513696c5bdca9ea00ccba48ff73b142e4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "27321f4f8d5f220c739489c5d1704f93cea4a6a2b9d26db474f0a6455537373d",
+        "dense_reference_sha256": "e436bf55d7bc93213a9b0f02f2c3b5c1df338a6d1bbbf285d42ab609cfbca2a9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5ad4ca21c70683e0262fbcb1cff9f08e8b2852729d97b83e7c97d6341215a67b",
+        "dense_reference_sha256": "5ad4ca21c70683e0262fbcb1cff9f08e8b2852729d97b83e7c97d6341215a67b",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f902cdd1d5fdec88a3da85bf5166d22d80f776496600cef97d220e6f55353614",
+        "dense_reference_sha256": "966c10f9d46bb44f949cec38187073c7cfbb4a3c23496e2a71c465d9f93858e8",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "7d222b98643f1844920113463a5d711f1d0369a4e81e90d0a279ac489f11fa9e",
+        "dense_reference_sha256": "a549be7d6c9b8b11956ade164d334ec921866a4d83556a7d36a06380ad10b9e2",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8ebf63498a9f8276d968a77c3ff8802d028d837ebb246f30c98ab226f6c8e83f",
+        "dense_reference_sha256": "5e77ccb4a0bc81ef87e704cfbf9ec33f9f43c02db2b0bdefac3f45db839b1ad2",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4819ce6e3226e18cc119e8d05eb8151ed900f100cb8e3709915c2eb6d067d4c9",
+        "dense_reference_sha256": "4819ce6e3226e18cc119e8d05eb8151ed900f100cb8e3709915c2eb6d067d4c9",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "19318ecb90ac5d0f45395b3d9de7b85ec42557b0beef7d4db8deb40ad2b55dcf",
+        "dense_reference_sha256": "40bfd9a2d4e189fa37d30c6563be8ac952c491385babc64448d82e27eaf717b3",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "848a91531988a2609247cded952fba70933ade93ea5710f69235cd6b4bbb8661",
+        "dense_reference_sha256": "fa03f825f52e6716e025a3ccf9f78c51fa875198e86708b847b5b4dcc66b7653",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "7cfd119d3c0ec092f1c3bd5906cc0e412f15ef7bbf0bb9259369ea75e86c0200",
+        "dense_reference_sha256": "842658116dfeea5b826ef67891841efa478ecb46527f2abac639940bb2056d7c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2d956309d2461c1e621f2db26e7ff06cfcc96646ed1d345b09fa4318f96c76d4",
+        "dense_reference_sha256": "d84f5dfc2e3f535e3965fbb7e1708199dbe39bf79b6a89680af9d1827a4ba6a0",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "29b84a064b772e0dbcac92428f5db66f04ea20b4af3060138dcfde6a100bdaf8",
+        "dense_reference_sha256": "29b84a064b772e0dbcac92428f5db66f04ea20b4af3060138dcfde6a100bdaf8",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "50a7dc2b28163cbd099f7cc2dfb759b6d9473cd61269721f32c6c585e3b3dfec",
+        "dense_reference_sha256": "13f45028d6592036ffc40b72547de364b7083309d05c3e99e472dca69e4570dd",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "1b7e85723f6a7b412778eceb3868c3ad0f74c1e60ea000c83f7317b74e55bc00",
+        "dense_reference_sha256": "2e6d00817b6bfa3509e8857d5caed4d856d5ad070c7155aa6b6391e147d3281b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "53b117bbe79cea14ffbd90a2e19bba03e1866544ea95bd460493cab681116efc",
+        "dense_reference_sha256": "8ae12bab5b93ab8840f0a0a1b490268d549d3cbc93bfd524bd608ff713dc1dd8",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4546e97e3858d040f43b8644bfcbd77a30fcada513efb54edc6e13b937f146cf",
+        "dense_reference_sha256": "4546e97e3858d040f43b8644bfcbd77a30fcada513efb54edc6e13b937f146cf",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "13968390fc4cafc9e77c1d6f99f2451ac563b21a407e33b15d89aa1fbdcfc2ab",
+        "dense_reference_sha256": "b8ce119540c914b4ca0116515d6c1a4b9f08a8165543f6735fa386319da993eb",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0b5566182ac3ad6951ff595c2e403ebe8e5d58d87c733e1a3584d574bafb171d",
+        "dense_reference_sha256": "6f4849327005865b2c08d899318735e967db230fb1fc9f90826ae1ea96d70185",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "153f9945a886c79b41d39a8e176e3331b3ab2e0a696c7e73a2e860bdbd646f1e",
+        "dense_reference_sha256": "66c398bc7678072fb2d31a4da87b842fa8b380bf647d9316b357c2283de27fc3",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f8369355aad6237be81ce7b48129e5d0ccfb5cb7bab2264a559844f39211fdef",
+        "dense_reference_sha256": "da39fdb00122ebe6f65ad3514ad53fa4b0a4d9fbd2c16f83a5f766dd71d8fffe",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "fe6c7c1d21cbd6eb0ae112a26d7847ceeb2035a454ab5164fa7a65902612af2c",
+        "dense_reference_sha256": "fe6c7c1d21cbd6eb0ae112a26d7847ceeb2035a454ab5164fa7a65902612af2c",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ad7f5eb1349782f4b466fc44b774bc3de4f7b8f69551d42c66e371f3e0a8d8eb",
+        "dense_reference_sha256": "1fabd28156bfb65da65f596efcc6fd75784a4402068f810c7eb55caf1c12299c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ffb022f7f10a98ccd48908295ad3791d433b1448a115e8f6f6258f984e9bcbda",
+        "dense_reference_sha256": "180e082774f16a06bf6c4fd12591c59d19b07b228c000fade5836b42552dfa9b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0804af4144f9d44e91893e5af07621de920caa2970684aebc2a7c24b7a031008",
+        "dense_reference_sha256": "e01f0c65bb5e60c9bc8d9b9677f1a471e633bd4524b891d87daccbb311daf8e9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "block_05": {
+      "layers.0.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "3a4d3eeb65fbf4d9e4010d3684bc44b8b31cae69d70de9bc0b0a821fbde2cad9",
+        "dense_reference_sha256": "3a4d3eeb65fbf4d9e4010d3684bc44b8b31cae69d70de9bc0b0a821fbde2cad9",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "502834ed3bdb13f6d8599f38b11d599fc2964901df925a2cc8eb00de8e0313cd",
+        "dense_reference_sha256": "64665bd5ed5047a9015c6b1915842d418a3e8388d5cc9058bf8bde45158d7ebd",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "57153e6b91472f35e76f667ee87431e7824a7ea9944a4ae97827e2658ff5456b",
+        "dense_reference_sha256": "8a69a1dd544d8436ba0c80729d5c5ca4191740e3f3aaa76d80611b5ac523389e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ecf0084ec322c372bbb980062921fc957b8e4910556cf9e20e0776b47374ea5f",
+        "dense_reference_sha256": "c3d288ac7d919b4550b2affce06c1b40932d6c91a800aec1f73ad4be72d7446f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "697fc143bfdbc9cf0860b20eeccfb9cb171e95a863637fe99f1f007123065602",
+        "dense_reference_sha256": "3c3956819c5e9c170b34ac2d2dbd692abaebaeed1869d9cc0551ce2de615b461",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "9ce496986cada45e78a9a9f0f459553627c6b4d15c3cc2b37592f53a9baf2934",
+        "dense_reference_sha256": "9ce496986cada45e78a9a9f0f459553627c6b4d15c3cc2b37592f53a9baf2934",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "7a0c47931f8e78a77069f43b9dcb278df2fed895a39695dd9015e1e725a3f73c",
+        "dense_reference_sha256": "70dab6d54769cb63e2e2aa82ae3d5f307512fbbcf52ca05762a10f9e5b87b637",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0c39ef46704816bd51644736752dce2f6e0da3bff13df38923cc735b9466dbf1",
+        "dense_reference_sha256": "ca7ce7447c22ee0249bcd8378760239314850875afb709912c63f687fb422e6f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0a8bdef500102b9f2ac2b02d4b6f57cf1ef3afaeb37b246c27288853dbc68304",
+        "dense_reference_sha256": "00103924e33d6490ee80fb679c0b57da5ddd4351b676e7b675d38c1a520abc2c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d08d899ad0643add2daa383e9050f6f1761a00ddbc8337a403ce927000f1aa18",
+        "dense_reference_sha256": "d08d899ad0643add2daa383e9050f6f1761a00ddbc8337a403ce927000f1aa18",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "7e19401c5fc11c2d90588fac28799f90f9416f576c8a06aeac60bffb30ccbd30",
+        "dense_reference_sha256": "d2d05e5dc045fed17cfc6dd888f7009b2bb2519d9126e064085dc34f1edc1dc1",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "08cab8de8c8b598f3f6b3555ce41f50e190a870ab3e5aa620a5ed5a9f3e8f62c",
+        "dense_reference_sha256": "fa05bd6557834d8d413da62a4007d51d01090d1b5c6cc2487646040371d10aa3",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "a54e032e11222c7baddd62665b0b717486e9500a01ca6433654fc09a65b1cea6",
+        "dense_reference_sha256": "1b1b3a743fbc51316e99bec33964797594fd5cdd06191266beb41fed2026a237",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "0a09a216a83d9287e4a660a7a7f736cb81cef905f99a5e116f64b76a552f65a2",
+        "dense_reference_sha256": "a5facff4f519a6a50dc80ba5bacd352d61a3aefe65c3a6fde34d249a80c6f79e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8ca164c1187ff29f5523e18916402fde7c7425f07696a419083540113d69f444",
+        "dense_reference_sha256": "8ca164c1187ff29f5523e18916402fde7c7425f07696a419083540113d69f444",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "aa82c2008c5305fd8f271429d23beaa2103df4211be446d60d7f597558101d61",
+        "dense_reference_sha256": "db468de207bcf849844a7fac265b84f172730cf4aaee2e325f754f0b474d81d7",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d675c065edec3aba2698a3a6f78313f77267f00151e670d1300d7252f27fe889",
+        "dense_reference_sha256": "d9f60a7cdf685a3dc827939f0965477e9e172572ab46a9023fd2255490c81173",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "aeb3b29433c5347eacf84f4557fcd89fb2e5f3e12b52af90d9b57597bcf12988",
+        "dense_reference_sha256": "103a146a60c685174d44e51bf993dac61201070bf3b8ab9352d03c642f4e57a5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "bbbd1976e14468d0fefd89abdf29d0a744efa86101ec59b4b304d16e10a359a8",
+        "dense_reference_sha256": "bbbd1976e14468d0fefd89abdf29d0a744efa86101ec59b4b304d16e10a359a8",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "1d23d376d0772f811cd9c8052e078c972873c6cd9b1689cc24701db5fc75c597",
+        "dense_reference_sha256": "09c5fc1af49513b1de9d4cddc8c51ed64c288840a77bbd41f11bd5caa4d778c0",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e09371c9280bf706b3ec7b6c78fb7c021be71bff5e0fcf10162a6398c5cf690b",
+        "dense_reference_sha256": "d3fe7fe118901adbd884ea990374cf8f0b87238bece0a6f1dc76db02b384aa33",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f22ea3afa4721eeb6659ed14c1c8a49e04edfeb1c078abf127bb2bd6497fc006",
+        "dense_reference_sha256": "31117d58ced17d3c2a01a814323ec7180ee570ce1fe5b04bb5ee3e030fcf4eba",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "e66a09c2f72bbfb96de7c85ea41b9fe56ec6d03eb1904928cabe8ec5bd2ecbf9",
+        "dense_reference_sha256": "9fab384efbc7d0c9ff1f4468d3272600719dace5bb578ffb4021daf4b24b3162",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c318d512c74afcad6487ae1e1a0d5f3732178232f783096b3f42b44595d8062b",
+        "dense_reference_sha256": "c318d512c74afcad6487ae1e1a0d5f3732178232f783096b3f42b44595d8062b",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ffe8a7017ae1986dd12a7fd775b0cd4ea9e16c76a12fcf78b331ed348810f35a",
+        "dense_reference_sha256": "29cc2b5af49337838bce569e3f51421c871071fa7956f8817175967220c818ed",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "3dd6bac94740cd6b438606f283479e8ef5c977d425f3a88eda197b3c29c19eb3",
+        "dense_reference_sha256": "1cf5659c3300b466d453e64312712f48590a411942637cae376a16a29cc9b415",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b19ebddf1e82c2f952eebd90bdf9593781aa9fe5d3d2c2d5cc4516fbea454ac5",
+        "dense_reference_sha256": "5daf08b39b1bf6bf05fb073f7584bd8a13b7b79a981cc373caeb2e2c9d7c454d",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "7a11f8e787e6fc8247d2e41709a4f832bcda03a0e12842a24b7118051e54457b",
+        "dense_reference_sha256": "7a11f8e787e6fc8247d2e41709a4f832bcda03a0e12842a24b7118051e54457b",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b33940bcb53491c17231447869542728b7edc187ce77ed28a573afdb17ef30b4",
+        "dense_reference_sha256": "648fca9c26b2204cf0ac221c8f8cb61d27837fab51a3bcf7bb165b60bd08206e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b2444bf362a63714d30ea62434726a2dcdaf1d19f68f5b519a87ec4df4512579",
+        "dense_reference_sha256": "6c2386b6beed7c7921aaf9d2ddf69471c6ffce5ce0ff4b7a85135961144514ac",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "96faf15cb171cdb7a76725c22cd8358f64166e2bae230c595ca07e93cf93a9e6",
+        "dense_reference_sha256": "cfa2f60f2d8bf0af2a8363914899ce48c9b2ed97271ff6de09b72f9cb420e94f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2b195fb2aafd2998c2f0579f53412952fc7ce7b4c3a7d15e0a0f1a3c8605b4f3",
+        "dense_reference_sha256": "0a240c26664af79c41589b16f70b853bddd83ca4030918edd8a0910260c7fe18",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "2a7dff0d855296792c6cbfe38348e8a8cc284cc1848426045f93f2c31f1c7370",
+        "dense_reference_sha256": "2a7dff0d855296792c6cbfe38348e8a8cc284cc1848426045f93f2c31f1c7370",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b29b0fadbcb904c448e0f8f91a72d963f845f7e2b46a0aedf9216b4afd53e1de",
+        "dense_reference_sha256": "619b372950a25f79e48c045c445a890134acb7ef7930f5e2b7a6652b59df7c01",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "6c27d85c1da4cfad7a1e813cbe75990d8299532575ae5b4ab5c575894aadd677",
+        "dense_reference_sha256": "f9c56cea10efd44ff806922fac508974081584cddbd80f38eddfebe116b1388b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "51cf021178fb967f9d3c6b806f12d656b63e6a48cee4f2ecf03706d24ab8d1eb",
+        "dense_reference_sha256": "5c7d4bf39c78f942d13381f3a593e240964fbd5787617626030054bc21046189",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "block_06": {
+      "layers.0.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "b39524edd5be503361e527343cc37e49c5158e378df8338c7d27bfb8bdf97ee1",
+        "dense_reference_sha256": "b39524edd5be503361e527343cc37e49c5158e378df8338c7d27bfb8bdf97ee1",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "3d8d7aef80f68c97aae2f99f9797d2f287eb1af4ca2b9923bdff5755618b67b2",
+        "dense_reference_sha256": "a42de874c346bea21a1083d42cf9dd342b0de116d90266f7a1bbc96c0adf675f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "35f770012d1f009094593472cb94420b7c66842a7d07f99f660dc5b0689b04c8",
+        "dense_reference_sha256": "8c9919899e0fb773ff12e1b7b672804ea9be7bb658921d34a2a30ecb07350629",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "59d2a2e1cab2e0ebec77acc59b2af14e7009713b9e5ff0e3ca67087ebc6ffea3",
+        "dense_reference_sha256": "c6897a47980a129d95af37515c86e8b382901bb8e5dcc504c7865b906d0c586a",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "162922abdb725ab6ab755e87bf7b2db4ee99c739a51b4b39e825a6f07237849b",
+        "dense_reference_sha256": "19abe7490b5108cfb3538d49df9032b2c297440329a9dea7ac8d4455ebce1862",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5ec1a0fcfb8a1837905397c2c8d4eb282ea7ff7809c3c38cd67555a955f8f3fe",
+        "dense_reference_sha256": "5ec1a0fcfb8a1837905397c2c8d4eb282ea7ff7809c3c38cd67555a955f8f3fe",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.0.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "992ecacd9f22fcd64adff786b6e09714e6ca5d7283c2d8aadd5d9f98539597b5",
+        "dense_reference_sha256": "53ede6c6d7f111cbdb77cce85047e804e93254e0362113f60f785cb6b3daf255",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "7ff1d7c1763209a185b501ea90e0d430260a885c4cea7e3e43d0f919370415b7",
+        "dense_reference_sha256": "a0bf1facf24e4ec8242e10af5551fe251e57de3cbee7148c5ff927830b2a6251",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.0.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "afffbe6928b8b70f08b83bbf454f641210859d7cc5348cde05c5e4efcca908f1",
+        "dense_reference_sha256": "3ae6a47f0864c94e92b7dcffd47470b50b4a925cb6f195ac900787f1385c97ce",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "cd4ec8509bb765a7097f49ef8109a144749a407462fbeee6196528dc2fa6f11e",
+        "dense_reference_sha256": "cd4ec8509bb765a7097f49ef8109a144749a407462fbeee6196528dc2fa6f11e",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "98254a8746e16d694e313a7d1ba52c162745b7757004482cee617c42bb69bab3",
+        "dense_reference_sha256": "68596793b8073daa868f2ab62e541678db7f38d3c9a92449867fdf50b3d63e99",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "afbe27ca3b91ace312f471a9967aacdc3cb2bf33eb4999da26e4111b1fd1a331",
+        "dense_reference_sha256": "2936d92c0f2a1c73699fe2891e9be560548d07722c7c97e712873bf5656adce0",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8d0b04fd45e50c6233df3ea4216af447831d363864189ca3420ce4635124f5ca",
+        "dense_reference_sha256": "8d867c312b0960c69b4575e5dd49e50b8d5fd453e5156d8987a8a75a5d855047",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4e4c8f7485f1013fc5ec32189c5c8eedee26e663ecbb152435d8790c99bfd71a",
+        "dense_reference_sha256": "5af0068ac45ea02e4227ac553c64e46ccb166ebe68f7415721408fe5dee02f35",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "97c55fca7ff47993d4ad5c1be0dd353ee249d7490fe8839a6d960c1d29d8675f",
+        "dense_reference_sha256": "97c55fca7ff47993d4ad5c1be0dd353ee249d7490fe8839a6d960c1d29d8675f",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.1.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8accfacac3a6ac2f70ab00bc4935284e45d22f3bbd51ae86a73e8416d057cd71",
+        "dense_reference_sha256": "fefa3898394b4f4b32a78eddb4280777d28c6d3b40d23b6ea181ae60a45a236d",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "c580c7639c0050d7fe62ef90b59ab2f622a0eca5715e325903f07dcfbf7e29bd",
+        "dense_reference_sha256": "dd229bc24e26e3e7c09df4c7cec3bfa4bfe233a5dbf788fb2d3de2bf1a87830c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.1.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "db8a85580d6607c620e4a394245b6212eec085f7d9ae17c7da22e1413b5a0585",
+        "dense_reference_sha256": "2c174c10a981a41ac3ebfac9ddf83684cbc067de8062dbe2adb414c9ba2eac03",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "184380ee34ead718db1b6943b7d97e579d2d5a38f32d6d4e5561bcb5173865c6",
+        "dense_reference_sha256": "184380ee34ead718db1b6943b7d97e579d2d5a38f32d6d4e5561bcb5173865c6",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "8978f2c04844505e31c31b466ba396b85e66d742053764b449826fa85867203f",
+        "dense_reference_sha256": "e590e15478f3dab0d70b40b643e49ab82a7433df0fc3257e7350d293caa54f88",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ebae92875b68a8604ed2a6318da3e61c20a0b7bd307fdcc1fa96ac44df8b07b3",
+        "dense_reference_sha256": "fde97da4b0f640b0e9f1d69abe652a0130705c0e436f2c9b75cc8bb5cc33fa7c",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "24d216aaabaf6499d2c4fa77302791ca88760dbee7a46c35ef06ef73e9954747",
+        "dense_reference_sha256": "656ffd571b1e1ba70b7feafaa977f88ddf315cb9a90a47663a7c0d987deaad9e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "889b9895b34f51af0c5e8933aa7c7b7e1b35bdb30f09cc945f1f10593958c393",
+        "dense_reference_sha256": "ecad6e5415131cf7767f1144c8aaa5d0ce8c9f112801748f3e8dbae62c3b0de2",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "029157948ba35d1fd09a654f7b3d052db46769f2f0596e787b765beb11492272",
+        "dense_reference_sha256": "029157948ba35d1fd09a654f7b3d052db46769f2f0596e787b765beb11492272",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.2.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "634efb6f48614a0f9905c125aeb113fbda4e934d075571843f7c062c51d20770",
+        "dense_reference_sha256": "fc6760abee20e4f14a6a3413544da6172074448484f8e625a6ba62966c7bc019",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "39a7c3ad7706f02990ee37be552d2139b7e3428ae34846db66eb3b68ef582937",
+        "dense_reference_sha256": "e54231e81fb0c3e2f49479cd7bd1ffd7d546b2c5be9f63fccbc9272036eb0702",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.2.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "ebe39129a5e87e790be0fa6a9d80c297b57c92e065d72792e53eaeb5d99b1576",
+        "dense_reference_sha256": "625c4c3f4e21356b24c4e580b9f5b6e3602f00a4bf0bb70963fcae9e2212749b",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.input_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "bf3917849f1f3e2163cc3ad9fe5c929c4bdeac09cab3a096e3bda650f1402082",
+        "dense_reference_sha256": "bf3917849f1f3e2163cc3ad9fe5c929c4bdeac09cab3a096e3bda650f1402082",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.self_attn.q_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "dd682d82fde29781b15af29387dd6545a61201f7fd727ec41d909de742e14a1f",
+        "dense_reference_sha256": "b6f0118b0f52c8bb378bf84f202d576fa7723620ba825d861ad3af54a97f66e4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.k_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "20f807b0fcf017848d175f63a20723dfcbc6130845199154f2306949079b4636",
+        "dense_reference_sha256": "5f9f42becccf92ae583d0dfabb3d5837020be88e5f93af226217b0804f2296a4",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.v_proj.weight": {
+        "shape": [
+          1024,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "31aaa50adc89862ddddc562aaed66ebfd6bd4ea5da4bef80155f999b0ad6cf32",
+        "dense_reference_sha256": "77a9b219ffe0ee01088d85b4dd757686bd1b7afaf3f2cb3537022dbc5dfe069e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.self_attn.o_proj.weight": {
+        "shape": [
+          3072,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "4e879b2bd0e297fac80dcd0cef9aec1bb74985abe7705582ac1d0988dd99ca85",
+        "dense_reference_sha256": "789584168b989c95179b47a62ef839c46d1004bdacd92309c8fe445658e8cf6e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.post_attention_layernorm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "218d6c9690bfda52b85123fc50e7e410994a882925eaead21fd5e7393fea471f",
+        "dense_reference_sha256": "218d6c9690bfda52b85123fc50e7e410994a882925eaead21fd5e7393fea471f",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "layers.3.mlp.gate_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5c59a357268b9f2c775b54dd1418e171e7e69393b999710f5cc6808539b8b0f9",
+        "dense_reference_sha256": "c21a05afb56d8558f8c6180363dd7e7b6053ec4128fd2c4e68eac17689e55c5f",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.up_proj.weight": {
+        "shape": [
+          8192,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "5eba3bfc3995ced78d959460b878519c3870e823cb1e3e1777c85205fe74c62b",
+        "dense_reference_sha256": "96fa4b66435621ac534a5bd6c82878eebea2f70741094a2dc3fb1b1bf18c5d4d",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "layers.3.mlp.down_proj.weight": {
+        "shape": [
+          3072,
+          8192,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "f600f38d289a4bbfbb1d3ed91cbfdae806dfec035faff98bfae5fd9e088ebfae",
+        "dense_reference_sha256": "8c33a9e3c6203b9496f9d942bbb049524c34f8295ee401d591c9aec9a24d1a98",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    },
+    "head": {
+      "norm.weight": {
+        "shape": [
+          3072
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "bb121091807f62c0ec670c75468096f1842ee0d6f73041d75b9a60190554dd0f",
+        "dense_reference_sha256": "bb121091807f62c0ec670c75468096f1842ee0d6f73041d75b9a60190554dd0f",
+        "quantized": false,
+        "group_size": null,
+        "channel_axis": null,
+        "index_bits": null
+      },
+      "lm_heads.0.weight": {
+        "shape": [
+          16032,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "05349b5defcb52deddc026b08f559361b7fd054a00ad45932ddbfa87cc62ccd0",
+        "dense_reference_sha256": "b3582f4a6a243af602610e953d7a28c846b446067d51c97896023c9bc1a82c6a",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "lm_heads.1.weight": {
+        "shape": [
+          16032,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "6a5a45b3fb30da580d39154234cb0dbb8f5061d110b5e55d95b8ba34abed38f4",
+        "dense_reference_sha256": "bf72c2349af15c97e141f18b72941506949ab76d982c56e0443153a0e4ebd1a1",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "lm_heads.2.weight": {
+        "shape": [
+          16032,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "23eb15e2f1e04e5e5a9c53b004c7f3746ae4043290f75a84731878e9b427cd4e",
+        "dense_reference_sha256": "7196308b38531b0f7f16858755da0c501fb7b4a4914012f1517f10938050d4b5",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "lm_heads.3.weight": {
+        "shape": [
+          16032,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "9208647b6575589f397a015f32b7f7e63624fcdb72589e8213738454b3b03f00",
+        "dense_reference_sha256": "72ca138778f860c428af3121bb0cc2ae64297ba2790d5ad47af1eb3fab8edb6e",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "lm_heads.4.weight": {
+        "shape": [
+          16032,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "060888a844345099778d72b635fef9255b6065e467791315fd7d9e3b20b3c3ea",
+        "dense_reference_sha256": "73540b39d1954490293b8b038543f6faa9b9079e67dcf66d3d27f1df326609ca",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "lm_heads.5.weight": {
+        "shape": [
+          16032,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "1475755ed2846004cc64c7e0a99b4b6d596cfe94d1fff0ff0c6fe4bfb4a05fe6",
+        "dense_reference_sha256": "db358a40103d4e926bf43c604245bd8ab372b451d9ce7117fa3dde46bcecf445",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "lm_heads.6.weight": {
+        "shape": [
+          16032,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "dd6d052b97b87d423e6aedf6fa3523333b717577a19a1e782d583236e04b294e",
+        "dense_reference_sha256": "6d800c9b84a61ee5a2862f9a52c33f4a6d420ecc60e602fac49c1dfd45fb79b9",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      },
+      "lm_heads.7.weight": {
+        "shape": [
+          16048,
+          3072,
+          1,
+          1
+        ],
+        "dtype": "float16",
+        "byte_order": "little",
+        "order": "C",
+        "source_fp16_sha256": "d51022d8dcd47a98b0ed99df19c5d262cbdbfdfc6261eb525201be96a6f27d78",
+        "dense_reference_sha256": "e4543874bc386cfda7c291640b025005248857b2d3bab4d22cff7b4610247825",
+        "quantized": true,
+        "group_size": 16,
+        "channel_axis": 0,
+        "index_bits": 6
+      }
+    }
+  }
+}

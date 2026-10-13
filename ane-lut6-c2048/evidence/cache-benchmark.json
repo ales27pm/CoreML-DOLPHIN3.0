@@ -1,0 +1,32 @@
+{
+  "groups": 64,
+  "seconds": 0.7651147959986702,
+  "rss_before_bytes": 381050880,
+  "rss_peak_bytes": 403783680,
+  "rss_peak_increment_bytes": 22732800,
+  "prepared_cache": {
+    "workers": 4,
+    "batch_size": 8,
+    "group_count": 64,
+    "unique_groups": 64,
+    "cache_hits": 0,
+    "cache_misses": 0,
+    "remaining_groups": 64,
+    "peak_cache_bytes": 3153920,
+    "fit_seconds": 0.7650374779914273,
+    "mechanism": "bounded thread fitting; byte-addressed CUSTOM callback with reference counts"
+  },
+  "consumed_cache": {
+    "workers": 4,
+    "batch_size": 8,
+    "group_count": 64,
+    "unique_groups": 64,
+    "cache_hits": 64,
+    "cache_misses": 0,
+    "remaining_groups": 0,
+    "peak_cache_bytes": 3153920,
+    "fit_seconds": 0.7650374779914273,
+    "mechanism": "bounded thread fitting; byte-addressed CUSTOM callback with reference counts"
+  },
+  "notes": "RSS sampling includes native allocator effects; peak_cache_bytes is the exact ndarray payload in cache."
+}

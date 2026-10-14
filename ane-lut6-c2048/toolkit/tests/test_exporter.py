@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,8 +13,83 @@ import pytest
 from safetensors.torch import save_file
 import torch
 
+import download_source
 from dolphin_ane import exporter
 from dolphin_ane.model import BlockPart, EmbeddingPart, HeadPart
+
+
+def pin_test_source(source, monkeypatch, shard_bytes=None):
+    """Create a tiny, fully pinned source and return its verification path."""
+    source.mkdir(parents=True, exist_ok=True)
+    shard = source / "model.safetensors"
+    if not shard.exists():
+        shard.write_bytes(shard_bytes or b"compression-only pinned source")
+    config = source / "config.json"
+    if not config.exists():
+        config.write_text("{}")
+    shards = {shard.name: {"size": shard.stat().st_size,
+                           "sha256": hashlib.sha256(shard.read_bytes()).hexdigest()}}
+    metadata = {config.name: {"size": config.stat().st_size,
+                              "sha256": hashlib.sha256(config.read_bytes()).hexdigest()}}
+    monkeypatch.setattr(download_source, "SHARDS", shards)
+    monkeypatch.setattr(download_source, "PINNED_METADATA", metadata)
+    report = {"repo": download_source.REPO, "revision": download_source.REVISION,
+              "all_verified": True, "files": {
+                  shard.name: {**shards[shard.name], "verified": True},
+                  config.name: {**metadata[config.name], "verified": True}}}
+    verification = source.parent / "source-verification.json"
+    verification.write_text(json.dumps(report))
+    return verification, download_source.pinned_source_weight_identity(report)
+
+
+def bind_compression_input(args, tmp_path, monkeypatch):
+    source = tmp_path / "pinned-source"
+    verification, identity = pin_test_source(source, monkeypatch)
+    args.source = source
+    args.source_verification = verification
+    Path(str(args.input) + ".json").write_text(json.dumps({
+        "source_weight_identity": identity, "files": exporter.tree_inventory(args.input)}))
+
+
+@pytest.fixture
+def recorded_compression_input(tmp_path, monkeypatch):
+    package = tmp_path / "fp16.mlpackage"
+    package.mkdir()
+    (package / "payload.bin").write_bytes(b"FP16 package")
+    args = argparse.Namespace(input=package)
+    bind_compression_input(args, tmp_path, monkeypatch)
+    return args
+
+
+def test_compression_rehashes_current_source_before_loading_model(recorded_compression_input, monkeypatch):
+    args = recorded_compression_input
+    shard = args.source / "model.safetensors"
+    contents = bytearray(shard.read_bytes())
+    contents[-1] ^= 1
+    shard.write_bytes(contents)
+    calls = []
+    monkeypatch.setattr(exporter.ct.models, "MLModel", lambda *a, **kw: calls.append(a))
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        exporter.compress(args)
+    assert calls == []
+
+
+def test_compression_binds_the_report_bytes_it_parsed(recorded_compression_input, monkeypatch):
+    args = recorded_compression_input
+    report_path = Path(str(args.input) + ".json")
+    original_report = report_path.read_bytes()
+    inventory = exporter.tree_inventory
+
+    def change_report_while_hashing(package):
+        report_path.write_bytes(original_report + b" ")
+        return inventory(package)
+
+    monkeypatch.setattr(exporter, "tree_inventory", change_report_while_hashing)
+    _, files, report_bytes, _ = exporter.validate_compression_input(
+        args.input, args.source, args.source_verification)
+    assert report_bytes == original_report
+    with pytest.raises(RuntimeError, match="report changed during compression"):
+        exporter.assert_compression_input_unchanged(args.input, files, report_bytes)
 
 
 @pytest.fixture(scope="module", params=[4, 6])
@@ -39,8 +115,10 @@ def exported_block(tmp_path_factory, request):
             value = value.reshape(value.shape[:2])
         weights[assignment["source"]] = value
     save_file(weights, str(source / "model.safetensors"))
+    verification, _ = pin_test_source(source, monkeypatch)
     args = argparse.Namespace(source=source, input=None, output=tmp_path / "fp16.mlpackage",
-                              kind="block", start=0, end=4, context=64, threads=2, bits=request.param)
+                              source_verification=verification, kind="block", start=0, end=4,
+                              context=64, threads=2, bits=request.param)
     exporter.convert(args)
     args.input, args.output = args.output, tmp_path / f"lut{args.bits}.mlpackage"
     # Every tiny projection exceeds 256 values; production keeps its 65536 limit.
@@ -127,6 +205,56 @@ def test_compression_rejects_mismatched_context_before_saving(exported_block, tm
     assert not wrong.output.exists()
 
 
+def test_conversion_checks_integrity_before_publishing_package(exported_block, tmp_path, monkeypatch):
+    original_args, _ = exported_block
+    args = argparse.Namespace(**vars(original_args))
+    args.output = tmp_path / "must_not_exist.mlpackage"
+    shard = args.source / "model.safetensors"
+    original_bytes, before = shard.read_bytes(), shard.stat()
+    convert = exporter.ct.convert
+
+    def mutate_during_conversion(*a, **kw):
+        model = convert(*a, **kw)
+        shard.write_bytes(original_bytes[:-1] + bytes([original_bytes[-1] ^ 1]))
+        os.utime(shard, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+        return model
+
+    monkeypatch.setattr(exporter.ct, "convert", mutate_during_conversion)
+    try:
+        with pytest.raises(RuntimeError, match="changed during"):
+            exporter.convert(args)
+        assert not args.output.exists()
+        assert not Path(str(args.output) + ".json").exists()
+    finally:
+        shard.write_bytes(original_bytes)
+
+
+@pytest.mark.parametrize("changed_input", ["report", "source"])
+def test_compression_checks_integrity_before_publishing_package(
+        exported_block, tmp_path, monkeypatch, changed_input):
+    original_args, _ = exported_block
+    args = argparse.Namespace(**vars(original_args))
+    args.output = tmp_path / "must_not_exist.mlpackage"
+    changed_path = (Path(str(args.input) + ".json") if changed_input == "report"
+                    else args.source / "model.safetensors")
+    original_bytes, before = changed_path.read_bytes(), changed_path.stat()
+    annotate = exporter.annotate
+
+    def mutate_before_integrity_check(*a, **kw):
+        annotate(*a, **kw)
+        changed_path.write_bytes(original_bytes[:-1] + bytes([original_bytes[-1] ^ 1]))
+        os.utime(changed_path, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+
+    monkeypatch.setattr(exporter, "annotate", mutate_before_integrity_check)
+    try:
+        with pytest.raises(RuntimeError, match="changed during"):
+            exporter.compress(args)
+        assert not args.output.exists()
+        assert not Path(str(args.output) + ".json").exists()
+    finally:
+        changed_path.write_bytes(original_bytes)
+
+
 @pytest.mark.parametrize("name,expected", [
     ("layers_0_self_attn_q_proj_weight_promoted_to_fp16_palettized", "layers.0.self_attn.q_proj.weight"),
     ("layers_3_mlp_down_proj_weight_to_fp16_palettized", "layers.3.mlp.down_proj.weight"),
@@ -152,6 +280,7 @@ def test_embedding_and_head_compression_names_and_contracts(kind, part_type, cou
                               input=tmp_path / "fp16.mlpackage", output=tmp_path / f"lut{bits}.mlpackage", bits=bits)
     exporter.annotate(model, args)
     exporter.save_model(model, args.input)
+    bind_compression_input(args, tmp_path, monkeypatch)
     monkeypatch.setattr(exporter, "COMPRESSION_WEIGHT_THRESHOLD", 256)
     exporter.compress(args)
     report = json.loads(args.output.with_suffix(".mlpackage.json").read_text())
@@ -165,7 +294,7 @@ def test_embedding_and_head_compression_names_and_contracts(kind, part_type, cou
         assert sum(shape[1] for shape in report["outputs"].values()) == 259
 
 
-def test_threaded_cache_matches_serial_saved_weights_with_duplicate_groups(tmp_path):
+def test_threaded_cache_matches_serial_saved_weights_with_duplicate_groups(tmp_path, monkeypatch):
     """Repeated identical source rows require multiple callback uses per key."""
     torch.manual_seed(709)
     part = EmbeddingPart(dict(vocab_size=259, hidden_size=256)).eval()
@@ -183,6 +312,7 @@ def test_threaded_cache_matches_serial_saved_weights_with_duplicate_groups(tmp_p
                               input=tmp_path / "fp16.mlpackage")
     exporter.annotate(model, args)
     exporter.save_model(model, args.input)
+    bind_compression_input(args, tmp_path, monkeypatch)
     reports = []
     for workers in (1, 4):
         args.palette_workers = workers

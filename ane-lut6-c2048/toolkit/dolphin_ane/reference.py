@@ -26,7 +26,10 @@ import torch
 from torch import nn
 from transformers import AutoTokenizer
 
+from download_source import (assert_pinned_source_snapshot, verify_pinned_source_shards,
+                             verify_pinned_source_snapshot)
 from .model import BlockPart, EmbeddingPart, HeadPart
+from .output_lock import exclusive_output_directory
 from .palette import PALETTE_ALGORITHMS, palette
 from .source import (SOURCE_MODEL_ID, SOURCE_REVISION, load_config, load_part,
                      make_rope_tables)
@@ -133,12 +136,14 @@ def quantize_and_hash_part(part, quantize=True, min_elements=65536, bits=6, expe
     return result
 
 
-def _source_preflight(source_dir):
+def _source_preflight(source_dir, expected_shards=None):
     index = source_dir / "model.safetensors.index.json"
     if index.is_file():
         shards = sorted(set(json.loads(index.read_text())["weight_map"].values()))
     else:
         shards = ["model.safetensors"]
+    if expected_shards is not None and set(shards) != set(expected_shards):
+        raise ValueError("Source weight map does not reference exactly the verified pinned shards")
     details = []
     for name in shards:
         path = source_dir / name
@@ -164,7 +169,7 @@ def _fixtures(tokenizer, config, context_length, fixture_specs):
     return result
 
 
-def _source_identity(source_dir, config, fixtures):
+def _source_identity(source_dir, config, fixtures, source_weight_identity):
     tokenizer_files = []
     for name in ("tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "chat_template.jinja"):
         path = source_dir / name
@@ -172,7 +177,8 @@ def _source_identity(source_dir, config, fixtures):
             tokenizer_files.append({"file": name, "bytes": path.stat().st_size, "sha256": _file_hash(path)})
     return {"config": config, "config_canonical_sha256": _identity_hash(config),
             "config_file_sha256": _file_hash(source_dir / "config.json"),
-            "fixture_identity_sha256": _identity_hash(fixtures), "tokenizer_files": tokenizer_files}
+            "fixture_identity_sha256": _identity_hash(fixtures), "tokenizer_files": tokenizer_files,
+            "source_weight_identity": source_weight_identity}
 
 
 def _load_source_reference(directory, config_path, identity, source_files, fixtures, context_length, part_ids):
@@ -186,6 +192,11 @@ def _load_source_reference(directory, config_path, identity, source_files, fixtu
     paths = [directory / name for name in
              ("reference-report.json", "reference-weight-hashes.json", "reference-logits.npz")]
     report, hashes = (json.loads(path.read_text(encoding="utf-8")) for path in paths[:2])
+    report_schema = report.get("schema_version", 1)
+    hashes_schema = hashes.get("schema_version", 1)
+    if (type(report_schema) is not int or type(hashes_schema) is not int
+            or report_schema != hashes_schema or report_schema not in (1, 2, 3)):
+        raise ValueError("Source-reference report/hash schemas must match and be one of 1, 2, or 3")
     if report.get("complete") is not True or hashes.get("complete") is not True:
         raise ValueError("Source-reference report and parameter hashes must be complete")
     if (report.get("source_model") != SOURCE_MODEL_ID or report.get("source_revision_requested") != SOURCE_REVISION
@@ -198,11 +209,25 @@ def _load_source_reference(directory, config_path, identity, source_files, fixtu
     if set(hashes.get("parts", {})) != set(part_ids):
         raise ValueError("Source-reference model part set differs")
     prior_identity = report.get("source_identity")
+    if report_schema != 1 and not isinstance(prior_identity, dict):
+        raise ValueError(f"Reference schema {report_schema} is missing its required source identity")
     if prior_identity is not None:
         if any(prior_identity.get(key) != identity[key] for key in
                ("config", "config_canonical_sha256", "fixture_identity_sha256", "tokenizer_files")):
             raise ValueError("Source-reference configuration or tokenizer identity differs")
+        recorded_identity = prior_identity.get("source_weight_identity")
+        hash_identity = hashes.get("source_weight_identity")
+        if recorded_identity is not None or hash_identity is not None:
+            if (recorded_identity != identity["source_weight_identity"]
+                    or hash_identity != identity["source_weight_identity"]):
+                raise ValueError("Source-reference weight-hash report has another source shard identity")
+            binding = "recorded cryptographic source-input identity"
+        elif report.get("schema_version", 1) >= 3 or hashes.get("schema_version", 1) >= 3:
+            raise ValueError("Reference schema 3 is missing its required cryptographic source-input identity")
+        else:
+            binding = "schema 2 migration: freshly pinned source inputs plus every loaded FP16 parameter hash must match"
         config_provenance = {"kind": "recorded baseline configuration and tokenizer hashes",
+                             "source_binding": binding,
                              "config_canonical_sha256": identity["config_canonical_sha256"]}
     else:
         if config_path is None:
@@ -240,7 +265,7 @@ def _load_source_reference(directory, config_path, identity, source_files, fixtu
                   "configuration": config_provenance, "fixture_identity_sha256": _identity_hash(fixtures),
                   "source_logits_reexecuted": False, "all_source_fp16_parameter_hashes_verified": False,
                   "source_parameter_count_verified": 0,
-                  "verification_scope": "Exact config and fixture identity plus each loaded FP16 parameter's shape and SHA256; prior source logits reused verbatim."}
+                  "verification_scope": "Fresh pinned shard SHA256, exact config and fixture identity, plus each loaded FP16 parameter's shape and SHA256; prior source logits reused verbatim."}
     return [torch.from_numpy(row.copy()) for row in array], hashes["parts"], provenance
 
 
@@ -353,7 +378,8 @@ def _compare(source, quantized, bits=6):
 
 
 def run_reference(source_dir, output_dir, context_length=2048, mode="both", threads=8, fixture_specs=None,
-                  bits=6, source_reference=None, source_reference_config=None, palette_workers=4):
+                  bits=6, source_reference=None, source_reference_config=None, palette_workers=4,
+                  source_verification=None):
     """Execute references; optionally reuse a fully checked prior FP16 baseline."""
     if mode not in {"both", "source", "quantized"}:
         raise ValueError("mode must be both, source, or quantized")
@@ -363,11 +389,23 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
         raise ValueError("palette_workers must be a positive integer")
     if source_reference is not None and mode == "source":
         raise ValueError("--source-reference cannot be combined with --source-only")
+    if not isinstance(context_length, int) or context_length < 1:
+        raise ValueError("context_length must be a positive integer")
+    threads = max(1, int(threads))
     source_dir, output_dir = Path(source_dir).resolve(), Path(output_dir).resolve()
     if source_reference is not None and output_dir == Path(source_reference).resolve():
         raise ValueError("Candidate output must not overwrite the prior source reference")
+    with exclusive_output_directory(output_dir) as locked_output:
+        return _run_reference_locked(
+            source_dir, locked_output, context_length, mode, threads, fixture_specs,
+            bits, source_reference, source_reference_config, palette_workers, source_verification)
+
+
+def _run_reference_locked(source_dir, output_dir, context_length, mode, threads, fixture_specs,
+                          bits, source_reference, source_reference_config, palette_workers,
+                          source_verification):
     output_dir.mkdir(parents=True, exist_ok=True)
-    torch.set_num_threads(max(1, int(threads)))
+    torch.set_num_threads(threads)
     started = time.perf_counter()
     status = {"status": "running", "phase": "source_preflight", "started_at_utc": datetime.now(timezone.utc).isoformat(),
               "palette_workers": palette_workers, "palette_batch_groups": PALETTE_BATCH_GROUPS}
@@ -381,11 +419,15 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
 
     try:
         progress("source_preflight")
-        source_files = _source_preflight(source_dir)
+        verification_path = (Path(source_verification).resolve() if source_verification is not None
+                             else source_dir.parent / "source-verification.json")
+        source_weight_identity, source_snapshot = verify_pinned_source_snapshot(source_dir, verification_path)
+        expected_shards = {item["file"] for item in source_weight_identity["shards"]}
+        source_files = _source_preflight(source_dir, expected_shards=expected_shards)
         config = load_config(source_dir)
         tokenizer = AutoTokenizer.from_pretrained(str(source_dir), local_files_only=True, trust_remote_code=False)
         fixtures = _fixtures(tokenizer, config, context_length, fixture_specs or DEFAULT_FIXTURES)
-        identity = _source_identity(source_dir, config, fixtures)
+        identity = _source_identity(source_dir, config, fixtures, source_weight_identity)
         cos, sin = make_rope_tables(config, context_length)
         include_source, include_quantized = mode != "quantized" and source_reference is None, mode != "source"
         candidate_key = f"lut{bits}_reference"
@@ -403,6 +445,7 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                 source_reference, source_reference_config, identity, source_files, fixtures, context_length,
                 [item[0] for item in specs])
         for part_id, start_layer, end_layer in specs:
+            assert_pinned_source_snapshot(source_dir, source_snapshot, verification_path)
             part_started = time.perf_counter()
             progress("load_part", part_id)
             with torch.device("meta"):
@@ -412,7 +455,7 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                     part = HeadPart(config)
                 else:
                     part = BlockPart(config, start_layer, end_layer, context_length)
-            part = load_part(part, source_dir)
+            part = load_part(part, source_dir, expected_shards=expected_shards)
             if include_source:
                 progress("source_fp16_forward", part_id)
                 if part_id == "embedding":
@@ -426,9 +469,10 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                 expected_source=prior_source_hashes[part_id] if prior_source_hashes is not None else None)
             if reuse_provenance is not None:
                 reuse_provenance["source_parameter_count_verified"] += len(hashes[part_id])
-            _write_json(output_dir / "reference-weight-hashes.json", {"schema_version": 2, "complete": False,
+            _write_json(output_dir / "reference-weight-hashes.json", {"schema_version": 3, "complete": False,
                 "index_bits": bits if include_quantized else None, "group_size": 16, "channel_axis": 0,
                 "palette_workers": palette_workers, "palette_batch_groups": PALETTE_BATCH_GROUPS,
+                "source_weight_identity": source_weight_identity,
                 "dense_bytes": "little-endian FP16, C order", "parts": hashes})
             if include_quantized:
                 progress(candidate_key + "_forward", part_id)
@@ -446,8 +490,11 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
             timings[part_id] = time.perf_counter() - part_started
             del part
             gc.collect()
+            assert_pinned_source_snapshot(source_dir, source_snapshot, verification_path)
             progress("part_complete", part_id, part_seconds=round(timings[part_id], 3),
                      candidate_final_token_hidden=hidden_summaries.get(part_id))
+        if verify_pinned_source_shards(source_dir, verification_path) != source_weight_identity:
+            raise RuntimeError("Pinned source shards changed while the reference was running")
         reports, full_logits = {}, {}
         if source_logits is not None:
             reports["source_fp16"] = [{"fixture_id": case["id"], **_logits_summary(logits, tokenizer)}
@@ -467,7 +514,7 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                                for name, value in part_hashes.items()} for part_id, part_hashes in hashes.items()}
         identity["source_fp16_parameter_identity_sha256"] = _identity_hash(source_hash_identity)
         np.savez_compressed(output_dir / "reference-logits.npz", **full_logits)
-        fixture_data = {"schema_version": 2, "backend": f"PyTorch CPU eager, reconstructed LUT{bits} FP16 weights",
+        fixture_data = {"schema_version": 3, "backend": f"PyTorch CPU eager, reconstructed LUT{bits} FP16 weights",
                         "index_bits": bits, "numerical_quality_gate_passed": gate["passed"],
                         "coreml_runtime_validation": "pending", "ane_hardware_validation": "pending",
                         "interpretation": "Fixed-prompt numerical sanity is reported separately; Apple device parity and broad model quality are unverified.",
@@ -482,7 +529,7 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                         {"token_id": int(token), "logit": float(logits[token])} for token in sorted(probe_ids)]})
         _write_json(output_dir / "reference-fixtures.json", fixture_data)
         max_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        report = {"schema_version": 2, "complete": True, "mode": "candidate_with_reused_source" if reuse_provenance else mode,
+        report = {"schema_version": 3, "complete": True, "mode": "candidate_with_reused_source" if reuse_provenance else mode,
                   "source_model": SOURCE_MODEL_ID, "source_identity": identity, "source_reference_reuse": reuse_provenance,
                   "source_revision_requested": SOURCE_REVISION, "source_files": source_files,
                   "backend": "PyTorch CPU eager", "torch_version": torch.__version__,
@@ -505,9 +552,10 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                   "total_seconds": time.perf_counter() - started,
                   "peak_process_rss_bytes": int(max_rss if platform.system() == "Darwin" else max_rss * 1024)}
         _write_json(output_dir / "reference-report.json", report)
-        _write_json(output_dir / "reference-weight-hashes.json", {"schema_version": 2, "complete": True,
+        _write_json(output_dir / "reference-weight-hashes.json", {"schema_version": 3, "complete": True,
             "index_bits": bits if include_quantized else None, "group_size": 16, "channel_axis": 0,
             "palette_workers": palette_workers, "palette_batch_groups": PALETTE_BATCH_GROUPS,
+            "source_weight_identity": source_weight_identity,
             "source_fp16_parameter_identity_sha256": identity["source_fp16_parameter_identity_sha256"],
             "dense_bytes": "little-endian FP16, C order", "parts": hashes})
         status["status"] = "completed"
@@ -529,6 +577,8 @@ def main():
     parser.add_argument("--palette-workers", type=int, default=4, help="Independent read-only group fit threads; default 4, use 1 for serial reproduction; at most eight groups buffered")
     parser.add_argument("--source-reference", type=Path, help="Reuse this completed reference's FP16 logits after config, fixture and every source weight hash check")
     parser.add_argument("--source-reference-config", type=Path, help="For legacy schema 1 only: config.json from the prior run's companion export directory")
+    parser.add_argument("--source-verification", type=Path,
+                        help="Pinned source-verification.json; defaults beside the source directory")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--quantized", action="store_true", help="Run only the candidate forward path; --source-reference supplies a prior baseline for comparison")
     group.add_argument("--source-only", action="store_true", help="Run only the uncompressed FP16 reference")
@@ -536,7 +586,7 @@ def main():
     mode = "quantized" if args.quantized else "source" if args.source_only else "both"
     report = run_reference(args.source, args.output, args.context, mode, args.threads, bits=args.bits,
                            source_reference=args.source_reference, source_reference_config=args.source_reference_config,
-                           palette_workers=args.palette_workers)
+                           palette_workers=args.palette_workers, source_verification=args.source_verification)
     return 2 if report.get(f"source_vs_lut{args.bits}") is not None and not report["numerical_quality_gate_passed"] else 0
 
 

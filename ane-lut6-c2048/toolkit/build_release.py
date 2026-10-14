@@ -4,10 +4,15 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
+import re
 import shutil
 import xml.etree.ElementTree as ET
 import zipfile
+
+from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
+from dolphin_ane.output_lock import output_lock_path
 
 ROOT = Path(__file__).resolve().parent
 SMALL = "Dolphin3_ANE_Conversion_Toolkit"
@@ -23,6 +28,208 @@ def digest(path):
         for b in iter(lambda: f.read(8 * 1024 * 1024), b""):
             h.update(b)
     return h.hexdigest()
+
+
+def read_pinned_verification(path, expected_sha256):
+    """Read only the report bytes bound to a separately retained verifier digest."""
+    if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+        raise ValueError("--verification-sha256 must be a trusted SHA-256 from the independent verification run")
+    contents = Path(path).read_bytes()
+    if hashlib.sha256(contents).hexdigest() != expected_sha256:
+        raise RuntimeError("Verification report differs from the separately pinned SHA-256; rerun independent verification")
+    return json.loads(contents)
+
+
+def require_fresh_destination(destination):
+    """Do not overwrite unrelated reports or checksums in an existing release."""
+    destination = Path(destination)
+    if destination.exists() and (not destination.is_dir() or any(destination.iterdir())):
+        raise FileExistsError("Release destination must be absent or empty")
+
+
+def file_snapshot(value):
+    return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
+            value.st_mtime_ns, value.st_ctime_ns)
+
+
+def tree_files(directory, exclude=()):
+    directory = Path(directory).resolve()
+    for path in sorted(directory.rglob("*")):
+        relative = path.relative_to(directory)
+        if any(relative == Path(item) or relative.is_relative_to(item) for item in exclude):
+            continue
+        if path.is_symlink():
+            raise RuntimeError(f"Release inputs must not contain symbolic links: {path}")
+        if path.is_file():
+            yield path, relative.as_posix()
+
+
+def model_tree_exclusions(models, reference):
+    """Do not archive the exact persistent coordination lock as model evidence."""
+    paths = (reference, models / "evidence/reference", models / "evidence/source-verification.json",
+             output_lock_path(reference))
+    return tuple(path.relative_to(models) for path in paths if path.is_relative_to(models))
+
+
+def capture_archive_inventory(sources):
+    """Bind every planned member, including toolkit code and supplemental logs.
+
+    This is byte provenance, not a claim that toolkit/log bytes passed weight
+    parity. Model and reference inventories are checked separately against the
+    independently pinned verification report.
+    """
+    records = []
+    names = set()
+    for path, member in sources:
+        if member in names:
+            raise RuntimeError(f"Duplicate planned archive member: {member}")
+        names.add(member)
+        before = file_snapshot(path.stat())
+        value = digest(path)
+        if file_snapshot(path.stat()) != before:
+            raise RuntimeError(f"Release input changed while recording inventory: {path}")
+        records.append({"path": member, "bytes": before[3], "sha256": value})
+    return records
+
+
+def verify_source_metadata_directory(directory, records):
+    """Verify the exact copied metadata set against the pinned identity."""
+    directory = Path(directory)
+    expected = {item["file"] for item in records}
+    actual = {str(path.relative_to(directory)) for path in directory.rglob("*") if path.is_file()}
+    if len(expected) != len(records) or actual != expected:
+        raise RuntimeError("Copied source metadata inventory differs from its verified identity")
+    for item in records:
+        copied = directory / item["file"]
+        if copied.stat().st_size != item["bytes"] or digest(copied) != item["sha256"]:
+            raise RuntimeError(f"Copied source metadata differs from its verified identity: {item['file']}")
+
+
+def verify_archived_source_metadata(archive_path, prefix, records):
+    """Re-hash the metadata bytes actually stored in one finished archive."""
+    with zipfile.ZipFile(archive_path) as archive:
+        names = [info.filename for info in archive.infolist()]
+        source_prefix = str(Path(prefix) / "source") + "/"
+        expected_members = {source_prefix + item["file"] for item in records}
+        actual_members = [name for name in names if name.startswith(source_prefix) and not name.endswith("/")]
+        if len(actual_members) != len(expected_members) or set(actual_members) != expected_members:
+            raise RuntimeError("Archived source metadata inventory differs from its verified identity")
+        for item in records:
+            member = source_prefix + item["file"]
+            info = archive.getinfo(member)
+            digest_value = hashlib.sha256()
+            with archive.open(info) as stream:
+                for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+                    digest_value.update(chunk)
+            if info.file_size != item["bytes"] or digest_value.hexdigest() != item["sha256"]:
+                raise RuntimeError(f"Archived source metadata differs from its verified identity: {member}")
+
+
+def verify_archived_release_inputs(archive_path, prefix, verification, toolkit_only=False,
+                                   complete_inventory=None):
+    """Bind the delivered ZIP bytes, not just its valid CRC, to verified inputs.
+
+    Files can change after the pre-packaging check. Re-hash archived payloads
+    against that check's inventory before emitting release_ready; never derive
+    the expected hashes from the newly written archive itself.
+    """
+    with zipfile.ZipFile(archive_path) as archive:
+        names = archive.namelist()
+        if len(names) != len(set(names)):
+            raise RuntimeError("Archived file inventory contains duplicate members")
+        members = set(names)
+        checked_members = set()
+
+        def check_files(root, records, exact=False, mark=True):
+            expected = {root + "/" + item["path"] for item in records}
+            actual = {name for name in members if name.startswith(root + "/") and not name.endswith("/")}
+            if len(expected) != len(records) or (exact and actual != expected):
+                raise RuntimeError(f"Archived verified file inventory differs: {root}")
+            for item in records:
+                member = root + "/" + item["path"]
+                if mark:
+                    checked_members.add(member)
+                if member not in members:
+                    raise RuntimeError(f"Archived verified file is missing: {member}")
+                info = archive.getinfo(member)
+                value = hashlib.sha256()
+                with archive.open(info) as stream:
+                    for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+                        value.update(chunk)
+                if (("bytes" in item and info.file_size != item["bytes"])
+                        or value.hexdigest() != item["sha256"]):
+                    raise RuntimeError(f"Archived file differs from its verified identity: {member}")
+
+        source_record = {"path": "source-verification.json",
+                         "sha256": verification["pinned_source_verification"]["sha256"]}
+        check_files(prefix if toolkit_only else prefix + "/toolkit", [source_record])
+        if complete_inventory is not None:
+            # Exact matching rejects every unplanned file, including toolkit
+            # files which are outside the model verification inventory.
+            expected = {item["path"] for item in complete_inventory}
+            if len(expected) != len(complete_inventory) or members != expected:
+                raise RuntimeError("Archived complete file inventory differs from planned inputs")
+            for item in complete_inventory:
+                root, _, name = item["path"].rpartition("/")
+                check_files(root, [{**item, "path": name}], mark=False)
+        if toolkit_only:
+            if complete_inventory is None and members != checked_members:
+                raise RuntimeError("Archived complete file inventory contains unverified members")
+            return
+        model_prefix = prefix + "/models"
+        package_names = {part + ".mlpackage" for part in verification["packages"]}
+        actual_packages = {name[len(model_prefix) + 1:].split("/", 1)[0] for name in members
+                           if name.startswith(model_prefix + "/")
+                           and name[len(model_prefix) + 1:].split("/", 1)[0].endswith(".mlpackage")}
+        if actual_packages != package_names:
+            raise RuntimeError("Archived model package set differs from verified inputs")
+        for part, info in verification["packages"].items():
+            check_files(model_prefix + "/" + part + ".mlpackage",
+                        info["package_files_verified"], exact=True)
+        check_files(model_prefix, verification["model_sidecar_files"])
+        check_files(model_prefix + "/evidence/reference", verification["reference_files"], exact=True)
+        check_files(model_prefix, verification.get("model_evidence_files", []))
+        fixtures = verification["swift_fixtures"]
+        check_files(model_prefix, [
+            {"path": "manifest.json", "sha256": verification["manifest_sha256"]},
+            {"path": fixtures["file"], "sha256": fixtures["sha256"]},
+        ])
+        check_files(model_prefix + "/evidence", [source_record])
+        try:
+            archived_verification = json.loads(archive.read(model_prefix + "/evidence/verification.json"))
+        except (KeyError, ValueError) as error:
+            raise RuntimeError("Archived verification report is missing or invalid") from error
+        if archived_verification != verification:
+            raise RuntimeError("Archived verification report differs from verified inputs")
+        checked_members.add(model_prefix + "/evidence/verification.json")
+        model_members = {member for member in members if member.startswith(model_prefix + "/")}
+        checked_model_members = {member for member in checked_members if member.startswith(model_prefix + "/")}
+        if model_members != checked_model_members or (complete_inventory is None and members != checked_members):
+            raise RuntimeError("Archived complete file inventory contains unverified members")
+
+
+def verified_archive_record(archive_path, prefix, verification, metadata_records,
+                            complete_inventory, toolkit_only=False):
+    """Validate and hash one open archive, rejecting changes across both reads."""
+    archive_path = Path(archive_path)
+    with archive_path.open("rb") as stream:
+        before = file_snapshot(os.fstat(stream.fileno()))
+        metadata_prefix = prefix if toolkit_only else prefix + "/toolkit"
+        verify_archived_source_metadata(stream, metadata_prefix, metadata_records)
+        verify_archived_release_inputs(stream, prefix, verification, toolkit_only=toolkit_only,
+                                       complete_inventory=complete_inventory)
+        stream.seek(0)
+        value = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            value.update(chunk)
+        if file_snapshot(os.fstat(stream.fileno())) != before or file_snapshot(archive_path.stat()) != before:
+            raise RuntimeError(f"Archive changed during validation or hashing: {archive_path}")
+    return {"file": archive_path.name, "bytes": before[3], "sha256": value.hexdigest()}, before
+
+
+def assert_archive_unchanged(path, snapshot):
+    if file_snapshot(Path(path).stat()) != snapshot:
+        raise RuntimeError(f"Archive changed after validation: {path}")
 
 
 def md(value):
@@ -140,6 +347,12 @@ def verify_current_inputs(models, reference, verification):
     """Bind the archive to the exact files which passed independent verification."""
     if digest(models / "manifest.json") != verification["manifest_sha256"]:
         raise RuntimeError("Manifest changed after verification")
+    pinned = verification.get("pinned_source_verification", {})
+    if (pinned.get("sha256") != digest(ROOT / "source-verification.json")
+            or pinned.get("source_weight_identity") != verification.get("source_weight_identity")):
+        raise RuntimeError("Pinned source verification changed after independent verification")
+
+    verified_model_paths = {"manifest.json", "evidence/verification.json", "evidencefixtures.json"}
 
     def check_files(root, records, exact=False):
         expected = {item["path"] for item in records}
@@ -153,24 +366,55 @@ def verify_current_inputs(models, reference, verification):
                 raise RuntimeError(f"Missing or escaped verified file: {path}")
             if path.stat().st_size != item["bytes"] or digest(path) != item["sha256"]:
                 raise RuntimeError(f"File changed after verification: {path}")
+            if root != reference and path.is_relative_to(models.resolve()):
+                verified_model_paths.add(path.relative_to(models.resolve()).as_posix())
 
     package_names = {part + ".mlpackage" for part in verification["packages"]}
     if package_names != {path.name for path in models.glob("*.mlpackage")}:
         raise RuntimeError("Model package set changed after verification")
     for part, info in verification["packages"].items():
         check_files(models / (part + ".mlpackage"), info["package_files_verified"], exact=True)
-    check_files(reference, verification["reference_files"])
+    check_files(reference, verification["reference_files"], exact=True)
     check_files(models, verification["model_sidecar_files"])
+    if not isinstance(verification.get("model_evidence_files"), list):
+        raise RuntimeError("Verification lacks a complete model evidence inventory; rerun independent verification")
+    check_files(models, verification["model_evidence_files"])
     fixtures = verification["swift_fixtures"]
     if digest(models / fixtures["file"]) != fixtures["sha256"]:
         raise RuntimeError("Swift reference fixtures changed after verification")
+    actual = {relative for _, relative in tree_files(models,
+              exclude=model_tree_exclusions(models, reference))}
+    if actual != verified_model_paths:
+        raise RuntimeError("Verified model file inventory has missing or unlisted sidecar/evidence files")
+
+
+def verify_release_source_binding(models, reference, verification, source_dir=None,
+                                  source_verification=None):
+    """Reject legacy/mixed evidence before any release directory is created."""
+    source_dir = (ROOT / "source") if source_dir is None else Path(source_dir)
+    source_verification = (ROOT / "source-verification.json" if source_verification is None
+                           else Path(source_verification))
+    manifest = read(models / "manifest.json")
+    ref = read(reference / "reference-report.json")
+    ref_hashes = read(reference / "reference-weight-hashes.json")
+    if verification.get("schema_version") != 3:
+        raise RuntimeError("Unsupported verification schema; expected schema 3 with cryptographic source-input binding")
+    if manifest.get("format_version") != 3:
+        raise RuntimeError("Unsupported manifest format; expected format 3 with cryptographic source-input binding")
+    if ref.get("schema_version") != 3 or ref_hashes.get("schema_version") != 3:
+        raise RuntimeError("Unsupported reference evidence schema; expected schema 3 after regeneration or migration")
+    source_identity, source_snapshot = verify_pinned_source_snapshot(source_dir, source_verification)
+    identities = (manifest.get("source_weight_identity"),
+                  ref.get("source_identity", {}).get("source_weight_identity"),
+                  ref_hashes.get("source_weight_identity"), verification.get("source_weight_identity"))
+    if any(value != source_identity for value in identities):
+        raise RuntimeError("Release inputs do not share the freshly re-hashed pinned source identity")
+    return manifest, ref, source_snapshot
 
 
 def add_tree(archive, directory, prefix, exclude=()):
-    for path in sorted(directory.rglob("*")):
-        relative = path.relative_to(directory)
-        if path.is_file() and not any(relative == Path(item) or relative.is_relative_to(item) for item in exclude):
-            archive.write(path, str(Path(prefix) / relative))
+    for path, relative in tree_files(directory, exclude=exclude):
+        archive.write(path, str(Path(prefix) / relative))
 
 
 def main():
@@ -178,14 +422,16 @@ def main():
     p.add_argument("--models", required=True, type=Path)
     p.add_argument("--reference", required=True, type=Path)
     p.add_argument("--destination", required=True, type=Path)
+    p.add_argument("--verification-sha256", required=True,
+                   help="Trusted digest retained separately when independent verification succeeded; do not recompute from mutable inputs")
     a = p.parse_args()
     models, reference, destination = a.models.resolve(), a.reference.resolve(), a.destination.resolve()
-    evidence = read(models / "evidence/verification.json")
+    require_fresh_destination(destination)
+    evidence = read_pinned_verification(models / "evidence/verification.json", a.verification_sha256)
     if not evidence.get("artifact_integrity_and_weight_parity_passed") or not evidence.get("serialized_lut_reconstruction_verified"):
         raise RuntimeError("A complete, successful serialized-weight verification is required")
-    manifest = read(models / "manifest.json")
+    manifest, ref, source_snapshot = verify_release_source_binding(models, reference, evidence)
     bits = manifest["weights"]["index_bits"]
-    ref = read(reference / "reference-report.json")
     comparisons = ref.get(f"source_vs_lut{bits}")
     if bits != 6:
         raise RuntimeError("This release recipe accepts only the corrected LUT6 conversion")
@@ -195,6 +441,7 @@ def main():
         raise RuntimeError("All three intended probes must retain the source greedy token")
     verify_current_inputs(models, reference, evidence)
     release = f"Dolphin3_ANE_Stateful_LUT{bits}_C{manifest['context_length']}"
+    require_fresh_destination(destination)
     destination.mkdir(parents=True, exist_ok=True)
     staged = destination / "toolkit-staging"
     if staged.exists():
@@ -210,6 +457,12 @@ def main():
     (staged / "source").mkdir()
     for name in metadata_names:
         shutil.copy2(ROOT / "source" / name, staged / "source" / name)
+    metadata_records = evidence["source_weight_identity"].get("metadata")
+    if (not isinstance(metadata_records, list) or len(metadata_records) != len(metadata_names)
+            or {item.get("file") for item in metadata_records} != set(metadata_names)):
+        raise RuntimeError("Verified source identity has an invalid metadata inventory")
+    verify_source_metadata_directory(staged / "source", metadata_records)
+    assert_pinned_source_snapshot(ROOT / "source", source_snapshot, ROOT / "source-verification.json")
     report_path = destination / "Dolphin3_ANE_Conversion_Report.md"
     report_path.write_text(report(models, reference, evidence), encoding="utf-8")
     shutil.copy2(report_path, staged / "CONVERSION_REPORT.md")
@@ -218,26 +471,59 @@ def main():
     for archive_path in (full_zip, small_zip):
         if archive_path.exists():
             raise FileExistsError(archive_path)
+    # Freeze the member list and its hashes before writing either ZIP. The model
+    # subset is already bound to the independent report; this also binds every
+    # supplemental toolkit/readme/report byte to the packaging operation.
+    model_sources = [(path, release + "/models/" + relative) for path, relative in tree_files(
+        models, exclude=model_tree_exclusions(models, reference))]
+    reference_sources = [(path, release + "/models/evidence/reference/" + relative)
+                         for path, relative in tree_files(reference)]
+    toolkit_sources = list(tree_files(staged))
+    full_sources = [*model_sources, *reference_sources,
+        (ROOT / "source-verification.json", release + "/models/evidence/source-verification.json"),
+        *((path, release + "/toolkit/" + relative) for path, relative in toolkit_sources),
+        (ROOT / "README.md", release + "/README.md"),
+        (report_path, release + "/CONVERSION_REPORT.md")]
+    small_sources = [(path, SMALL + "/" + relative) for path, relative in toolkit_sources]
+    inventories = {full_zip: capture_archive_inventory(full_sources),
+                   small_zip: capture_archive_inventory(small_sources)}
+    for item in inventories[full_zip]:
+        if item["path"] == release + "/models/evidence/verification.json":
+            # Keep the external trust anchor even if the report was rewritten
+            # with semantically identical JSON after its initial read.
+            item["sha256"] = a.verification_sha256
     with zipfile.ZipFile(full_zip, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=1, allowZip64=True) as z:
         # Add reference evidence directly. Packaging never mutates verified input
         # directories, so a failed archive can be rebuilt into a fresh destination.
-        add_tree(z, models, release + "/models", exclude=("evidence/reference", "evidence/source-verification.json"))
-        add_tree(z, reference, release + "/models/evidence/reference")
-        z.write(ROOT / "source-verification.json", release + "/models/evidence/source-verification.json")
-        add_tree(z, staged, release + "/toolkit")
-        z.write(ROOT / "README.md", release + "/README.md")
-        z.write(report_path, release + "/CONVERSION_REPORT.md")
+        for path, member in full_sources:
+            z.write(path, member)
     with zipfile.ZipFile(small_zip, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as z:
-        add_tree(z, staged, SMALL)
+        for path, member in small_sources:
+            z.write(path, member)
+    records, archive_snapshots = [], {}
     for archive_path in (full_zip, small_zip):
         with zipfile.ZipFile(archive_path) as z:
             bad = z.testzip()
             if bad:
                 raise RuntimeError(f"Archive CRC failure: {archive_path}: {bad}")
-        print(json.dumps({"file": str(archive_path), "bytes": archive_path.stat().st_size, "sha256": digest(archive_path)}), flush=True)
-    records = [{"file": path.name, "bytes": path.stat().st_size, "sha256": digest(path)} for path in (full_zip, small_zip, report_path)]
+        record, snapshot = verified_archive_record(archive_path, release if archive_path == full_zip else SMALL,
+            evidence, metadata_records, inventories[archive_path], toolkit_only=archive_path == small_zip)
+        records.append(record)
+        archive_snapshots[archive_path] = snapshot
+    verify_source_metadata_directory(staged / "source", metadata_records)
+    assert_pinned_source_snapshot(ROOT / "source", source_snapshot, ROOT / "source-verification.json")
+    report_record = next(item for item in inventories[full_zip]
+                         if item["path"] == release + "/CONVERSION_REPORT.md")
+    if report_path.stat().st_size != report_record["bytes"] or digest(report_path) != report_record["sha256"]:
+        raise RuntimeError("Conversion report changed after archive validation")
+    records.append({**report_record, "file": report_path.name})
+    records[-1].pop("path")
+    for path, snapshot in archive_snapshots.items():
+        assert_archive_unchanged(path, snapshot)
     (destination / "release-files.json").write_text(json.dumps(records, indent=2) + "\n")
     (destination / "SHA256SUMS.txt").write_text("".join(f"{r['sha256']}  {r['file']}\n" for r in records))
+    for path, snapshot in archive_snapshots.items():
+        assert_archive_unchanged(path, snapshot)
     print(json.dumps({"release_ready": True, "files": records}), flush=True)
 
 

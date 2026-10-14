@@ -115,8 +115,9 @@ These exemptions do not remove the CPU fallback check for transformer math.
 
 Exit 0 means the requested checks passed; exit 1 means an input, model, inference
 or report error; exit 2 means `--strict-ane` failed; exit 3 means fixture parity
-failed. If both strict placement and parity fail, exit 2 takes precedence and the
-report retains both failed results. Without `--strict-ane`, exit 0 does not assert
+failed. If both strict placement and parity fail, exit 3 takes precedence and the
+report retains both failed results. Runtime/report errors take precedence over
+either policy failure. Without `--strict-ane`, exit 0 does not assert
 ANE placement. `.cpuAndNeuralEngine` permits CPU fallback and excludes GPU.
 
 Fixture schema (the exporter must supply real reference values, not this example):

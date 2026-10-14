@@ -6,6 +6,8 @@ let package = Package(
     platforms: [.iOS(.v18), .macOS(.v15)],
     products: [.library(name: "DolphinANE", targets: ["DolphinANE"]),
                .executable(name: "dolphin-ane-validate", targets: ["Validate"])],
-    targets: [.target(name: "DolphinANE"), .executableTarget(name: "Validate", dependencies: ["DolphinANE"])],
+    targets: [.target(name: "DolphinANE"),
+              .executableTarget(name: "Validate", dependencies: ["DolphinANE"]),
+              .testTarget(name: "DolphinANETests", dependencies: ["DolphinANE"])],
     swiftLanguageModes: [.v5]
 )

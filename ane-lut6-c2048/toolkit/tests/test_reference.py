@@ -1,6 +1,7 @@
 """Precision, baseline provenance, and fixed-prompt failure-gate checks."""
 
 import copy
+import hashlib
 import json
 import threading
 
@@ -11,6 +12,7 @@ import torch
 from torch import nn
 from transformers import LlamaConfig, LlamaForCausalLM
 
+import download_source
 from dolphin_ane import reference as ref
 from dolphin_ane.palette import palette
 
@@ -125,10 +127,40 @@ def baseline(tmp_path, monkeypatch):
     save_file({name: value.detach().bfloat16().contiguous() for name, value in model.state_dict().items()
                if name != "lm_head.weight"}, str(source / "model.safetensors"))
     (source / "config.json").write_text(json.dumps(config.to_dict()))
+    shard = source / "model.safetensors"
+    digest = hashlib.sha256(shard.read_bytes()).hexdigest()
+    expected = {"size": shard.stat().st_size, "sha256": digest}
+    monkeypatch.setattr(download_source, "SHARDS", {shard.name: expected})
+    monkeypatch.setattr(download_source, "PINNED_METADATA", {})
+    (source.parent / "source-verification.json").write_text(json.dumps({
+        "repo": download_source.REPO, "revision": download_source.REVISION, "all_verified": True,
+        "files": {shard.name: {**expected, "verified": True}},
+    }))
     monkeypatch.setattr(ref.AutoTokenizer, "from_pretrained", lambda *args, **kwargs: TinyTokenizer())
     prior = tmp_path / "baseline"
     ref.run_reference(source, prior, context_length=8, mode="source", threads=2)
     return source, prior
+
+
+def test_reference_rehashes_source_shards_before_forward(baseline, tmp_path, monkeypatch):
+    source, _ = baseline
+    calls = []
+    original_embed = ref._embed
+
+    def recording_embed(*args):
+        calls.append(1)
+        return original_embed(*args)
+
+    monkeypatch.setattr(ref, "_embed", recording_embed)
+    shard = source / "model.safetensors"
+    original_size = shard.stat().st_size
+    contents = bytearray(shard.read_bytes())
+    contents[-1] ^= 1
+    shard.write_bytes(contents)
+    assert shard.stat().st_size == original_size
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        ref.run_reference(source, tmp_path / "candidate", context_length=8, threads=2)
+    assert calls == []
 
 
 def test_baseline_reuse_skips_source_forward_and_preserves_all_logits(baseline, tmp_path, monkeypatch):
@@ -147,6 +179,7 @@ def test_baseline_reuse_skips_source_forward_and_preserves_all_logits(baseline, 
     assert report["numerical_quality_gate_passed"]
     assert report["source_reference_reuse"]["all_source_fp16_parameter_hashes_verified"]
     assert report["source_reference_reuse"]["source_parameter_count_verified"] == 28
+    assert report["source_identity"]["source_weight_identity"]["identity_sha256"]
     with np.load(prior / "reference-logits.npz") as old, np.load(output / "reference-logits.npz") as new:
         np.testing.assert_array_equal(old["source_fp16"], new["source_fp16"])
         np.testing.assert_array_equal(new["source_fp16"], new["lut6_reference"])
@@ -164,3 +197,38 @@ def test_baseline_identity_mismatch_rejected(baseline, tmp_path, mismatch):
     path.write_text(json.dumps(report))
     with pytest.raises(ValueError, match="identity differs"):
         ref.run_reference(source, tmp_path / "candidate", context_length=8, threads=2, source_reference=prior)
+
+
+@pytest.mark.parametrize("schema", [True, False, 1.0, 2.0, 3.0, "3", 4])
+@pytest.mark.parametrize("artifact", ["both", "reference-report.json", "reference-weight-hashes.json"])
+def test_baseline_schemas_require_exact_supported_integers(baseline, tmp_path, schema, artifact):
+    source, prior = baseline
+    names = ("reference-report.json", "reference-weight-hashes.json") if artifact == "both" else (artifact,)
+    for name in names:
+        path = prior / name
+        report = json.loads(path.read_text())
+        report["schema_version"] = schema
+        path.write_text(json.dumps(report))
+    with pytest.raises(ValueError, match="schemas must match"):
+        ref.run_reference(source, tmp_path / "candidate", context_length=8, threads=2, source_reference=prior)
+
+
+@pytest.mark.parametrize("schema", [2, 3])
+@pytest.mark.parametrize("missing", [True, False])
+def test_nonlegacy_reference_cannot_fall_back_to_companion_config(baseline, tmp_path, schema, missing):
+    source, prior = baseline
+    for name in ("reference-report.json", "reference-weight-hashes.json"):
+        path = prior / name
+        report = json.loads(path.read_text())
+        report["schema_version"] = schema
+        if name == "reference-report.json":
+            if missing:
+                report.pop("source_identity")
+            else:
+                report["source_identity"] = None
+        path.write_text(json.dumps(report))
+    (source / "manifest.json").write_text(json.dumps({
+        "source_revision": ref.SOURCE_REVISION, "context_length": 8}))
+    with pytest.raises(ValueError, match="missing its required source identity"):
+        ref.run_reference(source, tmp_path / "candidate", context_length=8, threads=2,
+                          source_reference=prior, source_reference_config=source / "config.json")

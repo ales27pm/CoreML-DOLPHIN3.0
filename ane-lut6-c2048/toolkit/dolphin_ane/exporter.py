@@ -24,6 +24,7 @@ import torch
 from .model import EmbeddingPart, BlockPart, HeadPart
 from .palette import palette, CachedPalettes, PALETTE_ALGORITHMS
 from .source import load_config, load_part, SOURCE_MODEL_ID, SOURCE_REVISION
+from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
 
 
 COMPRESSION_WEIGHT_THRESHOLD = 65536
@@ -43,9 +44,44 @@ def sha256_file(path):
 
 def tree_inventory(path):
     root = Path(path)
-    return [{"path": str(f.relative_to(root)), "bytes": f.stat().st_size,
-             "sha256": sha256_file(f)}
-            for f in sorted(root.rglob("*")) if f.is_file()]
+    records = []
+    for entry in sorted(root.rglob("*")):
+        if entry.is_symlink():
+            raise RuntimeError(f"Symlink is not permitted in model package: {entry}")
+        if not entry.is_file():
+            continue
+        records.append({"path": str(entry.relative_to(root)), "bytes": entry.stat().st_size,
+                        "sha256": sha256_file(entry)})
+    return records
+
+
+def validate_compression_input(package, source, verification_path):
+    """Hash and bind the FP16 package which this compression phase consumes."""
+    package = Path(package).resolve()
+    report_path = Path(str(package) + ".json")
+    identity, source_snapshot = verify_pinned_source_snapshot(source, verification_path)
+    report_bytes = report_path.read_bytes()
+    report = json.loads(report_bytes)
+    if report.get("source_weight_identity") != identity:
+        raise RuntimeError("FP16 input report is not bound to the pinned source identity")
+    inventory = tree_inventory(package)
+    if report.get("files") != inventory:
+        raise RuntimeError("FP16 input package differs from its hashed report")
+    return identity, inventory, report_bytes, source_snapshot
+
+
+def assert_compression_input_unchanged(package, inventory, report_bytes):
+    """Re-hash the exact compression input at the end of the phase.
+
+    Core ML Tools benignly rewrites package metadata while loading a model, so
+    inode/ctime snapshots produce false positives. Exact bytes and the recorded
+    report remain the stable boundary and are checked both before and after the
+    compression worker.
+    """
+    package = Path(package).resolve()
+    if (tree_inventory(package) != inventory
+            or Path(str(package) + ".json").read_bytes() != report_bytes):
+        raise RuntimeError("FP16 input package or report changed during compression")
 
 
 def atomic_json(path, value):
@@ -183,10 +219,11 @@ def annotate(model, args, compressed=False):
 
 def convert(args):
     started = time.monotonic()
+    source_identity, source_snapshot = verify_pinned_source_snapshot(args.source, args.source_verification)
     config = load_config(args.source)
     part = create_part(config, args.kind, args.start, args.end, args.context)
     log("loading_weights", kind=args.kind, start=args.start, end=args.end)
-    load_part(part, args.source)
+    load_part(part, args.source, expected_shards={item["file"] for item in source_identity["shards"]})
     examples, inputs, outputs, states = io_description(part, args.kind)
     expected_states = {n: list(b.shape) for n, b in part.named_buffers()}
     with torch.no_grad():
@@ -205,9 +242,11 @@ def convert(args):
     )
     annotate(model, args)
     report = spec_report(model, args.kind, expected_states)
+    assert_pinned_source_snapshot(args.source, source_snapshot, args.source_verification)
     save_model(model, args.output)
     report.update({"stage": "fp16_conversion", "part": args.kind,
                    "source_model": SOURCE_MODEL_ID, "source_revision": SOURCE_REVISION,
+                   "source_weight_identity": source_identity,
                    "context_length": args.context, "layer_start": args.start,
                    "layer_end": args.end, "requested_compression_bits": getattr(args, "bits", 6),
                    "seconds": time.monotonic() - started,
@@ -338,6 +377,10 @@ def precompute_palette_cache(model, args, bits, workers):
 
 def compress(args):
     started = time.monotonic()
+    verification_path = (args.source_verification.resolve() if args.source_verification is not None
+                         else args.source.resolve().parent / "source-verification.json")
+    source_identity, input_inventory, input_report_bytes, source_snapshot = validate_compression_input(
+        args.input, args.source, verification_path)
     bits = getattr(args, "bits", 6)
     if bits not in (4, 6):
         raise ValueError("Supported palette bit widths are 4 and 6")
@@ -384,10 +427,13 @@ def compress(args):
     if report["operation_counts"].get("constexpr_lut_to_dense") != expected:
         raise RuntimeError("The saved specification is missing compressed weight operations")
     annotate(model, args, compressed=True)
+    assert_compression_input_unchanged(args.input, input_inventory, input_report_bytes)
+    assert_pinned_source_snapshot(args.source, source_snapshot, verification_path)
     save_model(model, args.output)
     report.update({"stage": f"lut{bits}_compression", "part": args.kind,
                    "index_bits": bits, "weight_format": f"LUT{bits} grouped-channel-16",
                    "source_model": SOURCE_MODEL_ID, "source_revision": SOURCE_REVISION,
+                   "source_weight_identity": source_identity,
                    "context_length": args.context, "layer_start": args.start,
                    "layer_end": args.end,
                    "seconds": time.monotonic() - started,
@@ -409,6 +455,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("stage", choices=("convert", "compress"))
     parser.add_argument("--source", type=Path)
+    parser.add_argument("--source-verification", type=Path,
+                        help="Pinned source-verification.json; defaults beside --source")
     parser.add_argument("--input", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--kind", choices=("embedding", "block", "head"), required=True)
@@ -428,6 +476,8 @@ def main():
         parser.error("--source is required for convert")
     if args.stage == "compress" and args.input is None:
         parser.error("--input is required for compress")
+    if args.stage == "compress" and args.source is None:
+        parser.error("--source is required to bind compression to pinned provenance")
     (convert if args.stage == "convert" else compress)(args)
 
 

@@ -22,7 +22,9 @@ private struct Fixtures: Decodable { let cases: [Fixture] }
         func option(_ key: String) -> String? {
             guard let i = args.firstIndex(of: key), i + 1 < args.count else { return nil }; return args[i + 1]
         }
-        var status: Int32 = 0
+        var runtimeFailed = false
+        var numericalParityFailed = false
+        var anePass = false
         do {
             guard let path = option("--models") else {
                 throw DolphinError.invalid("Usage: dolphin-ane-validate --models PATH [--tokens 128000,9906] [--max-new-tokens 8] [--fixtures PATH] [--strict-ane] [--output PATH]")
@@ -34,7 +36,7 @@ private struct Fixtures: Decodable { let cases: [Fixture] }
             let plans = await engine.computePlans
             report["computePlan"] = try json(plans)
             let relevant = plans.filter { $0.model != "embedding" }
-            let anePass = !relevant.isEmpty && relevant.allSatisfy(\.strictANEPass)
+            anePass = !relevant.isEmpty && relevant.allSatisfy(\.strictANEPass)
             report["strictANEComputePlanPassed"] = anePass
             if let fixturePath = option("--fixtures") {
                 let fixtures = try JSONDecoder().decode(Fixtures.self, from: Data(contentsOf: URL(fileURLWithPath: fixturePath)))
@@ -46,15 +48,19 @@ private struct Fixtures: Decodable { let cases: [Fixture] }
                           f.reference_logits.allSatisfy({ $0.logit.isFinite }) else { throw DolphinError.invalid("Invalid fixture \(f.name)") }
                     let run = try await engine.generate(tokens: f.input_ids, maxNewTokens: 1, probeIDs: f.reference_logits.map(\.id))
                     let observed = Dictionary(uniqueKeysWithValues: run.prefillLogits.map { ($0.id, $0.logit) })
-                    let errors = f.reference_logits.map { abs((observed[$0.id] ?? .infinity) - $0.logit) }
-                    let maxError = errors.max() ?? .infinity
+                    let errors = f.reference_logits.map { expected -> Float in
+                        guard let value = observed[expected.id] else { return .greatestFiniteMagnitude }
+                        let error = abs(value - expected.logit)
+                        return error.isFinite ? error : .greatestFiniteMagnitude
+                    }
+                    let maxError = errors.max() ?? .greatestFiniteMagnitude
                     let pass = run.generatedIDs.first == f.expected_next_token && maxError <= f.max_abs_logit_error
                     allPassed = allPassed && pass
                     results.append(["name": f.name, "passed": pass, "maxAbsLogitError": maxError,
                                     "allowedAbsLogitError": f.max_abs_logit_error, "run": try json(run)])
                 }
                 report["fixtureResults"] = results; report["numericalParityValidated"] = allPassed
-                if !allPassed { status = 3 }
+                numericalParityFailed = !allPassed
             } else {
                 guard let tokenText = option("--tokens"), let n = Int(option("--max-new-tokens") ?? "8")
                 else { throw DolphinError.invalid("Supply --tokens or --fixtures; max-new-tokens must be an integer") }
@@ -65,8 +71,12 @@ private struct Fixtures: Decodable { let cases: [Fixture] }
                 report["generation"] = try json(generation)
             }
             report["runtimeValidated"] = true
-            if args.contains("--strict-ane") && !anePass { status = 2 }
-        } catch { report["error"] = String(describing: error); status = 1 }
+        } catch { report["error"] = String(describing: error); runtimeFailed = true }
+        var status = ValidationExitStatus.resolve(
+            runtimeFailed: runtimeFailed,
+            numericalParityFailed: numericalParityFailed,
+            strictANERequested: args.contains("--strict-ane"),
+            anePassed: anePass)
         report["exitStatus"] = status
         do {
             let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])

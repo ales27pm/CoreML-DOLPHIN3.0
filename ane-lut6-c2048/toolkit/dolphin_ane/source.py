@@ -20,6 +20,7 @@ SOURCE_MODEL_ID = "dphn/Dolphin3.0-Llama3.2-3B"
 SOURCE_REVISION = "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364"
 TRANSFORMERS_REFERENCE_VERSION = "4.47.1"
 MAX_READ_ELEMENTS = 1_048_576
+ROPE_TRIG_CHUNK_ELEMENTS = 256
 
 
 def _get(config, name, default=None):
@@ -35,14 +36,21 @@ def load_config(source_dir):
     return config
 
 
-def _weight_map(source_dir):
+def _weight_map(source_dir, expected_shards=None):
     index = source_dir / "model.safetensors.index.json"
     if index.is_file():
         with index.open(encoding="utf-8") as stream:
             weights = json.load(stream).get("weight_map")
         if not isinstance(weights, dict) or not weights:
             raise ValueError("Safetensors index has no nonempty weight_map")
+        if expected_shards is not None:
+            referenced = set(weights.values())
+            if (any(not isinstance(name, str) for name in weights.values())
+                    or referenced != set(expected_shards)):
+                raise ValueError("Safetensors index does not reference exactly the verified pinned shards")
         return weights
+    if expected_shards is not None and set(expected_shards) != {"model.safetensors"}:
+        raise FileNotFoundError("The verified pinned checkpoint requires its safetensors index; single-file fallback is disabled")
     single = source_dir / "model.safetensors"
     if single.is_file():
         with safe_open(str(single), framework="pt", device="cpu") as handle:
@@ -85,7 +93,7 @@ def _read_assignment(handle, item, parameter):
 
 
 @torch.no_grad()
-def load_part(part, source_dir):
+def load_part(part, source_dir, expected_shards=None):
     """Fill every declared parameter, preserving bounded temporary memory.
 
     Safetensors are opened one shard at a time, with row slices rather than full
@@ -94,7 +102,7 @@ def load_part(part, source_dir):
     On success parameters are CPU/frozen, states are reset, and eval mode is set.
     """
     source_dir = Path(source_dir).resolve()
-    weights = _weight_map(source_dir)
+    weights = _weight_map(source_dir, expected_shards=expected_shards)
     assignments = list(part.get_source_tensor_assignments())
     parameters = dict(part.named_parameters())
     destinations = [item["destination"] for item in assignments]
@@ -140,6 +148,11 @@ def make_rope_tables(config, context_length):
     _compute_llama3_parameters and LlamaRotaryEmbedding.forward:
     https://github.com/huggingface/transformers/blob/v4.47.1/src/transformers/modeling_rope_utils.py
     No theta*factor approximation and no dependence on the export context size.
+
+    PyTorch 2.5's first parallel CPU ``cos`` invocation can vary by one FP16
+    ULP across worker-sized row ranges on this host. Evaluate the trigonometric
+    functions in bounded flat chunks so this small table stays below that
+    parallel-kernel boundary without mutating the process-wide thread setting.
     """
     if not isinstance(context_length, int) or context_length < 1:
         raise ValueError("context_length must be a positive integer")
@@ -175,4 +188,9 @@ def make_rope_tables(config, context_length):
         positions = torch.arange(context_length, dtype=torch.int64, device="cpu").float()
         frequencies = (inverse[None, :, None] @ positions[None, None, :]).transpose(1, 2)[0]
         doubled = torch.cat((frequencies, frequencies), dim=-1)
-        return doubled.cos().to(torch.float16), doubled.sin().to(torch.float16)
+        flat = doubled.reshape(-1)
+        cosine = torch.cat([flat[start:start + ROPE_TRIG_CHUNK_ELEMENTS].cos().to(torch.float16)
+                            for start in range(0, flat.numel(), ROPE_TRIG_CHUNK_ELEMENTS)])
+        sine = torch.cat([flat[start:start + ROPE_TRIG_CHUNK_ELEMENTS].sin().to(torch.float16)
+                          for start in range(0, flat.numel(), ROPE_TRIG_CHUNK_ELEMENTS)])
+        return cosine.reshape_as(doubled), sine.reshape_as(doubled)

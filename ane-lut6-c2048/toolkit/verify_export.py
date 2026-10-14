@@ -12,11 +12,16 @@ import gc
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
+import secrets
+import stat
 import sys
 
 import numpy as np
+
+from dolphin_ane.output_lock import output_lock_path
 
 
 REVISION = "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364"
@@ -32,9 +37,34 @@ def read_json(path):
 def atomic_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    contents = (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
+    try:
+        existing_mode = stat.S_IMODE(path.stat().st_mode)
+    except FileNotFoundError:
+        existing_mode = None
+    # O_EXCL preserves unique-writer safety while letting the OS apply umask
+    # (and directory ACLs) to a normal 0666 creation. Reading umask by temporarily
+    # changing it would race with every other thread creating files.
+    for _ in range(100):
+        temporary = path.with_name(f".{path.name}.{secrets.token_hex(12)}.tmp")
+        try:
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+            break
+        except FileExistsError:
+            continue
+    else:
+        raise FileExistsError(f"Cannot allocate a unique temporary JSON file for {path}")
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            creation_mode = stat.S_IMODE(os.fstat(stream.fileno()).st_mode)
+            os.fchmod(stream.fileno(), 0o600)  # Keep incomplete JSON private.
+            stream.write(contents)
+            stream.flush()
+            os.fchmod(stream.fileno(), existing_mode if existing_mode is not None else creation_mode)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return hashlib.sha256(contents).hexdigest()
 
 
 def file_hash(path):
@@ -43,6 +73,66 @@ def file_hash(path):
         for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def evidence_snapshot(directory, excluded=()):
+    """Snapshot only artifact files, excluding explicit outputs/coordination paths."""
+    directory = Path(directory)
+    snapshot = {}
+    for path in sorted(directory.rglob("*")):
+        if any(path == item or path.is_relative_to(item) for item in excluded):
+            continue
+        require(not path.is_symlink(), f"Verification evidence must not contain symbolic links: {path}")
+        if path.is_file():
+            stat = path.stat()
+            snapshot[path.relative_to(directory).as_posix()] = (
+                stat.st_dev, stat.st_ino, stat.st_mode, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    return snapshot
+
+
+def capture_evidence_inventory(directory, excluded=()):
+    """Bind hashes before validation and detect replacement during the hash pass."""
+    snapshot = evidence_snapshot(directory, excluded)
+    records = [{"path": name, "bytes": state[3], "sha256": file_hash(Path(directory) / name)}
+               for name, state in snapshot.items()]
+    if evidence_snapshot(directory, excluded) != snapshot:
+        raise RuntimeError(f"Verification evidence changed during verification: {directory}")
+    return records, snapshot
+
+
+def assert_evidence_inventory(directory, records, snapshot, excluded=()):
+    actual_records, actual_snapshot = capture_evidence_inventory(directory, excluded)
+    if actual_records != records or actual_snapshot != snapshot:
+        raise RuntimeError(f"Verification evidence changed during verification: {directory}")
+
+
+def assert_package_snapshots(models, packages):
+    require({path.name for path in models.glob("*.mlpackage")} == set(packages),
+            "Model package set changed during verification")
+    for name, (_, snapshot) in packages.items():
+        package = models / name
+        require(package.is_dir() and not package.is_symlink(),
+                f"Model package set changed during verification: {name}")
+        if evidence_snapshot(package) != snapshot:
+            raise RuntimeError(f"Model package changed during verification: {name}")
+
+
+def assert_package_inventories(models, packages):
+    assert_package_snapshots(models, packages)
+    for name, (records, snapshot) in packages.items():
+        package = models / name
+        assert_evidence_inventory(package, records, snapshot)
+    # Rehashing all nine packages takes time: an earlier package must not change
+    # while a later one is being checked.
+    assert_package_snapshots(models, packages)
+
+
+def assert_sidecar_files(models, records):
+    for record in records:
+        path = models / record["path"]
+        if (not path.is_file() or path.is_symlink() or path.stat().st_size != record["bytes"]
+                or file_hash(path) != record["sha256"]):
+            raise RuntimeError(f"Model sidecar changed during verification: {record['path']}")
 
 
 def require(condition, message):
@@ -86,15 +176,33 @@ def verify_package_files(package, entries):
     return verified
 
 
-def inspect_serialized_spec(package):
-    # Protobuf parsing does not instantiate MLModel or execute an Apple runtime.
-    from coremltools.proto import FeatureTypes_pb2, Model_pb2
+def read_serialized_package(package):
+    """Read protobuf/weight paths without ModelPackage/MLModel metadata writes."""
+    from coremltools.proto import Model_pb2
     package_manifest = read_json(package / "Manifest.json")
-    root_item = package_manifest["itemInfoEntries"][package_manifest["rootModelIdentifier"]]
+    items = package_manifest["itemInfoEntries"]
+    root_item = items[package_manifest["rootModelIdentifier"]]
     model_path = (package / "Data" / root_item["path"]).resolve()
     require(model_path.is_relative_to(package.resolve()), "Model specification path escapes package")
     spec = Model_pb2.Model()
     spec.ParseFromString(model_path.read_bytes())
+    # Match Core ML Tools' name/author lookup, but avoid its ModelPackage
+    # constructor, which can rewrite Manifest.json even for a read-only load.
+    weight_items = [item for item in items.values()
+                    if item.get("name") == "weights" and item.get("author") == "com.apple.CoreML"]
+    require(len(weight_items) <= 1, "Package has ambiguous weight directories")
+    weights_dir = None
+    if weight_items:
+        weights_dir = (package / "Data" / weight_items[0]["path"]).resolve()
+        require(weights_dir.is_relative_to(package.resolve()), "Weight directory path escapes package")
+        require(weights_dir.is_dir(), "Package weight directory is missing")
+    return spec, None if weights_dir is None else str(weights_dir)
+
+
+def inspect_serialized_spec(package):
+    # Protobuf parsing does not instantiate MLModel or execute an Apple runtime.
+    from coremltools.proto import FeatureTypes_pb2
+    spec, _ = read_serialized_package(package)
     require(spec.WhichOneof("Type") == "mlProgram", f"Package is not an ML Program: {package.name}")
     require(spec.specificationVersion == 9, f"Unexpected specification version: {package.name}")
     datatype = FeatureTypes_pb2.ArrayFeatureType.ArrayDataType.Name
@@ -123,16 +231,13 @@ def reconstruct_serialized_luts(package, expected_bits=None):
     Only one package program is live, and each weight is hashed group by group.
     No pre-save in-memory compressed model is reused at this boundary.
     """
-    import coremltools as ct
     from coremltools.converters.mil.frontend.milproto.load import load as load_mil
     from dolphin_ane.exporter import (dense_lut_hash, parameter_name_for_compressed_op,
                                      walk_ops)
-    model = spec = program = function = operation = None
+    spec = program = function = operation = None
     try:
-        model = ct.models.MLModel(str(package), compute_units=ct.ComputeUnit.CPU_AND_NE,
-                                  skip_model_load=True)
-        spec = model.get_spec()
-        program = load_mil(spec, spec.specificationVersion, file_weights_dir=model.weights_dir)
+        spec, weights_dir = read_serialized_package(package)
+        program = load_mil(spec, spec.specificationVersion, file_weights_dir=weights_dir)
         weights = []
         for function in program.functions.values():
             for operation in walk_ops(function):
@@ -142,7 +247,7 @@ def reconstruct_serialized_luts(package, expected_bits=None):
         return weights
     finally:
         # Loop variables retain enclosing blocks. Clear them before collection.
-        operation = function = program = spec = model = None
+        operation = function = program = spec = None
         gc.collect()
 
 
@@ -158,13 +263,18 @@ def compression_bits(manifest, expected_bits=None):
     return bits
 
 
-def verify_sidecars(models, report, context, source_verification=None):
+def verify_sidecars(models, report, context, source_dir=None, source_verification=None, source_snapshot_out=None):
     """Check source metadata against pinned hashes and RoPE against its equations."""
+    from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
     from dolphin_ane.source import make_rope_tables
-    verification_path = Path(source_verification) if source_verification else Path(__file__).parent / "source-verification.json"
+    require(source_dir is not None, "A source directory is required for fresh pinned-input re-hashing")
+    source_dir = Path(source_dir).resolve()
+    verification_path = (Path(source_verification).resolve() if source_verification is not None
+                         else source_dir.parent / "source-verification.json")
     source = read_json(verification_path)
     require(source.get("all_verified") is True and source.get("revision") == REVISION and
             source.get("repo") == "dphn/Dolphin3.0-Llama3.2-3B", "Pinned source verification identity mismatch")
+    source_weight_identity, source_snapshot = verify_pinned_source_snapshot(source_dir, verification_path)
     mapping = {name: name for name in ("config.json", "generation_config.json", "tokenizer.json",
                                       "tokenizer_config.json", "special_tokens_map.json")}
     mapping["SOURCE_MODEL_CARD.md"] = "README.md"
@@ -182,6 +292,8 @@ def verify_sidecars(models, report, context, source_verification=None):
     identity = report.get("source_identity")
     if report.get("schema_version", 1) >= 2:
         require(isinstance(identity, dict) and identity.get("config") == config, "Reference and exported model config differ")
+        require(identity.get("source_weight_identity") == source_weight_identity,
+                "Reference source shard identity differs from the pinned verification")
         require(identity.get("config_file_sha256") == file_hash(models / "config.json"), "Reference config file hash differs")
         for record in identity.get("tokenizer_files", []):
             require(file_hash(models / record["file"]) == record["sha256"], "Reference tokenizer hash differs from exported sidecar")
@@ -193,7 +305,11 @@ def verify_sidecars(models, report, context, source_verification=None):
         require(path.read_bytes() == expected_bytes, f"RoPE values differ from exact reference Llama3 equations: {name}")
         verified.append({"path": name, "bytes": len(expected_bytes), "sha256": hashlib.sha256(expected_bytes).hexdigest(),
                          "verification_source": "exact Llama3 RoPE recomputation from pinned config; FP16 little-endian bytes"})
-    return verified, {"file": str(verification_path.resolve()), "sha256": file_hash(verification_path)}
+    assert_pinned_source_snapshot(source_dir, source_snapshot, verification_path)
+    if source_snapshot_out is not None:
+        source_snapshot_out.update(source_snapshot)
+    return verified, {"file": str(verification_path.resolve()), "sha256": file_hash(verification_path),
+                      "source_weight_identity": source_weight_identity}
 
 
 def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
@@ -201,6 +317,8 @@ def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
     report = read_json(reference_dir / "reference-report.json") if report is None else report
     candidate_key = f"lut{bits}_reference"
     data = read_json(reference_dir / "reference-fixtures.json")
+    require(data.get("schema_version") == report.get("schema_version"),
+            "Reference fixture schema differs from the reference report schema")
     require(data.get("context_length") == context, "Reference fixture context differs from exported models")
     if data.get("schema_version", 1) >= 2:
         require(data.get("index_bits") == bits, "Reference fixture precision differs from exported models")
@@ -284,9 +402,13 @@ def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
             "quality_acceptance_decision": "not_assigned_beyond_fixed_prompt_sanity", "cases": cases_out}
 
 
-def verify_export(models, reference, output, bits=None, source_verification=None):
+def verify_export(models, reference, output, source, bits=None, source_verification=None):
+    from download_source import assert_pinned_source_snapshot
     models, reference, output = Path(models).resolve(), Path(reference).resolve(), Path(output).resolve()
-    result = {"schema_version": 2, "verified_at_utc": datetime.now(timezone.utc).isoformat(),
+    source = Path(source).resolve()
+    verification_path = (Path(source_verification).resolve() if source_verification is not None
+                         else source.parent / "source-verification.json")
+    result = {"schema_version": 3, "verified_at_utc": datetime.now(timezone.utc).isoformat(),
               "artifact_integrity_and_weight_parity_passed": False, "compressed_weight_hash_parity_passed": False,
               "serialized_lut_reconstruction_verified": False,
               "apple_sdk_compiled": False, "coreml_runtime_executed": False,
@@ -294,7 +416,18 @@ def verify_export(models, reference, output, bits=None, source_verification=None
               "numerical_quality_gate_passed": False,
               "quality_acceptance_decision": "not_assigned_beyond_fixed_prompt_sanity", "packages": {}}
     try:
+        # Bind all reference and per-part evidence before consuming any of it.
+        # Late inventory creation would otherwise bless mutations made after a
+        # reference/report had already passed its semantic checks.
+        evidence_dir = models / "evidence"
+        excluded_evidence = (output, evidence_dir / "reference", reference,
+                             evidence_dir / "source-verification.json", output_lock_path(reference))
+        reference_files, reference_snapshot = capture_evidence_inventory(reference)
+        model_evidence, model_evidence_snapshot = capture_evidence_inventory(evidence_dir, excluded_evidence)
+        evidence_files = [{**item, "path": "evidence/" + item["path"]} for item in model_evidence]
         manifest = read_json(models / "manifest.json")
+        require(manifest.get("format_version") == 3,
+                "Unsupported manifest format; expected format 3 with cryptographic source-input binding")
         bits = compression_bits(manifest, expected_bits=bits)
         result["index_bits"] = bits
         require(manifest.get("source_revision") == REVISION, "Manifest source revision mismatch")
@@ -303,6 +436,11 @@ def verify_export(models, reference, output, bits=None, source_verification=None
         expected_files = [name + ".mlpackage" for name in PART_IDS]
         require(manifest.get("model_files") == expected_files, "Manifest must contain exactly the nine expected model parts")
         require({path.name for path in models.glob("*.mlpackage")} == set(expected_files), "Model package set differs from manifest")
+        package_inventories = {}
+        for name in expected_files:
+            package = models / name
+            require(package.is_dir() and not package.is_symlink(), f"Invalid model package directory: {name}")
+            package_inventories[name] = capture_evidence_inventory(package)
         require(manifest.get("hidden_size") == 3072 and manifest.get("head_dim") == 128 and
                 manifest.get("vocab_size") == 128258 and manifest.get("query_length") == 1 and
                 manifest.get("head_sizes") == [16032] * 7 + [16034], "Manifest dimensions/vocabulary mismatch")
@@ -314,9 +452,13 @@ def verify_export(models, reference, output, bits=None, source_verification=None
         if context == 2048:
             require(expected_state_bytes == 224 * 1024 * 1024, "2048-token cache must contain exactly 224 MiB")
         ref_hashes = read_json(reference / "reference-weight-hashes.json")
+        require(ref_hashes.get("schema_version") == 3,
+                "Unsupported reference weight schema; expected schema 3 after regeneration or migration")
         require(ref_hashes.get("complete") is True, "CPU reference weight hashes are incomplete")
         require(set(ref_hashes.get("parts", {})) == set(PART_IDS), "CPU reference is missing or has extra model parts")
         ref_report = read_json(reference / "reference-report.json")
+        require(ref_report.get("schema_version") == 3,
+                "Unsupported reference report schema; expected schema 3 after regeneration or migration")
         require(ref_report.get("complete") is True and ref_report.get("context_length") == context,
                 "CPU reference report is incomplete or uses another context")
         require(ref_report.get("source_revision_requested") == REVISION, "CPU reference revision mismatch")
@@ -346,8 +488,16 @@ def verify_export(models, reference, output, bits=None, source_verification=None
         require(swift_fixtures["numerical_quality_gate_passed"] is True,
                 "Fixed-prompt numerical sanity gate failed: every original prompt must match the source greedy next token")
         result["numerical_quality_gate_passed"] = True
+        source_snapshot = {}
         result["model_sidecar_files"], result["pinned_source_verification"] = verify_sidecars(
-            models, ref_report, context, source_verification=source_verification)
+            models, ref_report, context, source_dir=source, source_verification=verification_path,
+            source_snapshot_out=source_snapshot)
+        source_weight_identity = result["pinned_source_verification"]["source_weight_identity"]
+        require(manifest.get("source_weight_identity") == source_weight_identity,
+                "Manifest source shard identity differs from the pinned verification")
+        require(ref_hashes.get("source_weight_identity") == source_weight_identity,
+                "Reference weight-hash source shard identity differs from the pinned verification")
+        result["source_weight_identity"] = source_weight_identity
         result["rope_tables_recomputed_and_verified"] = True
         total_weights = total_bytes = actual_state_bytes = 0
         for index, part_id in enumerate(PART_IDS):
@@ -355,7 +505,8 @@ def verify_export(models, reference, output, bits=None, source_verification=None
             kind = "embedding" if part_id == "embedding" else "head" if part_id == "head" else "block"
             start, end = (0, 0) if kind == "embedding" else (28, 28) if kind == "head" else BLOCK_RANGES[index - 1]
             expected_metadata = {"stage": f"lut{bits}_compression", "part": kind, "layer_start": start,
-                                 "layer_end": end, "context_length": context, "source_revision": REVISION}
+                                 "layer_end": end, "context_length": context, "source_revision": REVISION,
+                                 "source_weight_identity": source_weight_identity}
             for key, value in expected_metadata.items():
                 require(evidence.get(key) == value, f"Part evidence metadata mismatch: {part_id}.{key}")
             package = models / (part_id + ".mlpackage")
@@ -435,11 +586,15 @@ def verify_export(models, reference, output, bits=None, source_verification=None
                 "compressed_weight_hash_parity_passed": True, "states": serialized["states"], "state_bytes": state_bytes}
         require(total_weights == 205, "Expected all 205 compressed tensors (196 block + 1 embedding + 8 head)")
         require(actual_state_bytes == expected_state_bytes, "Summed package states differ from manifest state budget")
+        # The nine reconstructions can take a long time. A snapshot checked only
+        # inside verify_sidecars cannot bind the inputs through this phase.
+        assert_pinned_source_snapshot(source, source_snapshot, verification_path)
+        assert_evidence_inventory(reference, reference_files, reference_snapshot)
+        assert_evidence_inventory(evidence_dir, model_evidence, model_evidence_snapshot, excluded_evidence)
+        assert_package_inventories(models, package_inventories)
+        assert_sidecar_files(models, result["model_sidecar_files"])
         fixture_path = models / "evidencefixtures.json"
         atomic_json(fixture_path, swift_fixtures)
-        reference_files = [{"path": name, "bytes": (reference / name).stat().st_size,
-                            "sha256": file_hash(reference / name)} for name in
-                           ("reference-report.json", "reference-weight-hashes.json", "reference-fixtures.json", "reference-logits.npz")]
         # Publish the measured narrow gate only after every package and sidecar
         # has passed. The report hashes this final manifest, not its prior state.
         manifest.setdefault("validation", {})["numerical_quality_gate_passed"] = True
@@ -449,13 +604,24 @@ def verify_export(models, reference, output, bits=None, source_verification=None
             package_count=len(PART_IDS), compressed_tensor_count=total_weights, package_bytes=total_bytes,
             total_state_bytes=actual_state_bytes, total_state_mib=actual_state_bytes / (1024 * 1024),
             context_length=context, manifest_sha256=file_hash(models / "manifest.json"),
-            reference_files=reference_files, swift_fixtures={"file": fixture_path.name, "sha256": file_hash(fixture_path),
+            reference_files=reference_files, model_evidence_files=evidence_files,
+            swift_fixtures={"file": fixture_path.name, "sha256": file_hash(fixture_path),
                 "case_count": len(swift_fixtures["cases"]), "max_abs_logit_error": PROVISIONAL_DEVICE_TOLERANCE,
                 "tolerance_status": "provisional device acceptance tolerance; not measured or calibrated"},
-            interpretation="Package integrity, exact reconstructed weight equality from saved LUT/index payloads, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified.")
-        atomic_json(output, result)
-        return result
+            interpretation="Package integrity, exact reconstructed weight equality from saved LUT/index payloads, freshly re-hashed pinned source-shard and metadata identity, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified.")
+        assert_package_inventories(models, package_inventories)
+        assert_evidence_inventory(reference, reference_files, reference_snapshot)
+        assert_evidence_inventory(evidence_dir, model_evidence, model_evidence_snapshot, excluded_evidence)
+        assert_sidecar_files(models, result["model_sidecar_files"])
+        assert_pinned_source_snapshot(source, source_snapshot, verification_path)
+        assert_package_snapshots(models, package_inventories)
+        report_sha256 = atomic_json(output, result)
+        # Return the digest of the exact serialized bytes, not a later reread.
+        # Operators retain this outside the mutable export for packaging.
+        return {**result, "verification_report_sha256": report_sha256}
     except Exception as error:
+        result.update(artifact_integrity_and_weight_parity_passed=False,
+                      compressed_weight_hash_parity_passed=False, serialized_lut_reconstruction_verified=False)
         result["error"] = {"type": type(error).__name__, "message": str(error)}
         atomic_json(output, result)
         raise
@@ -466,15 +632,18 @@ def main():
     parser.add_argument("--models", required=True, type=Path, help="Model output directory containing manifest.json and evidence/")
     parser.add_argument("--reference", required=True, type=Path, help="Completed CPU reference evidence directory")
     parser.add_argument("--output", required=True, type=Path, help="Verification JSON file")
+    parser.add_argument("--source", required=True, type=Path,
+                        help="Pinned source directory; all shards and metadata are freshly re-hashed")
     parser.add_argument("--bits", type=int, choices=(4, 6), help="Optional precision assertion; otherwise inferred and checked from manifest")
-    parser.add_argument("--source-verification", type=Path, help="Pinned source-verification.json; defaults to the toolkit's recorded evidence")
+    parser.add_argument("--source-verification", type=Path,
+                        help="Pinned source-verification.json; defaults beside the resolved source directory")
     args = parser.parse_args()
     try:
-        result = verify_export(args.models, args.reference, args.output, bits=args.bits,
+        result = verify_export(args.models, args.reference, args.output, args.source, bits=args.bits,
                                source_verification=args.source_verification)
         print(json.dumps({key: result[key] for key in ("artifact_integrity_and_weight_parity_passed", "package_count",
             "compressed_tensor_count", "serialized_lut_reconstruction_verified", "numerical_quality_gate_passed", "total_state_bytes", "apple_sdk_compiled", "coreml_runtime_executed",
-            "ane_compute_plan_verified", "ane_runtime_trace_verified")}))
+            "ane_compute_plan_verified", "ane_runtime_trace_verified", "verification_report_sha256")}))
     except Exception as error:
         print(f"Verification failed: {error}", file=sys.stderr)
         return 1

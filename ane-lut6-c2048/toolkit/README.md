@@ -224,6 +224,28 @@ Before reporting `release_ready`, the packager re-hashes the bytes actually stor
 
 The complete original source shards occupy about 6.43 GB. Allow additional space for the Python environment, intermediate FP16 packages, compressed output and archives. The converter's measured peak process memory is recorded per part in the evidence. The conversion environment has an 8 GiB memory limit; this is not an iPhone runtime memory claim.
 
+
+### Cross-repository import contract check
+
+From `ane-lut6-c2048/toolkit`, with a sibling Swarmer checkout and Swift 6:
+
+```sh
+python validate_import_contract.py --swarmer /path/to/swarmer \
+  --swiftc /path/to/swiftc --output /path/to/new-contract-evidence
+```
+
+This invokes the production manifest builder, serializes a synthetic bundle,
+ZIPs and extracts it, then compiles and executes Swarmer's actual
+`DolphinCoreMLBundle` reader. It checks v3 acceptance, legacy v2 compatibility
+and rejection of unknown schemas or changed source declarations. `results.json`
+and `compile.log` retain the evidence. The fixture has no executable model
+weights and is explicitly **not** a complete export, an iOS `LocalModelStore`
+transaction, a source-byte rehash, or Core ML inference. Swarmer accepts the v3
+source declaration only when its full pinned identity matches; that declaration
+alone does not authenticate converted package bytes. Full qualification still
+requires the real schema 3 export, reference, verifier, release packager and
+Apple/device runs described above.
+
 ## Compression and numerical evidence
 
 The initial four-bit palette strategy was rejected after numerical checks showed unacceptable differences from the uncompressed FP16 export architecture. The default was changed to six bits to favor numerical fidelity. The rejection and the selected candidate's measured results belong in `CONVERSION_REPORT.md`; successful serialization or matching compressed-weight hashes alone do not establish a usable model.

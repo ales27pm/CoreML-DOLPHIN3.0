@@ -42,6 +42,11 @@ from the 8B pins in `requirements-dev.txt`. No workflow is added for this releas
 The 3B multipart contract is documented with its own `DolphinANEEngine`; the
 existing 8B multifunction APIs below retain their original contract.
 
+The synthetic cross-repository import check is documented in the
+[toolkit guide](ane-lut6-c2048/toolkit/README.md#cross-repository-import-contract-check).
+It exercises the production v3 manifest builder and Swarmer's Swift reader;
+it does not replace a real-model export or device qualification.
+
 ### 3B source provenance and release archives
 
 The updated 3B toolkit uses **manifest/reference schema 3**. Before export,

@@ -84,6 +84,32 @@ def worker(stage, source, source_verification, output, kind, start, end, context
         raise RuntimeError(f"{stage} {kind} exited {result.returncode}; inspect {log_path}")
 
 
+def build_manifest(args, parts, block_names, source_weight_identity):
+    """Build the serialized runtime contract shared with importers."""
+    return {
+        "format_version": 3, "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+        "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+        "source_weight_identity": source_weight_identity,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "minimum_ios": "18.0", "minimum_macos": "15.0", "context_length": args.context,
+        "query_length": 1, "prefill": "token_by_token", "hidden_size": 3072,
+        "head_dim": 128, "vocab_size": 128258, "eos_token_ids": [128256, 128001, 128008, 128009],
+        "head_sizes": [16032] * 7 + [16034], "block_names": block_names,
+        "block_layer_ranges": [[start, end] for _, kind, start, end in parts if kind == "block"],
+        "model_files": [name + ".mlpackage" for name, _, _, _ in parts],
+        "weights": {"format": f"LUT{args.bits}", "index_bits": args.bits, "group_size": 16,
+                    "channel_axis": 0, "lut_dtype": "float16",
+                    "palette_method": "coremltools9_weighted_kmeans1d" if args.bits == 6 else "legacy_histogram_lloyd30"},
+        "activations": "float16", "states": "float16", "state_bytes": 28 * 2 * 8 * 128 * args.context * 2,
+        "rope_layout": {"files": ["rope_cos.fp16", "rope_sin.fp16"], "shape": [args.context, 128], "dtype": "little_endian_float16"},
+        "recommended_compute_units": "cpuAndNeuralEngine",
+        "validation": {"model_specification_exported": True, "compression_inspected": True,
+                       "apple_sdk_compiled": False, "coreml_runtime_executed": False,
+                       "ane_compute_plan_verified": False, "ane_runtime_trace_verified": False,
+                       "numerical_quality_gate_passed": False},
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT / "source")
@@ -172,28 +198,7 @@ def main():
         shutil.copy2(source / name, output / name)
     shutil.copy2(source / "README.md", output / "SOURCE_MODEL_CARD.md")
     assert_pinned_source_snapshot(source, sidecar_source_snapshot, verification_path)
-    manifest = {
-        "format_version": 3, "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
-        "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
-        "source_weight_identity": source_weight_identity,
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "minimum_ios": "18.0", "minimum_macos": "15.0", "context_length": args.context,
-        "query_length": 1, "prefill": "token_by_token", "hidden_size": 3072,
-        "head_dim": 128, "vocab_size": 128258, "eos_token_ids": [128256, 128001, 128008, 128009],
-        "head_sizes": [16032] * 7 + [16034], "block_names": block_names,
-        "block_layer_ranges": [[start, end] for _, kind, start, end in parts if kind == "block"],
-        "model_files": [name + ".mlpackage" for name, _, _, _ in parts],
-        "weights": {"format": f"LUT{args.bits}", "index_bits": args.bits, "group_size": 16,
-                    "channel_axis": 0, "lut_dtype": "float16",
-                    "palette_method": "coremltools9_weighted_kmeans1d" if args.bits == 6 else "legacy_histogram_lloyd30"},
-        "activations": "float16", "states": "float16", "state_bytes": 28 * 2 * 8 * 128 * args.context * 2,
-        "rope_layout": {"files": ["rope_cos.fp16", "rope_sin.fp16"], "shape": [args.context, 128], "dtype": "little_endian_float16"},
-        "recommended_compute_units": "cpuAndNeuralEngine",
-        "validation": {"model_specification_exported": True, "compression_inspected": True,
-                       "apple_sdk_compiled": False, "coreml_runtime_executed": False,
-                       "ane_compute_plan_verified": False, "ane_runtime_trace_verified": False,
-                       "numerical_quality_gate_passed": False},
-    }
+    manifest = build_manifest(args, parts, block_names, source_weight_identity)
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(json.dumps({"export_complete": True, "model_count": len(parts), "manifest": str(output / "manifest.json")}), flush=True)
 

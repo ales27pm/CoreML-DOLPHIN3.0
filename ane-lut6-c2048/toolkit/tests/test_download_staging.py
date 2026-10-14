@@ -16,6 +16,29 @@ def test_staging_accepts_external_same_filesystem_cache(tmp_path):
     assert source.is_dir() and partials.is_dir()
 
 
+@pytest.mark.parametrize("git_marker", ["directory", "worktree-file"])
+def test_default_workspace_protects_entire_checkout(tmp_path, monkeypatch, git_marker):
+    checkout = tmp_path / "checkout"
+    toolkit = checkout / "ane-lut6-c2048" / "toolkit"
+    toolkit.mkdir(parents=True)
+    if git_marker == "directory":
+        (checkout / ".git").mkdir()
+    else:
+        (checkout / ".git").write_text("gitdir: /not-used")
+    monkeypatch.setattr(download_source, "__file__", str(toolkit / "download_source.py"))
+    with pytest.raises(RuntimeError, match="separate"):
+        prepare_download_directories(toolkit / "source", checkout / "other" / "partials")
+    with pytest.raises(RuntimeError, match="separate"):
+        prepare_download_directories(toolkit / "source", checkout / "other" / "partials", toolkit)
+    assert not (checkout / "other").exists()
+
+
+def test_explicit_workspace_guard_can_cover_a_larger_sync_root(tmp_path):
+    workspace = tmp_path / "synchronized"
+    with pytest.raises(RuntimeError, match="separate"):
+        prepare_download_directories(workspace / "checkout" / "source", workspace / "another-checkout", workspace)
+
+
 @pytest.mark.parametrize("relative", ["workspace/partial", "workspace/source", "workspace/source/partial", "."])
 def test_staging_rejects_workspace_overlap_before_creating_files(tmp_path, relative):
     workspace = tmp_path / "workspace"

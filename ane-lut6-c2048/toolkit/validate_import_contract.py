@@ -61,20 +61,24 @@ def main():
     compilation = subprocess.run(command, capture_output=True, text=True)
     (output / 'compile.log').write_text(compilation.stdout + compilation.stderr)
     compilation.check_returncode()
-    cases = [('schema3-roundtrip', manifest, True)]
+    # None means use the extracted bytes unchanged, not reserialize the source dict.
+    cases = [('schema3-roundtrip', None, True)]
     legacy = copy.deepcopy(manifest)
     legacy['format_version'] = 2
     for key in ('source_model', 'source_revision', 'source_weight_identity'):
         legacy.pop(key)
     cases.append(('historical-schema2', legacy, True))
     for label, key, value in [('future-schema', 'format_version', 4),
-                              ('missing-identity', 'source_weight_identity', None),
+                              ('null-identity', 'source_weight_identity', None),
                               ('wrong-source', 'source_model', 'untrusted/model'),
                               ('wrong-revision', 'source_revision', '0' * 40),
                               ('wrong-context', 'context_length', 4096)]:
         changed = copy.deepcopy(manifest)
         changed[key] = value
         cases.append((label, changed, False))
+    missing_identity = copy.deepcopy(manifest)
+    missing_identity.pop('source_weight_identity')
+    cases.append(('missing-identity', missing_identity, False))
     for key in ('repo', 'revision', 'identity_sha256', 'shards', 'metadata'):
         changed = copy.deepcopy(manifest)
         changed['source_weight_identity'][key] = [] if key in ('shards', 'metadata') else 'wrong'
@@ -86,7 +90,8 @@ def main():
             cases.append((f'{group}-{field}', changed, False))
     results = []
     for label, value, accepted in cases:
-        (extracted / 'manifest.json').write_text(json.dumps(value))
+        if value is not None:
+            (extracted / 'manifest.json').write_text(json.dumps(value))
         result = subprocess.run([str(binary), str(extracted)], capture_output=True, text=True)
         actual = result.returncode == 0
         results.append({'case': label, 'expected_accept': accepted, 'accepted': actual,

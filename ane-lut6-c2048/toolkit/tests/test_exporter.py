@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -48,6 +49,47 @@ def bind_compression_input(args, tmp_path, monkeypatch):
     args.source_verification = verification
     Path(str(args.input) + ".json").write_text(json.dumps({
         "source_weight_identity": identity, "files": exporter.tree_inventory(args.input)}))
+
+
+@pytest.fixture
+def recorded_compression_input(tmp_path, monkeypatch):
+    package = tmp_path / "fp16.mlpackage"
+    package.mkdir()
+    (package / "payload.bin").write_bytes(b"FP16 package")
+    args = argparse.Namespace(input=package)
+    bind_compression_input(args, tmp_path, monkeypatch)
+    return args
+
+
+def test_compression_rehashes_current_source_before_loading_model(recorded_compression_input, monkeypatch):
+    args = recorded_compression_input
+    shard = args.source / "model.safetensors"
+    contents = bytearray(shard.read_bytes())
+    contents[-1] ^= 1
+    shard.write_bytes(contents)
+    calls = []
+    monkeypatch.setattr(exporter.ct.models, "MLModel", lambda *a, **kw: calls.append(a))
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        exporter.compress(args)
+    assert calls == []
+
+
+def test_compression_binds_the_report_bytes_it_parsed(recorded_compression_input, monkeypatch):
+    args = recorded_compression_input
+    report_path = Path(str(args.input) + ".json")
+    original_report = report_path.read_bytes()
+    inventory = exporter.tree_inventory
+
+    def change_report_while_hashing(package):
+        report_path.write_bytes(original_report + b" ")
+        return inventory(package)
+
+    monkeypatch.setattr(exporter, "tree_inventory", change_report_while_hashing)
+    _, files, report_bytes, _ = exporter.validate_compression_input(
+        args.input, args.source, args.source_verification)
+    assert report_bytes == original_report
+    with pytest.raises(RuntimeError, match="report changed during compression"):
+        exporter.assert_compression_input_unchanged(args.input, files, report_bytes)
 
 
 @pytest.fixture(scope="module", params=[4, 6])
@@ -161,6 +203,56 @@ def test_compression_rejects_mismatched_context_before_saving(exported_block, tm
     with pytest.raises(ValueError, match="context_length"):
         exporter.compress(wrong)
     assert not wrong.output.exists()
+
+
+def test_conversion_checks_integrity_before_publishing_package(exported_block, tmp_path, monkeypatch):
+    original_args, _ = exported_block
+    args = argparse.Namespace(**vars(original_args))
+    args.output = tmp_path / "must_not_exist.mlpackage"
+    shard = args.source / "model.safetensors"
+    original_bytes, before = shard.read_bytes(), shard.stat()
+    convert = exporter.ct.convert
+
+    def mutate_during_conversion(*a, **kw):
+        model = convert(*a, **kw)
+        shard.write_bytes(original_bytes[:-1] + bytes([original_bytes[-1] ^ 1]))
+        os.utime(shard, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+        return model
+
+    monkeypatch.setattr(exporter.ct, "convert", mutate_during_conversion)
+    try:
+        with pytest.raises(RuntimeError, match="changed during"):
+            exporter.convert(args)
+        assert not args.output.exists()
+        assert not Path(str(args.output) + ".json").exists()
+    finally:
+        shard.write_bytes(original_bytes)
+
+
+@pytest.mark.parametrize("changed_input", ["report", "source"])
+def test_compression_checks_integrity_before_publishing_package(
+        exported_block, tmp_path, monkeypatch, changed_input):
+    original_args, _ = exported_block
+    args = argparse.Namespace(**vars(original_args))
+    args.output = tmp_path / "must_not_exist.mlpackage"
+    changed_path = (Path(str(args.input) + ".json") if changed_input == "report"
+                    else args.source / "model.safetensors")
+    original_bytes, before = changed_path.read_bytes(), changed_path.stat()
+    annotate = exporter.annotate
+
+    def mutate_before_integrity_check(*a, **kw):
+        annotate(*a, **kw)
+        changed_path.write_bytes(original_bytes[:-1] + bytes([original_bytes[-1] ^ 1]))
+        os.utime(changed_path, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+
+    monkeypatch.setattr(exporter, "annotate", mutate_before_integrity_check)
+    try:
+        with pytest.raises(RuntimeError, match="changed during"):
+            exporter.compress(args)
+        assert not args.output.exists()
+        assert not Path(str(args.output) + ".json").exists()
+    finally:
+        changed_path.write_bytes(original_bytes)
 
 
 @pytest.mark.parametrize("name,expected", [

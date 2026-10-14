@@ -33,8 +33,10 @@ def atomic_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    contents = (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
+    temporary.write_bytes(contents)
     temporary.replace(path)
+    return hashlib.sha256(contents).hexdigest()
 
 
 def file_hash(path):
@@ -158,7 +160,7 @@ def compression_bits(manifest, expected_bits=None):
     return bits
 
 
-def verify_sidecars(models, report, context, source_dir=None, source_verification=None):
+def verify_sidecars(models, report, context, source_dir=None, source_verification=None, source_snapshot_out=None):
     """Check source metadata against pinned hashes and RoPE against its equations."""
     from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
     from dolphin_ane.source import make_rope_tables
@@ -200,6 +202,8 @@ def verify_sidecars(models, report, context, source_dir=None, source_verificatio
         verified.append({"path": name, "bytes": len(expected_bytes), "sha256": hashlib.sha256(expected_bytes).hexdigest(),
                          "verification_source": "exact Llama3 RoPE recomputation from pinned config; FP16 little-endian bytes"})
     assert_pinned_source_snapshot(source_dir, source_snapshot, verification_path)
+    if source_snapshot_out is not None:
+        source_snapshot_out.update(source_snapshot)
     return verified, {"file": str(verification_path.resolve()), "sha256": file_hash(verification_path),
                       "source_weight_identity": source_weight_identity}
 
@@ -295,7 +299,9 @@ def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
 
 
 def verify_export(models, reference, output, source, bits=None, source_verification=None):
+    from download_source import assert_pinned_source_snapshot
     models, reference, output = Path(models).resolve(), Path(reference).resolve(), Path(output).resolve()
+    verification_path = Path(source_verification) if source_verification else Path(__file__).parent / "source-verification.json"
     result = {"schema_version": 3, "verified_at_utc": datetime.now(timezone.utc).isoformat(),
               "artifact_integrity_and_weight_parity_passed": False, "compressed_weight_hash_parity_passed": False,
               "serialized_lut_reconstruction_verified": False,
@@ -362,8 +368,10 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
         require(swift_fixtures["numerical_quality_gate_passed"] is True,
                 "Fixed-prompt numerical sanity gate failed: every original prompt must match the source greedy next token")
         result["numerical_quality_gate_passed"] = True
+        source_snapshot = {}
         result["model_sidecar_files"], result["pinned_source_verification"] = verify_sidecars(
-            models, ref_report, context, source_dir=source, source_verification=source_verification)
+            models, ref_report, context, source_dir=source, source_verification=source_verification,
+            source_snapshot_out=source_snapshot)
         source_weight_identity = result["pinned_source_verification"]["source_weight_identity"]
         require(manifest.get("source_weight_identity") == source_weight_identity,
                 "Manifest source shard identity differs from the pinned verification")
@@ -458,11 +466,27 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
                 "compressed_weight_hash_parity_passed": True, "states": serialized["states"], "state_bytes": state_bytes}
         require(total_weights == 205, "Expected all 205 compressed tensors (196 block + 1 embedding + 8 head)")
         require(actual_state_bytes == expected_state_bytes, "Summed package states differ from manifest state budget")
+        # The nine reconstructions can take a long time. A snapshot checked only
+        # inside verify_sidecars cannot bind the inputs through this phase.
+        assert_pinned_source_snapshot(source, source_snapshot, verification_path)
         fixture_path = models / "evidencefixtures.json"
         atomic_json(fixture_path, swift_fixtures)
-        reference_files = [{"path": name, "bytes": (reference / name).stat().st_size,
-                            "sha256": file_hash(reference / name)} for name in
-                           ("reference-report.json", "reference-weight-hashes.json", "reference-fixtures.json", "reference-logits.npz")]
+        reference_files = []
+        for path in sorted(reference.rglob("*")):
+            require(not path.is_symlink(), f"Reference evidence must not contain symbolic links: {path}")
+            if path.is_file():
+                reference_files.append({"path": path.relative_to(reference).as_posix(),
+                                        "bytes": path.stat().st_size, "sha256": file_hash(path)})
+        evidence_files = []
+        for path in sorted((models / "evidence").rglob("*")):
+            relative = path.relative_to(models).as_posix()
+            if (path.resolve() == output or relative.startswith("evidence/reference/")
+                    or relative == "evidence/source-verification.json"):
+                continue  # These are bound separately by the release packager.
+            require(not path.is_symlink(), f"Evidence must not contain symbolic links: {path}")
+            if path.is_file():
+                evidence_files.append({"path": relative, "bytes": path.stat().st_size,
+                                       "sha256": file_hash(path)})
         # Publish the measured narrow gate only after every package and sidecar
         # has passed. The report hashes this final manifest, not its prior state.
         manifest.setdefault("validation", {})["numerical_quality_gate_passed"] = True
@@ -472,13 +496,19 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
             package_count=len(PART_IDS), compressed_tensor_count=total_weights, package_bytes=total_bytes,
             total_state_bytes=actual_state_bytes, total_state_mib=actual_state_bytes / (1024 * 1024),
             context_length=context, manifest_sha256=file_hash(models / "manifest.json"),
-            reference_files=reference_files, swift_fixtures={"file": fixture_path.name, "sha256": file_hash(fixture_path),
+            reference_files=reference_files, model_evidence_files=evidence_files,
+            swift_fixtures={"file": fixture_path.name, "sha256": file_hash(fixture_path),
                 "case_count": len(swift_fixtures["cases"]), "max_abs_logit_error": PROVISIONAL_DEVICE_TOLERANCE,
                 "tolerance_status": "provisional device acceptance tolerance; not measured or calibrated"},
             interpretation="Package integrity, exact reconstructed weight equality from saved LUT/index payloads, freshly re-hashed pinned source-shard and metadata identity, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified.")
-        atomic_json(output, result)
-        return result
+        assert_pinned_source_snapshot(source, source_snapshot, verification_path)
+        report_sha256 = atomic_json(output, result)
+        # Return the digest of the exact serialized bytes, not a later reread.
+        # Operators retain this outside the mutable export for packaging.
+        return {**result, "verification_report_sha256": report_sha256}
     except Exception as error:
+        result.update(artifact_integrity_and_weight_parity_passed=False,
+                      compressed_weight_hash_parity_passed=False, serialized_lut_reconstruction_verified=False)
         result["error"] = {"type": type(error).__name__, "message": str(error)}
         atomic_json(output, result)
         raise
@@ -499,7 +529,7 @@ def main():
                                source_verification=args.source_verification)
         print(json.dumps({key: result[key] for key in ("artifact_integrity_and_weight_parity_passed", "package_count",
             "compressed_tensor_count", "serialized_lut_reconstruction_verified", "numerical_quality_gate_passed", "total_state_bytes", "apple_sdk_compiled", "coreml_runtime_executed",
-            "ane_compute_plan_verified", "ane_runtime_trace_verified")}))
+            "ane_compute_plan_verified", "ane_runtime_trace_verified", "verification_report_sha256")}))
     except Exception as error:
         print(f"Verification failed: {error}", file=sys.stderr)
         return 1

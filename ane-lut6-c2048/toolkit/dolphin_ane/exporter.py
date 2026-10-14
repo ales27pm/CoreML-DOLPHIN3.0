@@ -24,8 +24,7 @@ import torch
 from .model import EmbeddingPart, BlockPart, HeadPart
 from .palette import palette, CachedPalettes, PALETTE_ALGORITHMS
 from .source import load_config, load_part, SOURCE_MODEL_ID, SOURCE_REVISION
-from download_source import (assert_pinned_source_snapshot, pinned_source_weight_identity,
-                             verify_pinned_source_snapshot)
+from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
 
 
 COMPRESSION_WEIGHT_THRESHOLD = 65536
@@ -56,26 +55,26 @@ def tree_inventory(path):
     return records
 
 
-def validate_compression_input(package, verification_path):
+def validate_compression_input(package, source, verification_path):
     """Hash and bind the FP16 package which this compression phase consumes."""
     package = Path(package).resolve()
     report_path = Path(str(package) + ".json")
-    report = json.loads(report_path.read_text(encoding="utf-8"))
-    verification = json.loads(Path(verification_path).read_text(encoding="utf-8"))
-    identity = pinned_source_weight_identity(verification)
+    identity, source_snapshot = verify_pinned_source_snapshot(source, verification_path)
+    report_bytes = report_path.read_bytes()
+    report = json.loads(report_bytes)
     if report.get("source_weight_identity") != identity:
         raise RuntimeError("FP16 input report is not bound to the pinned source identity")
     inventory = tree_inventory(package)
     if report.get("files") != inventory:
         raise RuntimeError("FP16 input package differs from its hashed report")
-    return identity, inventory, report_path.read_bytes()
+    return identity, inventory, report_bytes, source_snapshot
 
 
 def assert_compression_input_unchanged(package, inventory, report_bytes):
     """Re-hash the exact compression input at the end of the phase.
 
     Core ML Tools benignly rewrites package metadata while loading a model, so
-    inode/ctime snapshots produce false positives. Exact bytes and the signed
+    inode/ctime snapshots produce false positives. Exact bytes and the recorded
     report remain the stable boundary and are checked both before and after the
     compression worker.
     """
@@ -243,8 +242,8 @@ def convert(args):
     )
     annotate(model, args)
     report = spec_report(model, args.kind, expected_states)
-    save_model(model, args.output)
     assert_pinned_source_snapshot(args.source, source_snapshot, args.source_verification)
+    save_model(model, args.output)
     report.update({"stage": "fp16_conversion", "part": args.kind,
                    "source_model": SOURCE_MODEL_ID, "source_revision": SOURCE_REVISION,
                    "source_weight_identity": source_identity,
@@ -380,8 +379,8 @@ def compress(args):
     started = time.monotonic()
     verification_path = (args.source_verification.resolve() if args.source_verification is not None
                          else args.source.resolve().parent / "source-verification.json")
-    source_identity, input_inventory, input_report_bytes = validate_compression_input(
-        args.input, verification_path)
+    source_identity, input_inventory, input_report_bytes, source_snapshot = validate_compression_input(
+        args.input, args.source, verification_path)
     bits = getattr(args, "bits", 6)
     if bits not in (4, 6):
         raise ValueError("Supported palette bit widths are 4 and 6")
@@ -428,8 +427,9 @@ def compress(args):
     if report["operation_counts"].get("constexpr_lut_to_dense") != expected:
         raise RuntimeError("The saved specification is missing compressed weight operations")
     annotate(model, args, compressed=True)
-    save_model(model, args.output)
     assert_compression_input_unchanged(args.input, input_inventory, input_report_bytes)
+    assert_pinned_source_snapshot(args.source, source_snapshot, verification_path)
+    save_model(model, args.output)
     report.update({"stage": f"lut{bits}_compression", "part": args.kind,
                    "index_bits": bits, "weight_format": f"LUT{bits} grouped-channel-16",
                    "source_model": SOURCE_MODEL_ID, "source_revision": SOURCE_REVISION,

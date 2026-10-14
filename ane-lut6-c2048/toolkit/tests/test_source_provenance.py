@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 
 import pytest
 from safetensors import safe_open
@@ -96,13 +97,18 @@ def test_stat_snapshot_detects_mutate_then_restore(tmp_path, monkeypatch):
                                          "all_verified": True,
                                          "files": {shard.name: {**expected, "verified": True}}}))
     _, snapshot = download_source.verify_pinned_source_snapshot(source, verification)
+    previous = shard.stat()
     shard.write_bytes(b"temporary evil bytes")
     shard.write_bytes(original)
+    # A distinct two-second timestamp also works on coarse filesystems; this
+    # must not depend on two adjacent writes crossing a kernel clock tick.
+    os.utime(shard, ns=(previous.st_atime_ns, previous.st_mtime_ns + 2_000_000_000))
     with pytest.raises(RuntimeError, match="changed during"):
         download_source.assert_pinned_source_snapshot(source, snapshot, verification)
 
 
-def test_completed_export_requires_exact_source_weight_identity(tmp_path):
+@pytest.fixture
+def completed_export(tmp_path):
     package = tmp_path / "embedding.mlpackage"
     package.mkdir()
     payload = package / "payload.bin"
@@ -117,12 +123,38 @@ def test_completed_export_requires_exact_source_weight_identity(tmp_path):
               "files": [{"path": payload.name, "bytes": payload.stat().st_size,
                           "sha256": hashlib.sha256(payload.read_bytes()).hexdigest()}]}
     report_path.write_text(json.dumps(report), encoding="utf-8")
+    return package, report_path, identity, report
+
+
+def test_completed_export_requires_exact_source_weight_identity(completed_export):
+    package, report_path, identity, report = completed_export
     assert run_export.validate_completed(package, report_path, "embedding", 0, 0, 8,
                                          "fp16_conversion", identity)
 
     report["source_weight_identity"] = {**identity, "identity_sha256": "c" * 64}
     report_path.write_text(json.dumps(report), encoding="utf-8")
     with pytest.raises(RuntimeError, match="source_weight_identity"):
+        run_export.validate_completed(package, report_path, "embedding", 0, 0, 8,
+                                      "fp16_conversion", identity)
+
+
+@pytest.mark.parametrize("mutation", ["empty", "traversal", "absolute", "duplicate", "unlisted", "symlink"])
+def test_completed_export_requires_exact_confined_inventory(completed_export, mutation):
+    package, report_path, identity, report = completed_export
+    if mutation == "empty":
+        report["files"] = []
+    elif mutation in {"traversal", "absolute"}:
+        external = package.parent / "external.bin"
+        external.write_bytes(b"package")
+        report["files"][0]["path"] = "../external.bin" if mutation == "traversal" else str(external)
+    elif mutation == "duplicate":
+        report["files"] *= 2
+    elif mutation == "unlisted":
+        (package / "unlisted.bin").write_bytes(b"unverified")
+    else:
+        (package / "linked.bin").symlink_to(package / "payload.bin")
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(RuntimeError, match="integrity check failed"):
         run_export.validate_completed(package, report_path, "embedding", 0, 0, 8,
                                       "fp16_conversion", identity)
 

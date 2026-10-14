@@ -13,6 +13,7 @@ import sys
 import tempfile
 
 from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
+from dolphin_ane.output_lock import exclusive_output_directory
 
 
 ROOT = Path(__file__).resolve().parent
@@ -44,7 +45,8 @@ def validate_completed(model_path, report_path, kind, start, end, context, stage
                        source_weight_identity, bits=None):
     if not model_path.exists() and not report_path.exists():
         return False
-    if not model_path.is_dir() or not report_path.is_file():
+    if (model_path.is_symlink() or report_path.is_symlink()
+            or not model_path.is_dir() or not report_path.is_file()):
         raise RuntimeError(f"Incomplete prior output requires inspection: {model_path}")
     report = read_json(report_path)
     expected = {"source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364", "part": kind,
@@ -55,10 +57,17 @@ def validate_completed(model_path, report_path, kind, start, end, context, stage
     for key, value in expected.items():
         if report.get(key) != value:
             raise RuntimeError(f"Existing output metadata mismatch: {model_path}: {key}")
-    for entry in report["files"]:
-        path = model_path / entry["path"]
-        if not path.is_file() or path.stat().st_size != entry["bytes"] or file_hash(path) != entry["sha256"]:
+    # Enumerate the actual confined tree, never paths supplied by the report.
+    # An omitted, duplicate, traversal, or additional entry must fail closed.
+    actual_files = []
+    for path in sorted(model_path.rglob("*")):
+        if path.is_symlink() or not (path.is_file() or path.is_dir()):
             raise RuntimeError(f"Existing package integrity check failed: {path}")
+        if path.is_file():
+            actual_files.append({"path": str(path.relative_to(model_path)),
+                                 "bytes": path.stat().st_size, "sha256": file_hash(path)})
+    if not actual_files or report.get("files") != actual_files:
+        raise RuntimeError(f"Existing package integrity check failed: {model_path}: exact inventory differs")
     return True
 
 
@@ -125,6 +134,12 @@ def main():
     parser.add_argument("--palette-workers", type=int, default=4,
                         help="Threads for independent palette groups; use 1 for sequential fitting.")
     args = parser.parse_args()
+    with exclusive_output_directory(args.output):
+        export(args, parser)
+
+
+def export(args, parser):
+    """Run the export while the caller holds its exclusive output lock."""
     source, output = args.source.resolve(), args.output.resolve()
     if args.context < 1 or args.layers_per_block < 1 or args.threads < 1 or args.palette_workers < 1:
         parser.error("context, layers-per-block, threads and palette-workers must be positive")

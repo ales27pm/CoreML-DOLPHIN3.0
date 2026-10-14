@@ -29,6 +29,7 @@ from transformers import AutoTokenizer
 from download_source import (assert_pinned_source_snapshot, verify_pinned_source_shards,
                              verify_pinned_source_snapshot)
 from .model import BlockPart, EmbeddingPart, HeadPart
+from .output_lock import exclusive_output_directory
 from .palette import PALETTE_ALGORITHMS, palette
 from .source import (SOURCE_MODEL_ID, SOURCE_REVISION, load_config, load_part,
                      make_rope_tables)
@@ -193,7 +194,8 @@ def _load_source_reference(directory, config_path, identity, source_files, fixtu
     report, hashes = (json.loads(path.read_text(encoding="utf-8")) for path in paths[:2])
     report_schema = report.get("schema_version", 1)
     hashes_schema = hashes.get("schema_version", 1)
-    if report_schema != hashes_schema or report_schema not in (1, 2, 3):
+    if (type(report_schema) is not int or type(hashes_schema) is not int
+            or report_schema != hashes_schema or report_schema not in (1, 2, 3)):
         raise ValueError("Source-reference report/hash schemas must match and be one of 1, 2, or 3")
     if report.get("complete") is not True or hashes.get("complete") is not True:
         raise ValueError("Source-reference report and parameter hashes must be complete")
@@ -207,6 +209,8 @@ def _load_source_reference(directory, config_path, identity, source_files, fixtu
     if set(hashes.get("parts", {})) != set(part_ids):
         raise ValueError("Source-reference model part set differs")
     prior_identity = report.get("source_identity")
+    if report_schema != 1 and not isinstance(prior_identity, dict):
+        raise ValueError(f"Reference schema {report_schema} is missing its required source identity")
     if prior_identity is not None:
         if any(prior_identity.get(key) != identity[key] for key in
                ("config", "config_canonical_sha256", "fixture_identity_sha256", "tokenizer_files")):
@@ -377,6 +381,15 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                   bits=6, source_reference=None, source_reference_config=None, palette_workers=4,
                   source_verification=None):
     """Execute references; optionally reuse a fully checked prior FP16 baseline."""
+    with exclusive_output_directory(output_dir):
+        return _run_reference_locked(
+            source_dir, output_dir, context_length, mode, threads, fixture_specs,
+            bits, source_reference, source_reference_config, palette_workers, source_verification)
+
+
+def _run_reference_locked(source_dir, output_dir, context_length, mode, threads, fixture_specs,
+                          bits, source_reference, source_reference_config, palette_workers,
+                          source_verification):
     if mode not in {"both", "source", "quantized"}:
         raise ValueError("mode must be both, source, or quantized")
     if bits not in (4, 6):

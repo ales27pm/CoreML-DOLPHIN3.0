@@ -58,13 +58,19 @@ Use `verify_export.py --source source` with the commands in the
 [toolkit guide](ane-lut6-c2048/toolkit/README.md#reproduce-the-export).
 
 `build_release.py --models output --reference validation/reference
---destination release-schema3` requires independently verified schema 3 inputs
+--destination release-schema3 --verification-sha256 "$VERIFICATION_SHA256"`
+requires independently verified schema 3 inputs
 and a fresh destination. It checks the archived bytes against the pre-verified
 hash inventories, including model packages, sidecars, references, manifest,
 fixtures and source report; validates the copied source metadata in both ZIPs;
 and rejects duplicate members or a changed package set. It emits
 `release-files.json` and `SHA256SUMS.txt` only after these checks. ZIP CRC is a
 separate corruption check, not proof that the files match the verified export.
+Retain `verification_report_sha256` from the successful verifier in a trusted
+location outside the mutable model tree and supply that value at packaging;
+do not recompute it from the report being packaged. A nonempty destination is
+rejected before writing. Every ZIP member is inventoried, and validated archive
+bytes supply the published digest with mutation checks through finalization.
 
 The published packages and small evidence retained in this repository are
 unchanged historical schema 2 outputs. They have **not** been re-exported or

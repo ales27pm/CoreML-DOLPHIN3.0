@@ -352,12 +352,18 @@ def metadata_file(session: requests.Session, name: str, expected: dict, source_d
     return record
 
 
+def synchronized_workspace() -> Path:
+    """Protect the whole checkout, including Git worktrees; standalone kits protect their root."""
+    toolkit = Path(__file__).resolve().parent
+    return next((path for path in (toolkit, *toolkit.parents) if (path / ".git").exists()), toolkit)
+
+
 def prepare_download_directories(source_dir: Path, partial_dir: Path,
                                  workspace_dir: Path | None = None) -> None:
     """Reject unsafe staging before requesting any large response body."""
-    workspace_dir = (workspace_dir or Path(__file__).resolve().parent).resolve()
+    workspace_dir = (workspace_dir or synchronized_workspace()).resolve()
     source_dir, partial_dir = source_dir.resolve(), partial_dir.resolve()
-    for protected in (workspace_dir, source_dir):
+    for protected in (synchronized_workspace(), workspace_dir, source_dir):
         if partial_dir.is_relative_to(protected) or protected.is_relative_to(partial_dir):
             raise RuntimeError("Partials must be separate from the synchronized workspace and source directory")
     source_dir.mkdir(parents=True, exist_ok=True)
@@ -371,10 +377,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent / "source")
     parser.add_argument("--partials", type=Path,
-                        default=Path.home() / ".cache" / "dolphin3-ane-download-392a6f")
+                        default=Path.home() / ".cache" / "dolphin3-ane-download-392a6f",
+                        help="Disk-backed cache outside the workspace on the same filesystem as --source; override required if home cache is on another volume")
+    parser.add_argument("--workspace", type=Path,
+                        help="Protected synchronization root when larger than the detected Git checkout or standalone toolkit")
     args = parser.parse_args()
     source_dir, partial_dir = args.source.resolve(), args.partials.resolve()
-    prepare_download_directories(source_dir, partial_dir)
+    prepare_download_directories(source_dir, partial_dir, args.workspace)
     with (partial_dir / "download.lock").open("a+") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

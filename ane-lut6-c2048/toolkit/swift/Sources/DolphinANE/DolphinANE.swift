@@ -23,10 +23,80 @@ public struct ModelPlan: Codable, Sendable {
 }
 public enum DolphinError: Error { case invalid(String), busy }
 
+/// IEEE 754 binary16 helpers that also work on Intel macOS, where Swift.Float16 is unavailable.
+enum Binary16 {
+    static let zero: UInt16 = 0x0000
+    static let one: UInt16 = 0x3c00
+    static let negativeGreatestFiniteMagnitude: UInt16 = 0xfbff
+
+    static func isFinite(_ bits: UInt16) -> Bool { bits & 0x7c00 != 0x7c00 }
+
+    static func float(from bits: UInt16) -> Float {
+        let sign = UInt32(bits & 0x8000) << 16
+        let exponent = Int((bits >> 10) & 0x001f)
+        var fraction = UInt32(bits & 0x03ff)
+        let floatBits: UInt32
+
+        switch exponent {
+        case 0 where fraction == 0:
+            floatBits = sign
+        case 0:
+            var unbiasedExponent = -14
+            while fraction & 0x0400 == 0 {
+                fraction <<= 1
+                unbiasedExponent -= 1
+            }
+            fraction &= 0x03ff
+            floatBits = sign | (UInt32(unbiasedExponent + 127) << 23) | (fraction << 13)
+        case 0x1f:
+            floatBits = sign | 0x7f80_0000 | (fraction << 13)
+        default:
+            floatBits = sign | (UInt32(exponent - 15 + 127) << 23) | (fraction << 13)
+        }
+        return Float(bitPattern: floatBits)
+    }
+
+    static func bits(from bytes: UnsafeRawBufferPointer, elementOffset: Int) throws -> UInt16 {
+        let byteOffset = elementOffset * MemoryLayout<UInt16>.size
+        guard elementOffset >= 0, byteOffset + 1 < bytes.count else {
+            throw DolphinError.invalid("Truncated FP16 storage")
+        }
+        return UInt16(bytes[byteOffset]) | (UInt16(bytes[byteOffset + 1]) << 8)
+    }
+
+    static func multiArray(_ values: [UInt16], shape: [Int]) throws -> MLMultiArray {
+        guard !shape.isEmpty, shape.allSatisfy({ $0 > 0 }), shape.reduce(1, *) == values.count else {
+            throw DolphinError.invalid("Invalid FP16 input shape")
+        }
+        let array = try MLMultiArray(shape: shape.map { NSNumber(value: $0) }, dataType: .float16)
+        try array.withUnsafeMutableBytes { bytes, strides in
+            guard strides.count == shape.count else { throw DolphinError.invalid("Invalid FP16 input strides") }
+            var logicalStrides = [Int](repeating: 1, count: shape.count)
+            if shape.count > 1 {
+                for axis in stride(from: shape.count - 2, through: 0, by: -1) {
+                    logicalStrides[axis] = logicalStrides[axis + 1] * shape[axis + 1]
+                }
+            }
+            for (linearIndex, value) in values.enumerated() {
+                var elementOffset = 0
+                for axis in shape.indices {
+                    let coordinate = (linearIndex / logicalStrides[axis]) % shape[axis]
+                    elementOffset += coordinate * strides[axis]
+                }
+                let byteOffset = elementOffset * MemoryLayout<UInt16>.size
+                guard byteOffset + 1 < bytes.count else { throw DolphinError.invalid("Invalid FP16 input storage") }
+                bytes[byteOffset] = UInt8(truncatingIfNeeded: value)
+                bytes[byteOffset + 1] = UInt8(truncatingIfNeeded: value >> 8)
+            }
+        }
+        return array
+    }
+}
+
 /// One owner for every state in the split pipeline; a fresh coherent state set per generation.
 public actor DolphinANEEngine {
     public let manifest: Manifest, computePlans: [ModelPlan]
-    private let models: [MLModel], ropeCos: [Float16], ropeSin: [Float16]
+    private let models: [MLModel], ropeCos: [UInt16], ropeSin: [UInt16]
     private var busy = false, cancelRequested = false
 
     public init(directory: URL) async throws {
@@ -116,8 +186,11 @@ public actor DolphinANEEngine {
         let range = (position * manifest.head_dim)..<((position + 1) * manifest.head_dim)
         let cos = try Self.half(Array(ropeCos[range]), shape: [1, manifest.head_dim, 1, 1])
         let sin = try Self.half(Array(ropeSin[range]), shape: [1, manifest.head_dim, 1, 1])
-        var write = [Float16](repeating: 0, count: manifest.context_length); write[position] = 1
-        let causal = (0..<manifest.context_length).map { $0 <= position ? Float16(0) : -Float16.greatestFiniteMagnitude }
+        var write = [UInt16](repeating: Binary16.zero, count: manifest.context_length)
+        write[position] = Binary16.one
+        let causal = (0..<manifest.context_length).map {
+            $0 <= position ? Binary16.zero : Binary16.negativeGreatestFiniteMagnitude
+        }
         let writeArray = try Self.half(write, shape: [1, 1, 1, manifest.context_length])
         let causalArray = try Self.half(causal, shape: [1, 1, 1, manifest.context_length])
         for i in states.indices {
@@ -133,10 +206,11 @@ public actor DolphinANEEngine {
         var best = -Float.infinity, bestID: Int32 = 0, offset = 0, selected: [TokenLogit] = []
         for (head, width) in manifest.head_sizes.enumerated() {
             let array = try Self.output(output, "logits_\(head)", width: width)
-            try withExtendedLifetime(array) {
-                let data = array.dataPointer.assumingMemoryBound(to: Float16.self), stride = array.strides[1].intValue
+            try array.withUnsafeBytes { bytes in
+                let stride = array.strides[1].intValue
                 for j in 0..<width {
-                    let value = Float(data[j * stride]), id = Int32(offset + j)
+                    let bits = try Binary16.bits(from: bytes, elementOffset: j * stride)
+                    let value = Binary16.float(from: bits), id = Int32(offset + j)
                     guard value.isFinite else { throw DolphinError.invalid("Nonfinite logit at \(id)") }
                     if value > best { best = value; bestID = id } // Earliest vocabulary index wins exact ties.
                     if probeIDs.contains(id) { selected.append(TokenLogit(id: id, logit: value)) }
@@ -152,16 +226,14 @@ public actor DolphinANEEngine {
         else { throw DolphinError.invalid("Unexpected output \(name)") }
         return a
     }
-    private static func half(_ values: [Float16], shape: [Int]) throws -> MLMultiArray {
-        let a = try MLMultiArray(shape: shape.map { NSNumber(value: $0) }, dataType: .float16)
-        for (i, value) in values.enumerated() { a[i] = NSNumber(value: Float(value)) }
-        return a
+    private static func half(_ values: [UInt16], shape: [Int]) throws -> MLMultiArray {
+        try Binary16.multiArray(values, shape: shape)
     }
-    private static func rope(_ url: URL, count: Int) throws -> [Float16] {
+    private static func rope(_ url: URL, count: Int) throws -> [UInt16] {
         let d = try Data(contentsOf: url)
         guard d.count == count * 2 else { throw DolphinError.invalid("Invalid RoPE table length") }
-        let values = (0..<count).map { Float16(bitPattern: UInt16(d[$0 * 2]) | (UInt16(d[$0 * 2 + 1]) << 8)) }
-        guard values.allSatisfy(\.isFinite) else { throw DolphinError.invalid("Nonfinite RoPE") }
+        let values = (0..<count).map { UInt16(d[$0 * 2]) | (UInt16(d[$0 * 2 + 1]) << 8) }
+        guard values.allSatisfy(Binary16.isFinite) else { throw DolphinError.invalid("Nonfinite RoPE") }
         return values
     }
     private static func device(_ d: MLComputeDevice) -> String {

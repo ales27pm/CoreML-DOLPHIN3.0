@@ -42,6 +42,34 @@ from the 8B pins in `requirements-dev.txt`. No workflow is added for this releas
 The 3B multipart contract is documented with its own `DolphinANEEngine`; the
 existing 8B multifunction APIs below retain their original contract.
 
+### 3B source provenance and release archives
+
+The updated 3B toolkit uses **manifest/reference schema 3**. Before export,
+reference generation and independent verification, it re-hashes the two pinned
+source shards and seven metadata/tokenizer files; filenames, sizes and an old
+`all_verified` flag alone cannot authorize reuse. The same cryptographic source
+identity must agree across the manifest, reference and verification reports.
+Use `verify_export.py --source source` with the commands in the
+[toolkit guide](ane-lut6-c2048/toolkit/README.md#reproduce-the-export).
+
+`build_release.py --models output --reference validation/reference
+--destination release-schema3` requires independently verified schema 3 inputs
+and a fresh destination. It checks the archived bytes against the pre-verified
+hash inventories, including model packages, sidecars, references, manifest,
+fixtures and source report; validates the copied source metadata in both ZIPs;
+and rejects duplicate members or a changed package set. It emits
+`release-files.json` and `SHA256SUMS.txt` only after these checks. ZIP CRC is a
+separate corruption check, not proof that the files match the verified export.
+
+The published packages and small evidence retained in this repository are
+unchanged historical schema 2 outputs. They have **not** been re-exported or
+requalified by this code change, and schema 2 manifests/stage reports are
+rejected by the new release gate. A schema 2 numerical reference may be reused
+only after fresh source hashing and matching every loaded FP16 parameter;
+regenerate the export and independent evidence in new directories. No large
+weights, local machine reports, new release archives, Apple-device performance
+or ANE-placement claims accompany this provenance update.
+
 ## Existing 8B pipeline
 
 The existing production pipeline exports **Dolphin3.0-Llama3.1-8B** to a

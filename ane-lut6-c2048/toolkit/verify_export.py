@@ -158,13 +158,17 @@ def compression_bits(manifest, expected_bits=None):
     return bits
 
 
-def verify_sidecars(models, report, context, source_verification=None):
+def verify_sidecars(models, report, context, source_dir=None, source_verification=None):
     """Check source metadata against pinned hashes and RoPE against its equations."""
+    from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
     from dolphin_ane.source import make_rope_tables
+    require(source_dir is not None, "A source directory is required for fresh pinned-input re-hashing")
+    source_dir = Path(source_dir).resolve()
     verification_path = Path(source_verification) if source_verification else Path(__file__).parent / "source-verification.json"
     source = read_json(verification_path)
     require(source.get("all_verified") is True and source.get("revision") == REVISION and
             source.get("repo") == "dphn/Dolphin3.0-Llama3.2-3B", "Pinned source verification identity mismatch")
+    source_weight_identity, source_snapshot = verify_pinned_source_snapshot(source_dir, verification_path)
     mapping = {name: name for name in ("config.json", "generation_config.json", "tokenizer.json",
                                       "tokenizer_config.json", "special_tokens_map.json")}
     mapping["SOURCE_MODEL_CARD.md"] = "README.md"
@@ -182,6 +186,8 @@ def verify_sidecars(models, report, context, source_verification=None):
     identity = report.get("source_identity")
     if report.get("schema_version", 1) >= 2:
         require(isinstance(identity, dict) and identity.get("config") == config, "Reference and exported model config differ")
+        require(identity.get("source_weight_identity") == source_weight_identity,
+                "Reference source shard identity differs from the pinned verification")
         require(identity.get("config_file_sha256") == file_hash(models / "config.json"), "Reference config file hash differs")
         for record in identity.get("tokenizer_files", []):
             require(file_hash(models / record["file"]) == record["sha256"], "Reference tokenizer hash differs from exported sidecar")
@@ -193,7 +199,9 @@ def verify_sidecars(models, report, context, source_verification=None):
         require(path.read_bytes() == expected_bytes, f"RoPE values differ from exact reference Llama3 equations: {name}")
         verified.append({"path": name, "bytes": len(expected_bytes), "sha256": hashlib.sha256(expected_bytes).hexdigest(),
                          "verification_source": "exact Llama3 RoPE recomputation from pinned config; FP16 little-endian bytes"})
-    return verified, {"file": str(verification_path.resolve()), "sha256": file_hash(verification_path)}
+    assert_pinned_source_snapshot(source_dir, source_snapshot, verification_path)
+    return verified, {"file": str(verification_path.resolve()), "sha256": file_hash(verification_path),
+                      "source_weight_identity": source_weight_identity}
 
 
 def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
@@ -201,6 +209,8 @@ def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
     report = read_json(reference_dir / "reference-report.json") if report is None else report
     candidate_key = f"lut{bits}_reference"
     data = read_json(reference_dir / "reference-fixtures.json")
+    require(data.get("schema_version") == report.get("schema_version"),
+            "Reference fixture schema differs from the reference report schema")
     require(data.get("context_length") == context, "Reference fixture context differs from exported models")
     if data.get("schema_version", 1) >= 2:
         require(data.get("index_bits") == bits, "Reference fixture precision differs from exported models")
@@ -284,9 +294,9 @@ def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
             "quality_acceptance_decision": "not_assigned_beyond_fixed_prompt_sanity", "cases": cases_out}
 
 
-def verify_export(models, reference, output, bits=None, source_verification=None):
+def verify_export(models, reference, output, source, bits=None, source_verification=None):
     models, reference, output = Path(models).resolve(), Path(reference).resolve(), Path(output).resolve()
-    result = {"schema_version": 2, "verified_at_utc": datetime.now(timezone.utc).isoformat(),
+    result = {"schema_version": 3, "verified_at_utc": datetime.now(timezone.utc).isoformat(),
               "artifact_integrity_and_weight_parity_passed": False, "compressed_weight_hash_parity_passed": False,
               "serialized_lut_reconstruction_verified": False,
               "apple_sdk_compiled": False, "coreml_runtime_executed": False,
@@ -295,6 +305,8 @@ def verify_export(models, reference, output, bits=None, source_verification=None
               "quality_acceptance_decision": "not_assigned_beyond_fixed_prompt_sanity", "packages": {}}
     try:
         manifest = read_json(models / "manifest.json")
+        require(manifest.get("format_version") == 3,
+                "Unsupported manifest format; expected format 3 with cryptographic source-input binding")
         bits = compression_bits(manifest, expected_bits=bits)
         result["index_bits"] = bits
         require(manifest.get("source_revision") == REVISION, "Manifest source revision mismatch")
@@ -314,9 +326,13 @@ def verify_export(models, reference, output, bits=None, source_verification=None
         if context == 2048:
             require(expected_state_bytes == 224 * 1024 * 1024, "2048-token cache must contain exactly 224 MiB")
         ref_hashes = read_json(reference / "reference-weight-hashes.json")
+        require(ref_hashes.get("schema_version") == 3,
+                "Unsupported reference weight schema; expected schema 3 after regeneration or migration")
         require(ref_hashes.get("complete") is True, "CPU reference weight hashes are incomplete")
         require(set(ref_hashes.get("parts", {})) == set(PART_IDS), "CPU reference is missing or has extra model parts")
         ref_report = read_json(reference / "reference-report.json")
+        require(ref_report.get("schema_version") == 3,
+                "Unsupported reference report schema; expected schema 3 after regeneration or migration")
         require(ref_report.get("complete") is True and ref_report.get("context_length") == context,
                 "CPU reference report is incomplete or uses another context")
         require(ref_report.get("source_revision_requested") == REVISION, "CPU reference revision mismatch")
@@ -347,7 +363,13 @@ def verify_export(models, reference, output, bits=None, source_verification=None
                 "Fixed-prompt numerical sanity gate failed: every original prompt must match the source greedy next token")
         result["numerical_quality_gate_passed"] = True
         result["model_sidecar_files"], result["pinned_source_verification"] = verify_sidecars(
-            models, ref_report, context, source_verification=source_verification)
+            models, ref_report, context, source_dir=source, source_verification=source_verification)
+        source_weight_identity = result["pinned_source_verification"]["source_weight_identity"]
+        require(manifest.get("source_weight_identity") == source_weight_identity,
+                "Manifest source shard identity differs from the pinned verification")
+        require(ref_hashes.get("source_weight_identity") == source_weight_identity,
+                "Reference weight-hash source shard identity differs from the pinned verification")
+        result["source_weight_identity"] = source_weight_identity
         result["rope_tables_recomputed_and_verified"] = True
         total_weights = total_bytes = actual_state_bytes = 0
         for index, part_id in enumerate(PART_IDS):
@@ -355,7 +377,8 @@ def verify_export(models, reference, output, bits=None, source_verification=None
             kind = "embedding" if part_id == "embedding" else "head" if part_id == "head" else "block"
             start, end = (0, 0) if kind == "embedding" else (28, 28) if kind == "head" else BLOCK_RANGES[index - 1]
             expected_metadata = {"stage": f"lut{bits}_compression", "part": kind, "layer_start": start,
-                                 "layer_end": end, "context_length": context, "source_revision": REVISION}
+                                 "layer_end": end, "context_length": context, "source_revision": REVISION,
+                                 "source_weight_identity": source_weight_identity}
             for key, value in expected_metadata.items():
                 require(evidence.get(key) == value, f"Part evidence metadata mismatch: {part_id}.{key}")
             package = models / (part_id + ".mlpackage")
@@ -452,7 +475,7 @@ def verify_export(models, reference, output, bits=None, source_verification=None
             reference_files=reference_files, swift_fixtures={"file": fixture_path.name, "sha256": file_hash(fixture_path),
                 "case_count": len(swift_fixtures["cases"]), "max_abs_logit_error": PROVISIONAL_DEVICE_TOLERANCE,
                 "tolerance_status": "provisional device acceptance tolerance; not measured or calibrated"},
-            interpretation="Package integrity, exact reconstructed weight equality from saved LUT/index payloads, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified.")
+            interpretation="Package integrity, exact reconstructed weight equality from saved LUT/index payloads, freshly re-hashed pinned source-shard and metadata identity, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified.")
         atomic_json(output, result)
         return result
     except Exception as error:
@@ -466,11 +489,13 @@ def main():
     parser.add_argument("--models", required=True, type=Path, help="Model output directory containing manifest.json and evidence/")
     parser.add_argument("--reference", required=True, type=Path, help="Completed CPU reference evidence directory")
     parser.add_argument("--output", required=True, type=Path, help="Verification JSON file")
+    parser.add_argument("--source", required=True, type=Path,
+                        help="Pinned source directory; all shards and metadata are freshly re-hashed")
     parser.add_argument("--bits", type=int, choices=(4, 6), help="Optional precision assertion; otherwise inferred and checked from manifest")
     parser.add_argument("--source-verification", type=Path, help="Pinned source-verification.json; defaults to the toolkit's recorded evidence")
     args = parser.parse_args()
     try:
-        result = verify_export(args.models, args.reference, args.output, bits=args.bits,
+        result = verify_export(args.models, args.reference, args.output, args.source, bits=args.bits,
                                source_verification=args.source_verification)
         print(json.dumps({key: result[key] for key in ("artifact_integrity_and_weight_parity_passed", "package_count",
             "compressed_tensor_count", "serialized_lut_reconstruction_verified", "numerical_quality_gate_passed", "total_state_bytes", "apple_sdk_compiled", "coreml_runtime_executed",

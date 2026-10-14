@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download the pinned public Dolphin weights with verified, resumable HTTP ranges.
 
-Large partials stay in /tmp. Never use HF snapshot_download(local_dir=workspace)
+Large partials stay in a disk-backed cache outside the workspace. Never use HF snapshot_download(local_dir=workspace)
 for these shards: workspace synchronization duplicated interrupted temp files and
 exhausted the disk. Only a fully hashed shard is atomically renamed into source/.
 """
@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import time
 
 import requests
@@ -37,6 +38,19 @@ SHARDS = {
 CHUNK = 8 * 1024 * 1024
 METADATA_FILES = ["config.json", "generation_config.json", "model.safetensors.index.json", "tokenizer.json",
                   "tokenizer_config.json", "special_tokens_map.json", "README.md"]
+# SHA-256 is pinned in code as well as recorded in source-verification.json.
+# Otherwise a caller could change both a metadata file (especially the weight
+# map) and its unsigned verification report while leaving the two official
+# shards untouched.
+PINNED_METADATA = {
+    "config.json": {"size": 935, "sha256": "e21ff53ea39726f972362beba869807216775d5e308bc2f531784846c06a0249"},
+    "generation_config.json": {"size": 206, "sha256": "e627b5a8b2dc371f90388947ada64fa6e71de0f991c04c835f0c0bc97e305a4f"},
+    "model.safetensors.index.json": {"size": 20_919, "sha256": "e6322ad005d27134ba439f7ddd572e632e5b2116ebfbdc88186596dada904c75"},
+    "tokenizer.json": {"size": 17_210_298, "sha256": "e40b93124a3e29f62d5f4ff41be56cb2af34ecacf9239acd9da53a98860380b5"},
+    "tokenizer_config.json": {"size": 53_573, "sha256": "51ad9580aba8d00016efda43357185a0d8ff9884584dcc82ab58ca552afd14e1"},
+    "special_tokens_map.json": {"size": 444, "sha256": "2df2c4620bb1a9eb877bc7c90c7fa04608bda9fa7c0cf2cdcc0a17b849649683"},
+    "README.md": {"size": 5_840, "sha256": "0c4007169c0ebeb8928283543a8f5115ef85414f437aa7cfa5ad2b85095c3336"},
+}
 
 
 def emit(**values: object) -> None:
@@ -55,6 +69,126 @@ def verify(path: Path, expected: dict) -> str:
         raise RuntimeError(f"SHA256 mismatch for {path}: expected {expected['sha256']}, got {actual}; file preserved")
     emit(event="sha256_verified", name=path.name, bytes=path.stat().st_size, sha256=actual)
     return actual
+
+
+def pinned_source_weight_identity(report: dict) -> dict:
+    """Return the canonical identity of every pinned source input in *report*.
+
+    The downloader report is useful evidence, but it is not itself proof that the
+    files still contain the bytes that were downloaded. This helper validates the
+    report against the immutable constants above; ``verify_pinned_source_shards``
+    performs the separate, current-byte verification.
+    """
+    if (report.get("all_verified") is not True or report.get("repo") != REPO
+            or report.get("revision") != REVISION):
+        raise RuntimeError("Pinned source verification repository/revision mismatch")
+    files = report.get("files")
+    if not isinstance(files, dict):
+        raise RuntimeError("Pinned source verification has no file inventory")
+    shards = []
+    for name in sorted(SHARDS):
+        authoritative = SHARDS[name]
+        record = files.get(name)
+        if (not isinstance(record, dict) or record.get("verified") is not True
+                or record.get("size") != authoritative["size"]
+                or record.get("sha256") != authoritative["sha256"]):
+            raise RuntimeError(f"Pinned source verification shard identity mismatch: {name}")
+        shards.append({"file": name, "bytes": authoritative["size"],
+                       "sha256": authoritative["sha256"]})
+    metadata = []
+    for name in sorted(PINNED_METADATA):
+        authoritative = PINNED_METADATA[name]
+        record = files.get(name)
+        if (not isinstance(record, dict) or record.get("verified") is not True
+                or record.get("size") != authoritative["size"]
+                or record.get("sha256") != authoritative["sha256"]):
+            raise RuntimeError(f"Pinned source metadata identity mismatch: {name}")
+        metadata.append({"file": name, "bytes": authoritative["size"],
+                         "sha256": authoritative["sha256"]})
+    value = {"repo": REPO, "revision": REVISION, "shards": shards, "metadata": metadata}
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    value["identity_sha256"] = hashlib.sha256(encoded).hexdigest()
+    recorded = report.get("source_weight_identity")
+    if recorded is not None and recorded != value:
+        raise RuntimeError("Recorded source weight identity differs from the pinned shard inventory")
+    return value
+
+
+def _safe_source_path(source_dir: Path, name: str) -> Path:
+    path = source_dir / name
+    if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(source_dir):
+        raise RuntimeError(f"Pinned source file is missing, unsafe, or not a regular file: {path}")
+    return path
+
+
+def _stat_record(path: Path) -> dict:
+    value = path.stat(follow_symlinks=False)
+    if not stat.S_ISREG(value.st_mode):
+        raise RuntimeError(f"Pinned source path is not a regular file: {path}")
+    return {"device": value.st_dev, "inode": value.st_ino, "mode": value.st_mode,
+            "bytes": value.st_size, "mtime_ns": value.st_mtime_ns, "ctime_ns": value.st_ctime_ns}
+
+
+def capture_pinned_source_snapshot(source_dir: Path, verification_path: Path | None = None) -> dict:
+    """Capture cheap mutation evidence for use around a long worker phase."""
+    source_dir = Path(source_dir).resolve()
+    verification_path = (Path(verification_path).resolve() if verification_path is not None
+                         else source_dir.parent / "source-verification.json")
+    names = sorted(set(SHARDS) | set(PINNED_METADATA))
+    files = {name: _stat_record(_safe_source_path(source_dir, name)) for name in names}
+    directory = source_dir.stat()
+    return {"source_directory": {"device": directory.st_dev, "inode": directory.st_ino,
+                                  "mtime_ns": directory.st_mtime_ns, "ctime_ns": directory.st_ctime_ns},
+            "verification_file": {"path": str(verification_path), **_stat_record(verification_path)},
+            "files": files}
+
+
+def assert_pinned_source_snapshot(source_dir: Path, snapshot: dict,
+                                  verification_path: Path | None = None) -> None:
+    """Fail if a pinned input was replaced or mutated, even if bytes were restored."""
+    current = capture_pinned_source_snapshot(source_dir, verification_path)
+    if current != snapshot:
+        raise RuntimeError("Pinned source inputs changed during the worker phase")
+
+
+def verify_pinned_source_snapshot(source_dir: Path, verification_path: Path | None = None) -> tuple[dict, dict]:
+    """Re-hash all pinned inputs and return identity plus a stable stat snapshot."""
+    source_dir = Path(source_dir).resolve()
+    verification_path = (Path(verification_path).resolve() if verification_path is not None
+                         else source_dir.parent / "source-verification.json")
+    before = capture_pinned_source_snapshot(source_dir, verification_path)
+    report = json.loads(verification_path.read_text(encoding="utf-8"))
+    identity = pinned_source_weight_identity(report)
+    for item in (*identity["shards"], *identity["metadata"]):
+        path = _safe_source_path(source_dir, item["file"])
+        actual = verify(path, {"size": item["bytes"], "sha256": item["sha256"]})
+        if actual != item["sha256"]:  # ``verify`` already fails; keep the invariant explicit.
+            raise RuntimeError(f"Pinned source SHA256 mismatch: {path}")
+
+    index_name = "model.safetensors.index.json"
+    if index_name in PINNED_METADATA:
+        index = json.loads((source_dir / index_name).read_text(encoding="utf-8"))
+        weight_map = index.get("weight_map") if isinstance(index, dict) else None
+        if not isinstance(weight_map, dict) or not weight_map:
+            raise RuntimeError("Pinned safetensors index has no nonempty weight_map")
+        referenced = set(weight_map.values())
+        if (any(not isinstance(name, str) for name in weight_map.values())
+                or referenced != set(SHARDS)):
+            raise RuntimeError("Pinned safetensors index does not reference exactly the verified shards")
+    after = capture_pinned_source_snapshot(source_dir, verification_path)
+    if before != after:
+        raise RuntimeError("Pinned source inputs changed while they were being verified")
+    return identity, after
+
+
+def verify_pinned_source_shards(source_dir: Path, verification_path: Path | None = None) -> dict:
+    """Re-hash every pinned source input and return its canonical identity.
+
+    Callers use this at the export/reference boundary rather than trusting the
+    earlier download event. The returned value contains no paths or timestamps,
+    so it can be embedded verbatim in manifests and compared deterministically.
+    """
+    return verify_pinned_source_snapshot(source_dir, verification_path)[0]
 
 
 def validate_response(response: requests.Response, offset: int, size: int) -> int:
@@ -218,17 +352,29 @@ def metadata_file(session: requests.Session, name: str, expected: dict, source_d
     return record
 
 
+def prepare_download_directories(source_dir: Path, partial_dir: Path,
+                                 workspace_dir: Path | None = None) -> None:
+    """Reject unsafe staging before requesting any large response body."""
+    workspace_dir = (workspace_dir or Path(__file__).resolve().parent).resolve()
+    source_dir, partial_dir = source_dir.resolve(), partial_dir.resolve()
+    for protected in (workspace_dir, source_dir):
+        if partial_dir.is_relative_to(protected) or protected.is_relative_to(partial_dir):
+            raise RuntimeError("Partials must be separate from the synchronized workspace and source directory")
+    source_dir.mkdir(parents=True, exist_ok=True)
+    partial_dir.mkdir(parents=True, exist_ok=True)
+    if source_dir.stat().st_dev != partial_dir.stat().st_dev:
+        raise RuntimeError("Source and partial directories must share the same filesystem for an atomic rename; "
+                           "choose a disk-backed cache with --partials (not a separate /tmp tmpfs)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent / "source")
-    parser.add_argument("--partials", type=Path, default=Path("/tmp/dolphin3-ane-download-392a6f"))
+    parser.add_argument("--partials", type=Path,
+                        default=Path.home() / ".cache" / "dolphin3-ane-download-392a6f")
     args = parser.parse_args()
     source_dir, partial_dir = args.source.resolve(), args.partials.resolve()
-    # A hard guard prevents reproducing the workspace-sync failure described above.
-    if not partial_dir.is_relative_to(Path("/tmp").resolve()):
-        raise RuntimeError("Partials must be below /tmp, outside the synchronized workspace")
-    source_dir.mkdir(parents=True, exist_ok=True)
-    partial_dir.mkdir(parents=True, exist_ok=True)
+    prepare_download_directories(source_dir, partial_dir)
     with (partial_dir / "download.lock").open("a+") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -245,6 +391,7 @@ def main() -> None:
                                "expected_digest": SHARDS[name]["sha256"], "actual_digest": SHARDS[name]["sha256"], "verified": True}
         report = {"repo": REPO, "revision": REVISION, "metadata_url": METADATA_URL,
                   "verified_at_utc": datetime.now(timezone.utc).isoformat(), "files": files, "all_verified": True}
+        report["source_weight_identity"] = pinned_source_weight_identity(report)
         temporary = partial_dir / "source-verification.json.partial"
         temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         report_path = source_dir.parent / "source-verification.json"

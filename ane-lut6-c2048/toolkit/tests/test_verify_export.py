@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import torch
 
+import download_source
 from dolphin_ane import reference as ref
 from dolphin_ane.source import make_rope_tables
 import verify_export as verify
@@ -93,8 +94,8 @@ def test_sparse_fixture_or_saved_logits_tampering_rejected(tmp_path, tamper):
         verify.verify_fixtures(tmp_path, 8, 16, bits=6, report=report)
 
 
-@pytest.mark.parametrize("tamper", [None, "tokenizer", "rope"])
-def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, tamper):
+@pytest.mark.parametrize("tamper", [None, "tokenizer", "rope", "source_identity"])
+def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, monkeypatch, tamper):
     config = {"hidden_size": 3072, "num_attention_heads": 24, "head_dim": 128,
               "rope_theta": 500000.0, "rope_scaling": {"rope_type": "llama3", "factor": 32.0,
               "low_freq_factor": 1.0, "high_freq_factor": 4.0, "original_max_position_embeddings": 8192}}
@@ -102,15 +103,37 @@ def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, tamper):
                                         "special_tokens_map.json")}
     files["config.json"] = json.dumps(config).encode()
     files["SOURCE_MODEL_CARD.md"] = b"Pinned test model card\n"
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
     source = {"all_verified": True, "revision": verify.REVISION, "repo": "dphn/Dolphin3.0-Llama3.2-3B", "files": {}}
     for name, content in files.items():
         (tmp_path / name).write_bytes(content)
         original = "README.md" if name == "SOURCE_MODEL_CARD.md" else name
+        (source_dir / original).write_bytes(content)
         source["files"][original] = {"size": len(content), "sha256": hashlib.sha256(content).hexdigest(), "verified": True}
+    shard_values = {"a.safetensors": b"pinned-a", "b.safetensors": b"pinned-b"}
+    index = json.dumps({"weight_map": {"a": "a.safetensors", "b": "b.safetensors"}}).encode()
+    (source_dir / "model.safetensors.index.json").write_bytes(index)
+    source["files"]["model.safetensors.index.json"] = {
+        "size": len(index), "sha256": hashlib.sha256(index).hexdigest(), "verified": True}
+    shards = {}
+    for name, content in shard_values.items():
+        (source_dir / name).write_bytes(content)
+        shards[name] = {"size": len(content), "sha256": hashlib.sha256(content).hexdigest()}
+    metadata = {name: {"size": path.stat().st_size, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                for name in ("config.json", "generation_config.json", "model.safetensors.index.json",
+                             "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "README.md")
+                for path in [source_dir / name]}
+    monkeypatch.setattr(download_source, "SHARDS", shards)
+    monkeypatch.setattr(download_source, "PINNED_METADATA", metadata)
+    for name, expected in shards.items():
+        source["files"][name] = {**expected, "verified": True}
+    source["source_weight_identity"] = download_source.pinned_source_weight_identity(source)
     source_path = tmp_path / "source-verification.json"
     source_path.write_text(json.dumps(source))
     report = {"schema_version": 2, "source_identity": {"config": config,
-              "config_file_sha256": hashlib.sha256(files["config.json"]).hexdigest(), "tokenizer_files": []}}
+              "config_file_sha256": hashlib.sha256(files["config.json"]).hexdigest(), "tokenizer_files": [],
+              "source_weight_identity": source["source_weight_identity"]}}
     cos, sin = make_rope_tables(config, 8)
     for name, table in (("rope_cos.fp16", cos), ("rope_sin.fp16", sin)):
         (tmp_path / name).write_bytes(table.numpy().astype("<f2").tobytes())
@@ -121,9 +144,12 @@ def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, tamper):
         contents = bytearray(path.read_bytes())
         contents[3] ^= 1
         path.write_bytes(contents)
+    elif tamper == "source_identity":
+        report["source_identity"]["source_weight_identity"] = {
+            **source["source_weight_identity"], "identity_sha256": "0" * 64}
     if tamper:
-        with pytest.raises(ValueError, match="SHA256 mismatch|RoPE values differ"):
-            verify.verify_sidecars(tmp_path, report, 8, source_verification=source_path)
+        with pytest.raises(ValueError, match="SHA256 mismatch|RoPE values differ|source shard identity differs"):
+            verify.verify_sidecars(tmp_path, report, 8, source_dir=source_dir, source_verification=source_path)
     else:
-        records, _ = verify.verify_sidecars(tmp_path, report, 8, source_verification=source_path)
+        records, _ = verify.verify_sidecars(tmp_path, report, 8, source_dir=source_dir, source_verification=source_path)
         assert len(records) == 8 and {item["path"] for item in records} == set(files) | {"rope_cos.fp16", "rope_sin.fp16"}

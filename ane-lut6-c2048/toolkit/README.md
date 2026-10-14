@@ -1,7 +1,7 @@
 # Dolphin 3.0 Llama 3.2 3B — LUT6 stateful Core ML export
 
 **GitHub edition:** Start with the [version index and model download](../README.md).
-The converter, tests and Swift sources are the verified release copies. Converted
+The converter, tests and Swift sources are maintained here. Converted
 packages and the large `source/tokenizer.json` are fetched separately; small
 metadata and evidence are kept in GitHub. Once `models/` has been downloaded,
 every “full-release root” below means the enclosing `ane-lut6-c2048/` directory,
@@ -199,14 +199,28 @@ fi
 .venv/bin/python verify_export.py \
   --models output \
   --reference validation/reference \
+  --source source \
   --output output/evidence/verification.json
 ```
 
 The conditional install selects CPU-only PyTorch wheels on Linux before resolving the remaining requirements. Apple Silicon macOS uses its normal PyTorch wheel.
 
-The downloader pins the commit and verifies both model shards using the authoritative Hugging Face SHA-256 values. It checks metadata/tokenizer Git blob or LFS identities, preserves already matching files, and resumes an incomplete shard only after validating HTTP 206 and its exact `Content-Range`. Large in-progress downloads and builds stay outside the synchronized workspace; only complete files are moved into their destinations.
+The downloader pins the commit and verifies both model shards using the authoritative Hugging Face SHA-256 values. It checks metadata/tokenizer Git blob or LFS identities, preserves already matching files, and resumes an incomplete shard only after validating HTTP 206 and its exact `Content-Range`. Large in-progress downloads and builds stay outside the synchronized workspace; only complete files are moved into their destinations. Download partials default to `~/.cache/dolphin3-ane-download-392a6f`. Before networking, staging must be separate from the workspace and on the same filesystem as `source/` for atomic installation. Use `--partials` to select another disk-backed cache; a separate `/tmp` tmpfs is rejected before downloading.
 
-The converter creates each part with meta parameters, reads only its source tensors, and runs conversion and compression in separate subprocesses. Completed packages have integrity reports and can be reused after their hashes and configuration are checked. It refuses to silently overwrite incomplete or incompatible outputs.
+The converter creates each part with meta parameters, reads only its source tensors, and runs conversion and compression in separate subprocesses. Completed packages have integrity reports and can be reused after their hashes and configuration are checked. It refuses to silently overwrite incomplete or incompatible outputs. Manifest/reference schema 3 binds the pinned shard and metadata hashes. A schema 2 reference may be migrated only by a fresh source re-hash plus verification of every loaded FP16 parameter; schema 2 manifests and stage reports require a fresh export into a new output directory. Release packaging accepts only independently reverified schema 3 evidence.
+
+The exporter, numerical reference and independent verifier re-hash the pinned source inputs before use; a former `all_verified: true` flag is not sufficient. Existing published schema 2 models and evidence remain historical and are not upgraded by editing JSON. Download the full tokenizer and source shards, then regenerate the export and its evidence before building a new schema 3 release.
+
+After a successful independent verification, package into a new destination:
+
+```sh
+.venv/bin/python build_release.py \
+  --models output \
+  --reference validation/reference \
+  --destination release-schema3
+```
+
+Before reporting `release_ready`, the packager re-hashes the bytes actually stored in the ZIP against the verified model packages, sidecars, reference files, manifest, Swift fixtures and source-verification report. It also checks the copied source metadata in both archives, rejects duplicate members and changed package inventories, and emits `release-files.json` plus `SHA256SUMS.txt`. A valid ZIP CRC alone is not accepted as provenance. These checks bind the delivered files to the local verification result; they are not a publisher signature or evidence of Apple-device execution.
 
 The complete original source shards occupy about 6.43 GB. Allow additional space for the Python environment, intermediate FP16 packages, compressed output and archives. The converter's measured peak process memory is recorded per part in the evidence. The conversion environment has an 8 GiB memory limit; this is not an iPhone runtime memory claim.
 

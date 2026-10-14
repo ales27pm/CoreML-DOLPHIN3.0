@@ -1,6 +1,7 @@
 """Precision, baseline provenance, and fixed-prompt failure-gate checks."""
 
 import copy
+import hashlib
 import json
 import threading
 
@@ -11,6 +12,7 @@ import torch
 from torch import nn
 from transformers import LlamaConfig, LlamaForCausalLM
 
+import download_source
 from dolphin_ane import reference as ref
 from dolphin_ane.palette import palette
 
@@ -125,10 +127,31 @@ def baseline(tmp_path, monkeypatch):
     save_file({name: value.detach().bfloat16().contiguous() for name, value in model.state_dict().items()
                if name != "lm_head.weight"}, str(source / "model.safetensors"))
     (source / "config.json").write_text(json.dumps(config.to_dict()))
+    shard = source / "model.safetensors"
+    digest = hashlib.sha256(shard.read_bytes()).hexdigest()
+    expected = {"size": shard.stat().st_size, "sha256": digest}
+    monkeypatch.setattr(download_source, "SHARDS", {shard.name: expected})
+    monkeypatch.setattr(download_source, "PINNED_METADATA", {})
+    (source.parent / "source-verification.json").write_text(json.dumps({
+        "repo": download_source.REPO, "revision": download_source.REVISION, "all_verified": True,
+        "files": {shard.name: {**expected, "verified": True}},
+    }))
     monkeypatch.setattr(ref.AutoTokenizer, "from_pretrained", lambda *args, **kwargs: TinyTokenizer())
     prior = tmp_path / "baseline"
     ref.run_reference(source, prior, context_length=8, mode="source", threads=2)
     return source, prior
+
+
+def test_reference_rehashes_source_shards_before_forward(baseline, tmp_path):
+    source, _ = baseline
+    shard = source / "model.safetensors"
+    original_size = shard.stat().st_size
+    contents = bytearray(shard.read_bytes())
+    contents[-1] ^= 1
+    shard.write_bytes(contents)
+    assert shard.stat().st_size == original_size
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        ref.run_reference(source, tmp_path / "candidate", context_length=8, threads=2)
 
 
 def test_baseline_reuse_skips_source_forward_and_preserves_all_logits(baseline, tmp_path, monkeypatch):
@@ -147,6 +170,7 @@ def test_baseline_reuse_skips_source_forward_and_preserves_all_logits(baseline, 
     assert report["numerical_quality_gate_passed"]
     assert report["source_reference_reuse"]["all_source_fp16_parameter_hashes_verified"]
     assert report["source_reference_reuse"]["source_parameter_count_verified"] == 28
+    assert report["source_identity"]["source_weight_identity"]["identity_sha256"]
     with np.load(prior / "reference-logits.npz") as old, np.load(output / "reference-logits.npz") as new:
         np.testing.assert_array_equal(old["source_fp16"], new["source_fp16"])
         np.testing.assert_array_equal(new["source_fp16"], new["lut6_reference"])

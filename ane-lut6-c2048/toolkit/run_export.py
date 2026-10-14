@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tempfile
 
+from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
+
 
 ROOT = Path(__file__).resolve().parent
 
@@ -28,14 +30,26 @@ def file_hash(path):
     return h.hexdigest()
 
 
-def validate_completed(model_path, report_path, kind, start, end, context, stage, bits=None):
+def verify_stage_source_identity(report_path, source_weight_identity):
+    """Require the worker itself to bind its report to the verified source."""
+    report = read_json(report_path)
+    recorded = report.get("source_weight_identity")
+    if recorded is None:
+        raise RuntimeError(f"Stage report is missing its required source identity: {report_path}")
+    if recorded != source_weight_identity:
+        raise RuntimeError(f"Stage report has another source identity: {report_path}")
+
+
+def validate_completed(model_path, report_path, kind, start, end, context, stage,
+                       source_weight_identity, bits=None):
     if not model_path.exists() and not report_path.exists():
         return False
     if not model_path.is_dir() or not report_path.is_file():
         raise RuntimeError(f"Incomplete prior output requires inspection: {model_path}")
     report = read_json(report_path)
     expected = {"source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364", "part": kind,
-                "layer_start": start, "layer_end": end, "context_length": context, "stage": stage}
+                "layer_start": start, "layer_end": end, "context_length": context, "stage": stage,
+                "source_weight_identity": source_weight_identity}
     if bits is not None:
         expected["weight_format"] = f"LUT{bits} grouped-channel-16"
     for key, value in expected.items():
@@ -48,8 +62,10 @@ def validate_completed(model_path, report_path, kind, start, end, context, stage
     return True
 
 
-def worker(stage, source, output, kind, start, end, context, threads, bits, palette_workers, log_path, input_path=None):
+def worker(stage, source, source_verification, output, kind, start, end, context, threads, bits,
+           palette_workers, log_path, input_path=None):
     command = [sys.executable, "-m", "dolphin_ane.exporter", stage, "--source", str(source),
+               "--source-verification", str(source_verification),
                "--output", str(output), "--kind", kind, "--start", str(start), "--end", str(end),
                "--context", str(context), "--threads", str(threads), "--bits", str(bits),
                "--palette-workers", str(palette_workers)]
@@ -71,6 +87,8 @@ def worker(stage, source, output, kind, start, end, context, threads, bits, pale
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT / "source")
+    parser.add_argument("--source-verification", type=Path,
+                        help="Pinned source-verification.json; defaults beside the source directory")
     parser.add_argument("--output", type=Path, default=ROOT / "output")
     parser.add_argument("--build-dir", type=Path)
     parser.add_argument("--context", type=int, default=2048)
@@ -84,18 +102,17 @@ def main():
     source, output = args.source.resolve(), args.output.resolve()
     if args.context < 1 or args.layers_per_block < 1 or args.threads < 1 or args.palette_workers < 1:
         parser.error("context, layers-per-block, threads and palette-workers must be positive")
+    verification_path = (args.source_verification.resolve() if args.source_verification is not None
+                         else source.parent / "source-verification.json")
+    source_weight_identity, export_source_snapshot = verify_pinned_source_snapshot(source, verification_path)
     config = read_json(source / "config.json")
+    assert_pinned_source_snapshot(source, export_source_snapshot, verification_path)
     required = {"hidden_size": 3072, "vocab_size": 128258, "num_hidden_layers": 28,
                 "num_attention_heads": 24, "num_key_value_heads": 8, "tie_word_embeddings": True}
     if any(config.get(k) != v for k, v in required.items()):
         raise ValueError("Checkpoint does not match the pinned Dolphin 3B contract")
     if args.context > config["max_position_embeddings"]:
         raise ValueError("Requested context exceeds the source checkpoint")
-    for name, size in (("model-00001-of-00002.safetensors", 4965811384),
-                       ("model-00002-of-00002.safetensors", 1459729952)):
-        path = source / name
-        if not path.is_file() or path.stat().st_size != size:
-            raise ValueError(f"Missing/incomplete source shard: {path}; run download_source.py")
     build = args.build_dir.resolve() if args.build_dir else Path(tempfile.mkdtemp(prefix="dolphin3-coreml-"))
     output.mkdir(parents=True, exist_ok=True)
     build.mkdir(parents=True, exist_ok=True)
@@ -113,19 +130,28 @@ def main():
     for name, kind, start, end in parts:
         final = output / (name + ".mlpackage")
         final_report = evidence / (name + ".json")
-        if validate_completed(final, final_report, kind, start, end, args.context, compression_stage, args.bits):
+        if validate_completed(final, final_report, kind, start, end, args.context, compression_stage,
+                              source_weight_identity, args.bits):
             print(json.dumps({"verified_existing": name}), flush=True)
             continue
         fp16 = build / (name + "_fp16.mlpackage")
         fp16_report = Path(str(fp16) + ".json")
-        if not validate_completed(fp16, fp16_report, kind, start, end, args.context, "fp16_conversion"):
-            worker("convert", source, fp16, kind, start, end, args.context, args.threads, args.bits, args.palette_workers,
+        if not validate_completed(fp16, fp16_report, kind, start, end, args.context, "fp16_conversion",
+                                  source_weight_identity):
+            worker("convert", source, verification_path, fp16, kind, start, end, args.context, args.threads, args.bits, args.palette_workers,
                    evidence / (name + "_convert.log"))
+            verify_stage_source_identity(fp16_report, source_weight_identity)
         packed = build / (name + ".mlpackage")
         packed_report = Path(str(packed) + ".json")
-        if not validate_completed(packed, packed_report, kind, start, end, args.context, compression_stage, args.bits):
-            worker("compress", source, packed, kind, start, end, args.context, args.threads, args.bits, args.palette_workers,
+        if not validate_completed(packed, packed_report, kind, start, end, args.context, compression_stage,
+                                  source_weight_identity, args.bits):
+            worker("compress", source, verification_path, packed, kind, start, end, args.context, args.threads, args.bits, args.palette_workers,
                    evidence / (name + "_compress.log"), fp16)
+            verify_stage_source_identity(packed_report, source_weight_identity)
+            validate_completed(fp16, fp16_report, kind, start, end, args.context, "fp16_conversion",
+                               source_weight_identity)
+            validate_completed(packed, packed_report, kind, start, end, args.context, compression_stage,
+                               source_weight_identity, args.bits)
         # Move only fully written, independently hashed packages into the result directory.
         shutil.move(str(packed), str(final))
         shutil.move(str(packed_report), str(final_report))
@@ -133,6 +159,11 @@ def main():
         shutil.rmtree(fp16)
         fp16_report.unlink()
         print(json.dumps({"finished": name, "bytes": sum(f["bytes"] for f in read_json(final_report)["files"])}), flush=True)
+    assert_pinned_source_snapshot(source, export_source_snapshot, verification_path)
+    final_source_weight_identity, sidecar_source_snapshot = verify_pinned_source_snapshot(
+        source, verification_path)
+    if final_source_weight_identity != source_weight_identity:
+        raise RuntimeError("Pinned source shards changed while the export was running")
     from dolphin_ane.source import make_rope_tables
     cosine, sine = make_rope_tables(config, args.context)
     cosine.numpy().astype("<f2", copy=False).tofile(output / "rope_cos.fp16")
@@ -140,9 +171,11 @@ def main():
     for name in ("config.json", "generation_config.json", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json"):
         shutil.copy2(source / name, output / name)
     shutil.copy2(source / "README.md", output / "SOURCE_MODEL_CARD.md")
+    assert_pinned_source_snapshot(source, sidecar_source_snapshot, verification_path)
     manifest = {
-        "format_version": 2, "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
+        "format_version": 3, "source_model": "dphn/Dolphin3.0-Llama3.2-3B",
         "source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364",
+        "source_weight_identity": source_weight_identity,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "minimum_ios": "18.0", "minimum_macos": "15.0", "context_length": args.context,
         "query_length": 1, "prefill": "token_by_token", "hidden_size": 3072,

@@ -1,5 +1,6 @@
 """Loader integrity and independent Transformers 4.47.1 RoPE parity checks."""
 
+import hashlib
 import json
 
 import pytest
@@ -109,13 +110,50 @@ def test_missing_source_key_rejected_before_assignment(source_data):
 def test_rope_tables_exactly_match_transformers_fp16(rope_scaling):
     config = LlamaConfig(hidden_size=3072, num_attention_heads=24, head_dim=128,
         max_position_embeddings=131072, rope_theta=500000.0, rope_scaling=rope_scaling)
-    reference = LlamaRotaryEmbedding(config=config, device="cpu")
-    expected_cos, expected_sin = reference(torch.zeros(1, 1, 3072), torch.arange(2048)[None])
+    caller_threads = torch.get_num_threads()
+    try:
+        torch.set_num_threads(1)
+        reference = LlamaRotaryEmbedding(config=config, device="cpu")
+        expected_cos, expected_sin = reference(torch.zeros(1, 1, 3072), torch.arange(2048)[None])
+    finally:
+        torch.set_num_threads(caller_threads)
     actual_cos, actual_sin = make_rope_tables(config.to_dict(), 2048)
+    assert torch.get_num_threads() == caller_threads
     assert actual_cos.shape == actual_sin.shape == (2048, 128)
     assert actual_cos.dtype == actual_sin.dtype == torch.float16
     torch.testing.assert_close(actual_cos, expected_cos[0].half(), atol=0, rtol=0)
     torch.testing.assert_close(actual_sin, expected_sin[0].half(), atol=0, rtol=0)
+
+
+def test_dolphin_rope_hashes_are_canonical_and_thread_count_is_unchanged():
+    config = LlamaConfig(hidden_size=3072, num_attention_heads=24, head_dim=128,
+        max_position_embeddings=131072, rope_theta=500000.0, rope_scaling={
+            "rope_type": "llama3", "factor": 32.0, "low_freq_factor": 1.0,
+            "high_freq_factor": 4.0, "original_max_position_embeddings": 8192,
+        })
+    caller_threads = torch.get_num_threads()
+    try:
+        torch.set_num_threads(4)
+        cos, sin = make_rope_tables(config.to_dict(), 2048)
+        tail_cos, tail_sin = make_rope_tables(config.to_dict(), 2049)
+        assert torch.get_num_threads() == 4
+    finally:
+        torch.set_num_threads(caller_threads)
+    assert hashlib.sha256(cos.numpy().astype("<f2", copy=False).tobytes()).hexdigest() == \
+        "7a4e770a06b615795822b57e02f3eafd2c60c3859bd9d110ed7d68162c10794e"
+    assert hashlib.sha256(sin.numpy().astype("<f2", copy=False).tobytes()).hexdigest() == \
+        "ecc3cecff33021f825e995e163302e61dc66b96a860ce29964337091ae848d40"
+    assert tail_cos.shape == tail_sin.shape == (2049, 128)
+    torch.testing.assert_close(tail_cos[:2048], cos, atol=0, rtol=0)
+    torch.testing.assert_close(tail_sin[:2048], sin, atol=0, rtol=0)
+    try:
+        torch.set_num_threads(1)
+        reference = LlamaRotaryEmbedding(config=config, device="cpu")
+        expected_cos, expected_sin = reference(torch.zeros(1, 1, 3072), torch.tensor([[2048]]))
+    finally:
+        torch.set_num_threads(caller_threads)
+    torch.testing.assert_close(tail_cos[-1], expected_cos[0, 0].half(), atol=0, rtol=0)
+    torch.testing.assert_close(tail_sin[-1], expected_sin[0, 0].half(), atol=0, rtol=0)
 
 
 def test_unsupported_rope_is_rejected(source_data):

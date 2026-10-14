@@ -12,8 +12,42 @@ import pytest
 from safetensors.torch import save_file
 import torch
 
+import download_source
 from dolphin_ane import exporter
 from dolphin_ane.model import BlockPart, EmbeddingPart, HeadPart
+
+
+def pin_test_source(source, monkeypatch, shard_bytes=None):
+    """Create a tiny, fully pinned source and return its verification path."""
+    source.mkdir(parents=True, exist_ok=True)
+    shard = source / "model.safetensors"
+    if not shard.exists():
+        shard.write_bytes(shard_bytes or b"compression-only pinned source")
+    config = source / "config.json"
+    if not config.exists():
+        config.write_text("{}")
+    shards = {shard.name: {"size": shard.stat().st_size,
+                           "sha256": hashlib.sha256(shard.read_bytes()).hexdigest()}}
+    metadata = {config.name: {"size": config.stat().st_size,
+                              "sha256": hashlib.sha256(config.read_bytes()).hexdigest()}}
+    monkeypatch.setattr(download_source, "SHARDS", shards)
+    monkeypatch.setattr(download_source, "PINNED_METADATA", metadata)
+    report = {"repo": download_source.REPO, "revision": download_source.REVISION,
+              "all_verified": True, "files": {
+                  shard.name: {**shards[shard.name], "verified": True},
+                  config.name: {**metadata[config.name], "verified": True}}}
+    verification = source.parent / "source-verification.json"
+    verification.write_text(json.dumps(report))
+    return verification, download_source.pinned_source_weight_identity(report)
+
+
+def bind_compression_input(args, tmp_path, monkeypatch):
+    source = tmp_path / "pinned-source"
+    verification, identity = pin_test_source(source, monkeypatch)
+    args.source = source
+    args.source_verification = verification
+    Path(str(args.input) + ".json").write_text(json.dumps({
+        "source_weight_identity": identity, "files": exporter.tree_inventory(args.input)}))
 
 
 @pytest.fixture(scope="module", params=[4, 6])
@@ -39,8 +73,10 @@ def exported_block(tmp_path_factory, request):
             value = value.reshape(value.shape[:2])
         weights[assignment["source"]] = value
     save_file(weights, str(source / "model.safetensors"))
+    verification, _ = pin_test_source(source, monkeypatch)
     args = argparse.Namespace(source=source, input=None, output=tmp_path / "fp16.mlpackage",
-                              kind="block", start=0, end=4, context=64, threads=2, bits=request.param)
+                              source_verification=verification, kind="block", start=0, end=4,
+                              context=64, threads=2, bits=request.param)
     exporter.convert(args)
     args.input, args.output = args.output, tmp_path / f"lut{args.bits}.mlpackage"
     # Every tiny projection exceeds 256 values; production keeps its 65536 limit.
@@ -152,6 +188,7 @@ def test_embedding_and_head_compression_names_and_contracts(kind, part_type, cou
                               input=tmp_path / "fp16.mlpackage", output=tmp_path / f"lut{bits}.mlpackage", bits=bits)
     exporter.annotate(model, args)
     exporter.save_model(model, args.input)
+    bind_compression_input(args, tmp_path, monkeypatch)
     monkeypatch.setattr(exporter, "COMPRESSION_WEIGHT_THRESHOLD", 256)
     exporter.compress(args)
     report = json.loads(args.output.with_suffix(".mlpackage.json").read_text())
@@ -165,7 +202,7 @@ def test_embedding_and_head_compression_names_and_contracts(kind, part_type, cou
         assert sum(shape[1] for shape in report["outputs"].values()) == 259
 
 
-def test_threaded_cache_matches_serial_saved_weights_with_duplicate_groups(tmp_path):
+def test_threaded_cache_matches_serial_saved_weights_with_duplicate_groups(tmp_path, monkeypatch):
     """Repeated identical source rows require multiple callback uses per key."""
     torch.manual_seed(709)
     part = EmbeddingPart(dict(vocab_size=259, hidden_size=256)).eval()
@@ -183,6 +220,7 @@ def test_threaded_cache_matches_serial_saved_weights_with_duplicate_groups(tmp_p
                               input=tmp_path / "fp16.mlpackage")
     exporter.annotate(model, args)
     exporter.save_model(model, args.input)
+    bind_compression_input(args, tmp_path, monkeypatch)
     reports = []
     for workers in (1, 4):
         args.palette_workers = workers

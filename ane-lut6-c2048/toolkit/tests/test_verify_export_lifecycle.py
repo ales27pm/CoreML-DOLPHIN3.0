@@ -3,6 +3,9 @@
 import hashlib
 import json
 import os
+import stat
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier, Lock
 from pathlib import Path
@@ -98,8 +101,9 @@ def _synthetic_export(tmp_path, monkeypatch, mutate=None):
     calls = []
 
     def sidecars(*args, source_snapshot_out, **kwargs):
-        source_snapshot_out.update(download_source.capture_pinned_source_snapshot(source, pinned))
-        return [], {"source_weight_identity": identity, "sha256": verify.file_hash(pinned)}
+        verification_path = kwargs.get("source_verification") or pinned
+        source_snapshot_out.update(download_source.capture_pinned_source_snapshot(source, verification_path))
+        return [], {"source_weight_identity": identity, "sha256": verify.file_hash(verification_path)}
 
     def reconstruct(package, **kwargs):
         part = package.stem
@@ -250,3 +254,202 @@ def test_nested_reference_lock_is_not_artifact_evidence_even_when_it_changes(tmp
     assert not any("dolphin-writer.lock" in item["path"] for item in result["model_evidence_files"])
     monkeypatch.setattr(build_release, "ROOT", tmp_path)
     build_release.verify_current_inputs(models, nested_reference, result)
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_verifier_resolves_default_or_explicit_report_from_a_relative_source_path(tmp_path, monkeypatch, explicit):
+    models, reference, source, pinned, calls = _synthetic_export(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    if explicit:
+        override = tmp_path / "explicit-verification.json"
+        pinned.rename(override)
+        pinned = override
+    seen = []
+    check = download_source.assert_pinned_source_snapshot
+
+    def assert_resolved_inputs(source_directory, snapshot, verification_path):
+        seen.append((source_directory, verification_path))
+        return check(source_directory, snapshot, verification_path)
+
+    monkeypatch.setattr(download_source, "assert_pinned_source_snapshot", assert_resolved_inputs)
+    result = verify.verify_export(models, reference, models / "evidence/verification.json", Path("source"),
+                                 source_verification=Path(pinned.name) if explicit else None)
+    assert result["artifact_integrity_and_weight_parity_passed"]
+    assert seen and all(pair == (source, pinned) for pair in seen)
+
+
+@pytest.mark.parametrize("mutation", ["change", "replace", "add_file", "remove_file", "add_package", "remove_package", "symlink"])
+def test_package_changed_after_its_own_reconstruction_cannot_commit_success(tmp_path, monkeypatch, mutation):
+    models, reference, source, pinned, calls = _synthetic_export(tmp_path, monkeypatch)
+    reconstruct = verify.reconstruct_serialized_luts
+
+    def change_earlier_package(package, **kwargs):
+        result = reconstruct(package, **kwargs)
+        if package.stem == "head":
+            earlier = models / "embedding.mlpackage"
+            target = earlier / "weight.bin"
+            before = target.stat()
+            if mutation == "change":
+                original = target.read_bytes()
+                target.write_bytes(b"X" + original[1:])
+                os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+            elif mutation == "replace":
+                replacement = earlier / "replacement.bin"
+                replacement.write_bytes(target.read_bytes())
+                replacement.replace(target)
+            elif mutation == "add_file":
+                (earlier / "unexpected.bin").write_bytes(b"unverified")
+            elif mutation == "remove_file":
+                target.unlink()
+            elif mutation == "add_package":
+                (models / "unexpected.mlpackage").mkdir()
+            else:
+                moved = tmp_path / "moved-package"
+                earlier.rename(moved)
+                if mutation == "symlink":
+                    earlier.symlink_to(moved, target_is_directory=True)
+        return result
+
+    monkeypatch.setattr(verify, "reconstruct_serialized_luts", change_earlier_package)
+    output = models / "evidence/verification.json"
+    with pytest.raises((RuntimeError, ValueError), match="changed during verification|package set"):
+        verify.verify_export(models, reference, output, source, source_verification=pinned)
+    assert calls == verify.PART_IDS
+    assert not json.loads(output.read_text())["artifact_integrity_and_weight_parity_passed"]
+    assert "validation" not in json.loads((models / "manifest.json").read_text())
+
+
+@pytest.mark.parametrize("mode", [0o600, 0o640, 0o644, 0o664])
+def test_atomic_json_preserves_existing_destination_mode(tmp_path, mode):
+    output = tmp_path / "shared-evidence.json"
+    output.write_text("old report")
+    output.chmod(mode)
+    verify.atomic_json(output, {"verified": True})
+    assert stat.S_IMODE(output.stat().st_mode) == mode
+
+
+@pytest.mark.parametrize("mask,expected", [(0o022, 0o644), (0o002, 0o664), (0o077, 0o600)])
+def test_new_atomic_json_obeys_umask_without_changing_process_global_umask(tmp_path, mask, expected):
+    # A subprocess isolates the test's setup; production must never mutate or
+    # temporarily clear the process-global umask in a multithreaded verifier.
+    script = """
+import os, pathlib, stat, sys
+import verify_export
+os.umask(int(sys.argv[2]))
+def reject_umask_mutation(*args):
+    raise AssertionError('atomic_json must not inspect or mutate global umask')
+os.umask = reject_umask_mutation
+path = pathlib.Path(sys.argv[1])
+verify_export.atomic_json(path, {'verified': True})
+print(stat.S_IMODE(path.stat().st_mode))
+"""
+    result = subprocess.run([sys.executable, "-c", script, str(tmp_path / "new-report.json"), str(mask)],
+                            cwd=Path(verify.__file__).parent, capture_output=True, text=True, check=True, timeout=10)
+    assert int(result.stdout.strip()) == expected
+
+
+def test_atomic_json_incomplete_contents_remain_private_until_flush(tmp_path, monkeypatch):
+    output = tmp_path / "shared.json"
+    output.write_text("previous")
+    output.chmod(0o664)
+    fdopen = os.fdopen
+
+    class InspectWriter:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            self.stream.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+
+        def fileno(self):
+            return self.stream.fileno()
+
+        def write(self, contents):
+            assert stat.S_IMODE(os.fstat(self.fileno()).st_mode) == 0o600
+            return self.stream.write(contents)
+
+        def flush(self):
+            return self.stream.flush()
+
+    monkeypatch.setattr(os, "fdopen", lambda *args, **kwargs: InspectWriter(fdopen(*args, **kwargs)))
+    verify.atomic_json(output, {"verified": True})
+    assert stat.S_IMODE(output.stat().st_mode) == 0o664
+
+
+def test_package_mutation_during_result_preparation_cannot_publish_success(tmp_path, monkeypatch):
+    models, reference, source, pinned, _ = _synthetic_export(tmp_path, monkeypatch)
+    atomic_json = verify.atomic_json
+
+    def change_package_after_manifest_write(path, value):
+        digest = atomic_json(path, value)
+        if path == models / "manifest.json":
+            target = models / "embedding.mlpackage/weight.bin"
+            before = target.stat()
+            target.write_bytes(b"changed after first package recheck")
+            os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+        return digest
+
+    monkeypatch.setattr(verify, "atomic_json", change_package_after_manifest_write)
+    output = models / "evidence/verification.json"
+    with pytest.raises(RuntimeError, match="changed during verification"):
+        verify.verify_export(models, reference, output, source, source_verification=pinned)
+    report = json.loads(output.read_text())
+    assert not report["artifact_integrity_and_weight_parity_passed"]
+    assert not report["serialized_lut_reconstruction_verified"]
+
+
+@pytest.mark.parametrize("name", ["tokenizer.json", "rope_cos.fp16"])
+def test_sidecar_changed_after_early_validation_cannot_publish_success(tmp_path, monkeypatch, name):
+    models, reference, source, pinned, _ = _synthetic_export(tmp_path, monkeypatch)
+    target = models / name
+    original = b"verified sidecar bytes"
+    target.write_bytes(original)
+    record = {"path": name, "bytes": len(original), "sha256": hashlib.sha256(original).hexdigest()}
+    sidecars = verify.verify_sidecars
+    reconstruct = verify.reconstruct_serialized_luts
+
+    def verified_sidecar(*args, **kwargs):
+        _, identity = sidecars(*args, **kwargs)
+        return [record], identity
+
+    def mutate_after_sidecar_validation(package, **kwargs):
+        result = reconstruct(package, **kwargs)
+        if package.stem == "head":
+            target.write_bytes(b"X" + original[1:])
+        return result
+
+    monkeypatch.setattr(verify, "verify_sidecars", verified_sidecar)
+    monkeypatch.setattr(verify, "reconstruct_serialized_luts", mutate_after_sidecar_validation)
+    output = models / "evidence/verification.json"
+    with pytest.raises(RuntimeError, match="Model sidecar changed during verification"):
+        verify.verify_export(models, reference, output, source, source_verification=pinned)
+    assert not json.loads(output.read_text())["artifact_integrity_and_weight_parity_passed"]
+
+
+def test_earlier_package_cannot_change_while_later_package_is_rehashed(tmp_path, monkeypatch):
+    models, reference, source, pinned, _ = _synthetic_export(tmp_path, monkeypatch)
+    file_hash = verify.file_hash
+    head_reads = 0
+
+    def mutate_previous_package_during_final_rehash(path):
+        nonlocal head_reads
+        digest = file_hash(path)
+        if Path(path) == models / "head.mlpackage/weight.bin":
+            head_reads += 1
+            # Initial capture, normal file validation, then first commit guard.
+            if head_reads == 3:
+                target = models / "embedding.mlpackage/weight.bin"
+                before = target.stat()
+                target.write_bytes(b"changed while later package is checked")
+                os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+        return digest
+
+    monkeypatch.setattr(verify, "file_hash", mutate_previous_package_during_final_rehash)
+    output = models / "evidence/verification.json"
+    with pytest.raises(RuntimeError, match="package changed during verification"):
+        verify.verify_export(models, reference, output, source, source_verification=pinned)
+    assert "validation" not in json.loads((models / "manifest.json").read_text())

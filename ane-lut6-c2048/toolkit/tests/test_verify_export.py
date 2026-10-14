@@ -95,7 +95,8 @@ def test_sparse_fixture_or_saved_logits_tampering_rejected(tmp_path, tamper):
 
 
 @pytest.mark.parametrize("tamper", [None, "tokenizer", "rope", "source_identity"])
-def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, monkeypatch, tamper):
+@pytest.mark.parametrize("explicit_verification", [False, True])
+def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, monkeypatch, tamper, explicit_verification):
     config = {"hidden_size": 3072, "num_attention_heads": 24, "head_dim": 128,
               "rope_theta": 500000.0, "rope_scaling": {"rope_type": "llama3", "factor": 32.0,
               "low_freq_factor": 1.0, "high_freq_factor": 4.0, "original_max_position_embeddings": 8192}}
@@ -129,7 +130,7 @@ def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, monkeypatc
     for name, expected in shards.items():
         source["files"][name] = {**expected, "verified": True}
     source["source_weight_identity"] = download_source.pinned_source_weight_identity(source)
-    source_path = tmp_path / "source-verification.json"
+    source_path = tmp_path / ("explicit-verification.json" if explicit_verification else "source-verification.json")
     source_path.write_text(json.dumps(source))
     report = {"schema_version": 2, "source_identity": {"config": config,
               "config_file_sha256": hashlib.sha256(files["config.json"]).hexdigest(), "tokenizer_files": [],
@@ -149,7 +150,38 @@ def test_runtime_sidecar_bytes_and_rope_values_are_verified(tmp_path, monkeypatc
             **source["source_weight_identity"], "identity_sha256": "0" * 64}
     if tamper:
         with pytest.raises(ValueError, match="SHA256 mismatch|RoPE values differ|source shard identity differs"):
-            verify.verify_sidecars(tmp_path, report, 8, source_dir=source_dir, source_verification=source_path)
+            verify.verify_sidecars(tmp_path, report, 8, source_dir=source_dir,
+                source_verification=source_path if explicit_verification else None)
     else:
-        records, _ = verify.verify_sidecars(tmp_path, report, 8, source_dir=source_dir, source_verification=source_path)
+        records, _ = verify.verify_sidecars(tmp_path, report, 8, source_dir=source_dir,
+            source_verification=source_path if explicit_verification else None)
         assert len(records) == 8 and {item["path"] for item in records} == set(files) | {"rope_cos.fp16", "rope_sin.fp16"}
+
+
+@pytest.mark.parametrize("change,match", [
+    ("model_escape", "specification path escapes"),
+    ("weights_escape", "Weight directory path escapes"),
+    ("duplicate_weights", "ambiguous weight directories"),
+    ("missing_weights", "weight directory is missing"),
+])
+def test_readonly_package_reader_rejects_escaped_or_ambiguous_paths(tmp_path, change, match):
+    package = tmp_path / "model.mlpackage"
+    data = package / "Data/com.apple.CoreML"
+    data.mkdir(parents=True)
+    (data / "model.mlmodel").write_bytes(b"")  # An empty protobuf is sufficient for path validation.
+    (data / "weights").mkdir()
+    items = {"model": {"path": "com.apple.CoreML/model.mlmodel"},
+             "weights": {"name": "weights", "author": "com.apple.CoreML", "path": "com.apple.CoreML/weights"}}
+    if change == "model_escape":
+        (tmp_path / "outside.mlmodel").write_bytes(b"")
+        items["model"]["path"] = "../../outside.mlmodel"
+    elif change == "weights_escape":
+        (tmp_path / "outside-weights").mkdir()
+        items["weights"]["path"] = "../../outside-weights"
+    elif change == "duplicate_weights":
+        items["another-weights-entry"] = dict(items["weights"])
+    else:
+        items["weights"]["path"] = "com.apple.CoreML/missing"
+    (package / "Manifest.json").write_text(json.dumps({"rootModelIdentifier": "model", "itemInfoEntries": items}))
+    with pytest.raises(ValueError, match=match):
+        verify.read_serialized_package(package)

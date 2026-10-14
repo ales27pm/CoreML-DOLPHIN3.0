@@ -224,13 +224,20 @@ The converter creates each part with meta parameters, reads only its source tens
 
 Export and reference runs hold an exclusive process lock for their output
 directory. Exports also lock an explicit `--build-dir`, which must differ from
-`--output`, including when paths are aliases. A second writer fails before
-processing; the persistent sibling
-`.<output-dir-name>.dolphin-writer.lock` file (for example,
-`.output.dolphin-writer.lock`) is deliberately retained to avoid lock-inode
-races and is not part of that output's artifact inventory.
+and must not be inside `--output`, including when paths are aliases. Invalid
+layouts are rejected before any locks or output files are created. A second
+writer fails before processing. Each locked directory has its own persistent
+sibling `.<directory-name>.dolphin-writer.lock` file: for example,
+`.output.dolphin-writer.lock` for `--output output` and
+`.build.dolphin-writer.lock` for `--build-dir build`. These files are deliberately
+retained to avoid lock-inode races. Keeping the build directory outside the
+output also keeps its lock and intermediate artifacts out of release inventories.
 
 The exporter, numerical reference and independent verifier re-hash the pinned source inputs before use; a former `all_verified: true` flag is not sufficient. Existing published schema 2 models and evidence remain historical and are not upgraded by editing JSON. Download the full tokenizer and source shards, then regenerate the export and its evidence before building a new schema 3 release.
+
+These entry points default to `source-verification.json` beside the resolved
+`--source` directory, including when that directory is outside the toolkit.
+Use `--source-verification /path/to/report.json` to select an explicit report.
 
 After a successful independent verification, retain its printed
 `verification_report_sha256` in a trusted job log or other protected location
@@ -276,7 +283,9 @@ This invokes the production manifest builder, serializes a synthetic bundle,
 ZIPs and extracts it, then compiles and executes Swarmer's actual
 `DolphinCoreMLBundle` reader. It checks v3 acceptance, legacy v2 compatibility
 and rejection of unknown schemas or changed source declarations. `results.json`
-and `compile.log` retain the evidence. The fixture has no executable model
+and `compile.log` retain the evidence. Swift compilation has a 120-second
+deadline and each reader case has a 15-second deadline; a timeout is recorded
+as a failed check, including when that case expected rejection. The fixture has no executable model
 weights and is explicitly **not** a complete export, an iOS `LocalModelStore`
 transaction, a source-byte rehash, or Core ML inference. Swarmer accepts the v3
 source declaration only when its full pinned identity matches; that declaration

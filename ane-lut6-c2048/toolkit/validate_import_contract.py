@@ -18,6 +18,34 @@ from download_source import pinned_source_weight_identity
 from run_export import build_manifest
 
 
+SWIFT_COMPILE_TIMEOUT_SECONDS = 120
+READER_TIMEOUT_SECONDS = 15
+
+
+def run_bounded(command, timeout_seconds, phase):
+    """Retain diagnostics when a compiler/reader stalls, without treating it as rejection."""
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired as error:
+        # TimeoutExpired may contain bytes even when text=True was requested.
+        def text(value):
+            return value.decode('utf-8', errors='replace') if isinstance(value, bytes) else value or ''
+
+        return {'returncode': None, 'timed_out': True, 'timeout_seconds': timeout_seconds,
+                'stdout': text(error.stdout),
+                'stderr': text(error.stderr) + f'\n{phase} timed out after {timeout_seconds} seconds.\n'}
+    return {'returncode': result.returncode, 'timed_out': False, 'timeout_seconds': timeout_seconds,
+            'stdout': result.stdout, 'stderr': result.stderr}
+
+
+def finish_report(output, report):
+    (output / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
+    print(json.dumps({'passed': report['passed'], 'cases': len(report['cases']),
+                      'report': str(output / 'results.json')}))
+    if not report['passed']:
+        raise SystemExit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--swarmer', type=Path, required=True)
@@ -58,9 +86,13 @@ def main():
                '-warnings-as-errors', '-parse-as-library', '-module-cache-path', str(output / 'module-cache'),
                str(module / 'ios/DolphinCoreMLBundle.swift'),
                str(module / 'ios-tests/DolphinManifestImportTests.swift'), '-o', str(binary)]
-    compilation = subprocess.run(command, capture_output=True, text=True)
-    (output / 'compile.log').write_text(compilation.stdout + compilation.stderr)
-    compilation.check_returncode()
+    compilation = run_bounded(command, SWIFT_COMPILE_TIMEOUT_SECONDS, 'Swift compilation')
+    compilation['passed'] = not compilation['timed_out'] and compilation['returncode'] == 0
+    (output / 'compile.log').write_text(compilation['stdout'] + compilation['stderr'])
+    report = {'scope': 'synthetic export-manifest/ZIP/Swift-reader contract; no model conversion, source rehash, iOS store or Core ML inference',
+              'compile_command': command, 'compilation': compilation, 'cases': [], 'passed': False}
+    if not compilation['passed']:
+        finish_report(output, report)
     # None means use the extracted bytes unchanged, not reserialize the source dict.
     cases = [('schema3-roundtrip', None, True)]
     legacy = copy.deepcopy(manifest)
@@ -92,19 +124,14 @@ def main():
     for label, value, accepted in cases:
         if value is not None:
             (extracted / 'manifest.json').write_text(json.dumps(value))
-        result = subprocess.run([str(binary), str(extracted)], capture_output=True, text=True)
-        actual = result.returncode == 0
-        results.append({'case': label, 'expected_accept': accepted, 'accepted': actual,
-                        'passed': actual == accepted, 'returncode': result.returncode,
-                        'stdout': result.stdout, 'stderr': result.stderr})
+        result = run_bounded([str(binary), str(extracted)], READER_TIMEOUT_SECONDS, f'Swift reader ({label})')
+        actual = None if result['timed_out'] else result['returncode'] == 0
+        results.append({**result, 'case': label, 'expected_accept': accepted, 'accepted': actual,
+                        'passed': not result['timed_out'] and actual == accepted})
     # Preserve the valid round-trip output for inspection.
     shutil.copy2(bundle / 'manifest.json', extracted / 'manifest.json')
-    report = {'scope': 'synthetic export-manifest/ZIP/Swift-reader contract; no model conversion, source rehash, iOS store or Core ML inference',
-              'compile_command': command, 'cases': results, 'passed': all(r['passed'] for r in results)}
-    (output / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(json.dumps({'passed': report['passed'], 'cases': len(results), 'report': str(output / 'results.json')}))
-    if not report['passed']:
-        raise SystemExit(1)
+    report.update(cases=results, passed=all(r['passed'] for r in results))
+    finish_report(output, report)
 
 
 if __name__ == '__main__':

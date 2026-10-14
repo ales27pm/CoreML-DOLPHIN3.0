@@ -142,6 +142,8 @@ def main():
     build = args.build_dir.resolve() if args.build_dir is not None else None
     if build == output:
         parser.error("--build-dir must differ from --output (including path aliases)")
+    if build is not None and build.is_relative_to(output):
+        parser.error("--build-dir must not be inside --output (including path aliases)")
     # Explicit build directories contain reusable intermediate packages and
     # must not be shared by concurrent exports, even with distinct outputs.
     directories = {output} if build is None else {output, build}

@@ -120,6 +120,38 @@ def test_symlink_retarget_does_not_redirect_the_locked_output(tmp_path, monkeypa
     assert seen == [locked_target]
 
 
+@pytest.mark.parametrize("layout", ["child", "descendant", "alias"])
+def test_nested_build_path_is_rejected_before_creating_any_lock(tmp_path, monkeypatch, capsys, layout):
+    output = tmp_path / "output"
+    build = output / ("build" if layout != "descendant" else "scratch/build")
+    if layout == "alias":
+        output.mkdir()
+        alias = tmp_path / "output-alias"
+        alias.symlink_to(output, target_is_directory=True)
+        build = alias / "build"
+    before = set(tmp_path.rglob("*"))
+    monkeypatch.setattr(run_export, "exclusive_output_directory", lambda _: pytest.fail("nested build must not acquire locks"))
+    monkeypatch.setattr(sys, "argv", ["run_export.py", "--output", str(output), "--build-dir", str(build)])
+    with pytest.raises(SystemExit) as error:
+        run_export.main()
+    assert error.value.code == 2
+    assert "must not be inside --output" in capsys.readouterr().err
+    assert set(tmp_path.rglob("*")) == before
+
+
+def test_separate_build_with_output_name_prefix_remains_allowed(tmp_path, monkeypatch):
+    output, build = tmp_path / "output", tmp_path / "output-build"
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["run_export.py", "--output", str(output), "--build-dir", str(build)])
+    monkeypatch.setattr(run_export, "export", lambda args, _: calls.append((args.output, args.build_dir)))
+    run_export.main()
+    assert calls == [(output, build)]
+    assert output_lock_path(output).is_file()
+    assert output_lock_path(build).is_file()
+    assert not output.exists()
+    assert not build.exists()
+
+
 @pytest.mark.parametrize("options", [
     {"mode": "invalid"}, {"bits": 3}, {"palette_workers": 0},
     {"mode": "source", "source_reference": "prior"},

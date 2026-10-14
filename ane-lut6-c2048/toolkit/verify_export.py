@@ -15,8 +15,9 @@ import math
 import os
 from pathlib import Path
 import re
+import secrets
+import stat
 import sys
-import tempfile
 
 import numpy as np
 
@@ -37,11 +38,29 @@ def atomic_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     contents = (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
-    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-    temporary = Path(name)
+    try:
+        existing_mode = stat.S_IMODE(path.stat().st_mode)
+    except FileNotFoundError:
+        existing_mode = None
+    # O_EXCL preserves unique-writer safety while letting the OS apply umask
+    # (and directory ACLs) to a normal 0666 creation. Reading umask by temporarily
+    # changing it would race with every other thread creating files.
+    for _ in range(100):
+        temporary = path.with_name(f".{path.name}.{secrets.token_hex(12)}.tmp")
+        try:
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+            break
+        except FileExistsError:
+            continue
+    else:
+        raise FileExistsError(f"Cannot allocate a unique temporary JSON file for {path}")
     try:
         with os.fdopen(descriptor, "wb") as stream:
+            creation_mode = stat.S_IMODE(os.fstat(stream.fileno()).st_mode)
+            os.fchmod(stream.fileno(), 0o600)  # Keep incomplete JSON private.
             stream.write(contents)
+            stream.flush()
+            os.fchmod(stream.fileno(), existing_mode if existing_mode is not None else creation_mode)
         temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
@@ -87,6 +106,35 @@ def assert_evidence_inventory(directory, records, snapshot, excluded=()):
         raise RuntimeError(f"Verification evidence changed during verification: {directory}")
 
 
+def assert_package_snapshots(models, packages):
+    require({path.name for path in models.glob("*.mlpackage")} == set(packages),
+            "Model package set changed during verification")
+    for name, (_, snapshot) in packages.items():
+        package = models / name
+        require(package.is_dir() and not package.is_symlink(),
+                f"Model package set changed during verification: {name}")
+        if evidence_snapshot(package) != snapshot:
+            raise RuntimeError(f"Model package changed during verification: {name}")
+
+
+def assert_package_inventories(models, packages):
+    assert_package_snapshots(models, packages)
+    for name, (records, snapshot) in packages.items():
+        package = models / name
+        assert_evidence_inventory(package, records, snapshot)
+    # Rehashing all nine packages takes time: an earlier package must not change
+    # while a later one is being checked.
+    assert_package_snapshots(models, packages)
+
+
+def assert_sidecar_files(models, records):
+    for record in records:
+        path = models / record["path"]
+        if (not path.is_file() or path.is_symlink() or path.stat().st_size != record["bytes"]
+                or file_hash(path) != record["sha256"]):
+            raise RuntimeError(f"Model sidecar changed during verification: {record['path']}")
+
+
 def require(condition, message):
     if not condition:
         raise ValueError(message)
@@ -128,15 +176,33 @@ def verify_package_files(package, entries):
     return verified
 
 
-def inspect_serialized_spec(package):
-    # Protobuf parsing does not instantiate MLModel or execute an Apple runtime.
-    from coremltools.proto import FeatureTypes_pb2, Model_pb2
+def read_serialized_package(package):
+    """Read protobuf/weight paths without ModelPackage/MLModel metadata writes."""
+    from coremltools.proto import Model_pb2
     package_manifest = read_json(package / "Manifest.json")
-    root_item = package_manifest["itemInfoEntries"][package_manifest["rootModelIdentifier"]]
+    items = package_manifest["itemInfoEntries"]
+    root_item = items[package_manifest["rootModelIdentifier"]]
     model_path = (package / "Data" / root_item["path"]).resolve()
     require(model_path.is_relative_to(package.resolve()), "Model specification path escapes package")
     spec = Model_pb2.Model()
     spec.ParseFromString(model_path.read_bytes())
+    # Match Core ML Tools' name/author lookup, but avoid its ModelPackage
+    # constructor, which can rewrite Manifest.json even for a read-only load.
+    weight_items = [item for item in items.values()
+                    if item.get("name") == "weights" and item.get("author") == "com.apple.CoreML"]
+    require(len(weight_items) <= 1, "Package has ambiguous weight directories")
+    weights_dir = None
+    if weight_items:
+        weights_dir = (package / "Data" / weight_items[0]["path"]).resolve()
+        require(weights_dir.is_relative_to(package.resolve()), "Weight directory path escapes package")
+        require(weights_dir.is_dir(), "Package weight directory is missing")
+    return spec, None if weights_dir is None else str(weights_dir)
+
+
+def inspect_serialized_spec(package):
+    # Protobuf parsing does not instantiate MLModel or execute an Apple runtime.
+    from coremltools.proto import FeatureTypes_pb2
+    spec, _ = read_serialized_package(package)
     require(spec.WhichOneof("Type") == "mlProgram", f"Package is not an ML Program: {package.name}")
     require(spec.specificationVersion == 9, f"Unexpected specification version: {package.name}")
     datatype = FeatureTypes_pb2.ArrayFeatureType.ArrayDataType.Name
@@ -165,16 +231,13 @@ def reconstruct_serialized_luts(package, expected_bits=None):
     Only one package program is live, and each weight is hashed group by group.
     No pre-save in-memory compressed model is reused at this boundary.
     """
-    import coremltools as ct
     from coremltools.converters.mil.frontend.milproto.load import load as load_mil
     from dolphin_ane.exporter import (dense_lut_hash, parameter_name_for_compressed_op,
                                      walk_ops)
-    model = spec = program = function = operation = None
+    spec = program = function = operation = None
     try:
-        model = ct.models.MLModel(str(package), compute_units=ct.ComputeUnit.CPU_AND_NE,
-                                  skip_model_load=True)
-        spec = model.get_spec()
-        program = load_mil(spec, spec.specificationVersion, file_weights_dir=model.weights_dir)
+        spec, weights_dir = read_serialized_package(package)
+        program = load_mil(spec, spec.specificationVersion, file_weights_dir=weights_dir)
         weights = []
         for function in program.functions.values():
             for operation in walk_ops(function):
@@ -184,7 +247,7 @@ def reconstruct_serialized_luts(package, expected_bits=None):
         return weights
     finally:
         # Loop variables retain enclosing blocks. Clear them before collection.
-        operation = function = program = spec = model = None
+        operation = function = program = spec = None
         gc.collect()
 
 
@@ -206,7 +269,8 @@ def verify_sidecars(models, report, context, source_dir=None, source_verificatio
     from dolphin_ane.source import make_rope_tables
     require(source_dir is not None, "A source directory is required for fresh pinned-input re-hashing")
     source_dir = Path(source_dir).resolve()
-    verification_path = Path(source_verification) if source_verification else Path(__file__).parent / "source-verification.json"
+    verification_path = (Path(source_verification).resolve() if source_verification is not None
+                         else source_dir.parent / "source-verification.json")
     source = read_json(verification_path)
     require(source.get("all_verified") is True and source.get("revision") == REVISION and
             source.get("repo") == "dphn/Dolphin3.0-Llama3.2-3B", "Pinned source verification identity mismatch")
@@ -341,7 +405,9 @@ def verify_fixtures(reference_dir, context, vocab_size, bits=4, report=None):
 def verify_export(models, reference, output, source, bits=None, source_verification=None):
     from download_source import assert_pinned_source_snapshot
     models, reference, output = Path(models).resolve(), Path(reference).resolve(), Path(output).resolve()
-    verification_path = Path(source_verification) if source_verification else Path(__file__).parent / "source-verification.json"
+    source = Path(source).resolve()
+    verification_path = (Path(source_verification).resolve() if source_verification is not None
+                         else source.parent / "source-verification.json")
     result = {"schema_version": 3, "verified_at_utc": datetime.now(timezone.utc).isoformat(),
               "artifact_integrity_and_weight_parity_passed": False, "compressed_weight_hash_parity_passed": False,
               "serialized_lut_reconstruction_verified": False,
@@ -370,6 +436,11 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
         expected_files = [name + ".mlpackage" for name in PART_IDS]
         require(manifest.get("model_files") == expected_files, "Manifest must contain exactly the nine expected model parts")
         require({path.name for path in models.glob("*.mlpackage")} == set(expected_files), "Model package set differs from manifest")
+        package_inventories = {}
+        for name in expected_files:
+            package = models / name
+            require(package.is_dir() and not package.is_symlink(), f"Invalid model package directory: {name}")
+            package_inventories[name] = capture_evidence_inventory(package)
         require(manifest.get("hidden_size") == 3072 and manifest.get("head_dim") == 128 and
                 manifest.get("vocab_size") == 128258 and manifest.get("query_length") == 1 and
                 manifest.get("head_sizes") == [16032] * 7 + [16034], "Manifest dimensions/vocabulary mismatch")
@@ -419,7 +490,7 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
         result["numerical_quality_gate_passed"] = True
         source_snapshot = {}
         result["model_sidecar_files"], result["pinned_source_verification"] = verify_sidecars(
-            models, ref_report, context, source_dir=source, source_verification=source_verification,
+            models, ref_report, context, source_dir=source, source_verification=verification_path,
             source_snapshot_out=source_snapshot)
         source_weight_identity = result["pinned_source_verification"]["source_weight_identity"]
         require(manifest.get("source_weight_identity") == source_weight_identity,
@@ -520,6 +591,8 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
         assert_pinned_source_snapshot(source, source_snapshot, verification_path)
         assert_evidence_inventory(reference, reference_files, reference_snapshot)
         assert_evidence_inventory(evidence_dir, model_evidence, model_evidence_snapshot, excluded_evidence)
+        assert_package_inventories(models, package_inventories)
+        assert_sidecar_files(models, result["model_sidecar_files"])
         fixture_path = models / "evidencefixtures.json"
         atomic_json(fixture_path, swift_fixtures)
         # Publish the measured narrow gate only after every package and sidecar
@@ -536,9 +609,12 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
                 "case_count": len(swift_fixtures["cases"]), "max_abs_logit_error": PROVISIONAL_DEVICE_TOLERANCE,
                 "tolerance_status": "provisional device acceptance tolerance; not measured or calibrated"},
             interpretation="Package integrity, exact reconstructed weight equality from saved LUT/index payloads, freshly re-hashed pinned source-shard and metadata identity, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified.")
-        assert_pinned_source_snapshot(source, source_snapshot, verification_path)
+        assert_package_inventories(models, package_inventories)
         assert_evidence_inventory(reference, reference_files, reference_snapshot)
         assert_evidence_inventory(evidence_dir, model_evidence, model_evidence_snapshot, excluded_evidence)
+        assert_sidecar_files(models, result["model_sidecar_files"])
+        assert_pinned_source_snapshot(source, source_snapshot, verification_path)
+        assert_package_snapshots(models, package_inventories)
         report_sha256 = atomic_json(output, result)
         # Return the digest of the exact serialized bytes, not a later reread.
         # Operators retain this outside the mutable export for packaging.
@@ -559,7 +635,8 @@ def main():
     parser.add_argument("--source", required=True, type=Path,
                         help="Pinned source directory; all shards and metadata are freshly re-hashed")
     parser.add_argument("--bits", type=int, choices=(4, 6), help="Optional precision assertion; otherwise inferred and checked from manifest")
-    parser.add_argument("--source-verification", type=Path, help="Pinned source-verification.json; defaults to the toolkit's recorded evidence")
+    parser.add_argument("--source-verification", type=Path,
+                        help="Pinned source-verification.json; defaults beside the resolved source directory")
     args = parser.parse_args()
     try:
         result = verify_export(args.models, args.reference, args.output, args.source, bits=args.bits,

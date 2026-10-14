@@ -170,3 +170,16 @@ def test_worker_report_cannot_be_retroactively_blessed_with_source_identity(tmp_
 
     report_path.write_text(json.dumps({"source_weight_identity": identity}), encoding="utf-8")
     run_export.verify_stage_source_identity(report_path, identity)
+
+
+@pytest.mark.parametrize("dangling", ["model", "report"])
+def test_dangling_prior_output_symlinks_are_not_treated_as_absent(tmp_path, dangling):
+    package, report = tmp_path / "embedding.mlpackage", tmp_path / "embedding.json"
+    (package if dangling == "model" else report).symlink_to(tmp_path / "missing-target")
+    with pytest.raises(RuntimeError, match="Incomplete prior output requires inspection"):
+        run_export.validate_completed(package, report, "embedding", 0, 0, 8, "fp16_conversion", {})
+
+
+def test_absent_prior_output_can_still_be_created(tmp_path):
+    assert not run_export.validate_completed(tmp_path / "embedding.mlpackage", tmp_path / "embedding.json",
+                                            "embedding", 0, 0, 8, "fp16_conversion", {})

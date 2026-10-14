@@ -12,11 +12,15 @@ import gc
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import sys
+import tempfile
 
 import numpy as np
+
+from dolphin_ane.output_lock import output_lock_path
 
 
 REVISION = "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364"
@@ -32,10 +36,15 @@ def read_json(path):
 def atomic_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
     contents = (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
-    temporary.write_bytes(contents)
-    temporary.replace(path)
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(contents)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return hashlib.sha256(contents).hexdigest()
 
 
@@ -45,6 +54,37 @@ def file_hash(path):
         for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def evidence_snapshot(directory, excluded=()):
+    """Snapshot only artifact files, excluding explicit outputs/coordination paths."""
+    directory = Path(directory)
+    snapshot = {}
+    for path in sorted(directory.rglob("*")):
+        if any(path == item or path.is_relative_to(item) for item in excluded):
+            continue
+        require(not path.is_symlink(), f"Verification evidence must not contain symbolic links: {path}")
+        if path.is_file():
+            stat = path.stat()
+            snapshot[path.relative_to(directory).as_posix()] = (
+                stat.st_dev, stat.st_ino, stat.st_mode, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    return snapshot
+
+
+def capture_evidence_inventory(directory, excluded=()):
+    """Bind hashes before validation and detect replacement during the hash pass."""
+    snapshot = evidence_snapshot(directory, excluded)
+    records = [{"path": name, "bytes": state[3], "sha256": file_hash(Path(directory) / name)}
+               for name, state in snapshot.items()]
+    if evidence_snapshot(directory, excluded) != snapshot:
+        raise RuntimeError(f"Verification evidence changed during verification: {directory}")
+    return records, snapshot
+
+
+def assert_evidence_inventory(directory, records, snapshot, excluded=()):
+    actual_records, actual_snapshot = capture_evidence_inventory(directory, excluded)
+    if actual_records != records or actual_snapshot != snapshot:
+        raise RuntimeError(f"Verification evidence changed during verification: {directory}")
 
 
 def require(condition, message):
@@ -310,6 +350,15 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
               "numerical_quality_gate_passed": False,
               "quality_acceptance_decision": "not_assigned_beyond_fixed_prompt_sanity", "packages": {}}
     try:
+        # Bind all reference and per-part evidence before consuming any of it.
+        # Late inventory creation would otherwise bless mutations made after a
+        # reference/report had already passed its semantic checks.
+        evidence_dir = models / "evidence"
+        excluded_evidence = (output, evidence_dir / "reference", reference,
+                             evidence_dir / "source-verification.json", output_lock_path(reference))
+        reference_files, reference_snapshot = capture_evidence_inventory(reference)
+        model_evidence, model_evidence_snapshot = capture_evidence_inventory(evidence_dir, excluded_evidence)
+        evidence_files = [{**item, "path": "evidence/" + item["path"]} for item in model_evidence]
         manifest = read_json(models / "manifest.json")
         require(manifest.get("format_version") == 3,
                 "Unsupported manifest format; expected format 3 with cryptographic source-input binding")
@@ -469,24 +518,10 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
         # The nine reconstructions can take a long time. A snapshot checked only
         # inside verify_sidecars cannot bind the inputs through this phase.
         assert_pinned_source_snapshot(source, source_snapshot, verification_path)
+        assert_evidence_inventory(reference, reference_files, reference_snapshot)
+        assert_evidence_inventory(evidence_dir, model_evidence, model_evidence_snapshot, excluded_evidence)
         fixture_path = models / "evidencefixtures.json"
         atomic_json(fixture_path, swift_fixtures)
-        reference_files = []
-        for path in sorted(reference.rglob("*")):
-            require(not path.is_symlink(), f"Reference evidence must not contain symbolic links: {path}")
-            if path.is_file():
-                reference_files.append({"path": path.relative_to(reference).as_posix(),
-                                        "bytes": path.stat().st_size, "sha256": file_hash(path)})
-        evidence_files = []
-        for path in sorted((models / "evidence").rglob("*")):
-            relative = path.relative_to(models).as_posix()
-            if (path.resolve() == output or relative.startswith("evidence/reference/")
-                    or relative == "evidence/source-verification.json"):
-                continue  # These are bound separately by the release packager.
-            require(not path.is_symlink(), f"Evidence must not contain symbolic links: {path}")
-            if path.is_file():
-                evidence_files.append({"path": relative, "bytes": path.stat().st_size,
-                                       "sha256": file_hash(path)})
         # Publish the measured narrow gate only after every package and sidecar
         # has passed. The report hashes this final manifest, not its prior state.
         manifest.setdefault("validation", {})["numerical_quality_gate_passed"] = True
@@ -502,6 +537,8 @@ def verify_export(models, reference, output, source, bits=None, source_verificat
                 "tolerance_status": "provisional device acceptance tolerance; not measured or calibrated"},
             interpretation="Package integrity, exact reconstructed weight equality from saved LUT/index payloads, freshly re-hashed pinned source-shard and metadata identity, source sidecar and RoPE identity, and three fixed-prompt next-token sanity checks passed; Apple runtime, ANE placement, device parity and broad model quality remain unverified.")
         assert_pinned_source_snapshot(source, source_snapshot, verification_path)
+        assert_evidence_inventory(reference, reference_files, reference_snapshot)
+        assert_evidence_inventory(evidence_dir, model_evidence, model_evidence_snapshot, excluded_evidence)
         report_sha256 = atomic_json(output, result)
         # Return the digest of the exact serialized bytes, not a later reread.
         # Operators retain this outside the mutable export for packaging.

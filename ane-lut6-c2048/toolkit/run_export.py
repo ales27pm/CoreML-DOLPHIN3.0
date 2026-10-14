@@ -2,6 +2,7 @@
 """Export the pinned Dolphin checkpoint, one disposable process per stage."""
 
 import argparse
+from contextlib import ExitStack
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -43,10 +44,11 @@ def verify_stage_source_identity(report_path, source_weight_identity):
 
 def validate_completed(model_path, report_path, kind, start, end, context, stage,
                        source_weight_identity, bits=None):
+    if model_path.is_symlink() or report_path.is_symlink():
+        raise RuntimeError(f"Incomplete prior output requires inspection: {model_path}")
     if not model_path.exists() and not report_path.exists():
         return False
-    if (model_path.is_symlink() or report_path.is_symlink()
-            or not model_path.is_dir() or not report_path.is_file()):
+    if not model_path.is_dir() or not report_path.is_file():
         raise RuntimeError(f"Incomplete prior output requires inspection: {model_path}")
     report = read_json(report_path)
     expected = {"source_revision": "392a6f57223e7ccfe6ef4ebdb2ff101a42d57364", "part": kind,
@@ -134,15 +136,25 @@ def main():
     parser.add_argument("--palette-workers", type=int, default=4,
                         help="Threads for independent palette groups; use 1 for sequential fitting.")
     args = parser.parse_args()
-    with exclusive_output_directory(args.output):
+    if args.context < 1 or args.layers_per_block < 1 or args.threads < 1 or args.palette_workers < 1:
+        parser.error("context, layers-per-block, threads and palette-workers must be positive")
+    output = args.output.resolve()
+    build = args.build_dir.resolve() if args.build_dir is not None else None
+    if build == output:
+        parser.error("--build-dir must differ from --output (including path aliases)")
+    # Explicit build directories contain reusable intermediate packages and
+    # must not be shared by concurrent exports, even with distinct outputs.
+    directories = {output} if build is None else {output, build}
+    with ExitStack() as locks:
+        bound = {path: locks.enter_context(exclusive_output_directory(path)) for path in sorted(directories)}
+        args.output = bound[output]
+        args.build_dir = bound[build] if build is not None else None
         export(args, parser)
 
 
 def export(args, parser):
-    """Run the export while the caller holds its exclusive output lock."""
-    source, output = args.source.resolve(), args.output.resolve()
-    if args.context < 1 or args.layers_per_block < 1 or args.threads < 1 or args.palette_workers < 1:
-        parser.error("context, layers-per-block, threads and palette-workers must be positive")
+    """Run with the caller's bound output and optional shared-build locks."""
+    source, output = args.source.resolve(), args.output
     verification_path = (args.source_verification.resolve() if args.source_verification is not None
                          else source.parent / "source-verification.json")
     source_weight_identity, export_source_snapshot = verify_pinned_source_snapshot(source, verification_path)
@@ -154,7 +166,7 @@ def export(args, parser):
         raise ValueError("Checkpoint does not match the pinned Dolphin 3B contract")
     if args.context > config["max_position_embeddings"]:
         raise ValueError("Requested context exceeds the source checkpoint")
-    build = args.build_dir.resolve() if args.build_dir else Path(tempfile.mkdtemp(prefix="dolphin3-coreml-"))
+    build = args.build_dir if args.build_dir is not None else Path(tempfile.mkdtemp(prefix="dolphin3-coreml-"))
     output.mkdir(parents=True, exist_ok=True)
     build.mkdir(parents=True, exist_ok=True)
     evidence = output / "evidence"

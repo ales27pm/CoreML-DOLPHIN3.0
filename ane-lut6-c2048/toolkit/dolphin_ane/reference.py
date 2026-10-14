@@ -381,15 +381,6 @@ def run_reference(source_dir, output_dir, context_length=2048, mode="both", thre
                   bits=6, source_reference=None, source_reference_config=None, palette_workers=4,
                   source_verification=None):
     """Execute references; optionally reuse a fully checked prior FP16 baseline."""
-    with exclusive_output_directory(output_dir):
-        return _run_reference_locked(
-            source_dir, output_dir, context_length, mode, threads, fixture_specs,
-            bits, source_reference, source_reference_config, palette_workers, source_verification)
-
-
-def _run_reference_locked(source_dir, output_dir, context_length, mode, threads, fixture_specs,
-                          bits, source_reference, source_reference_config, palette_workers,
-                          source_verification):
     if mode not in {"both", "source", "quantized"}:
         raise ValueError("mode must be both, source, or quantized")
     if bits not in (4, 6):
@@ -398,11 +389,23 @@ def _run_reference_locked(source_dir, output_dir, context_length, mode, threads,
         raise ValueError("palette_workers must be a positive integer")
     if source_reference is not None and mode == "source":
         raise ValueError("--source-reference cannot be combined with --source-only")
+    if not isinstance(context_length, int) or context_length < 1:
+        raise ValueError("context_length must be a positive integer")
+    threads = max(1, int(threads))
     source_dir, output_dir = Path(source_dir).resolve(), Path(output_dir).resolve()
     if source_reference is not None and output_dir == Path(source_reference).resolve():
         raise ValueError("Candidate output must not overwrite the prior source reference")
+    with exclusive_output_directory(output_dir) as locked_output:
+        return _run_reference_locked(
+            source_dir, locked_output, context_length, mode, threads, fixture_specs,
+            bits, source_reference, source_reference_config, palette_workers, source_verification)
+
+
+def _run_reference_locked(source_dir, output_dir, context_length, mode, threads, fixture_specs,
+                          bits, source_reference, source_reference_config, palette_workers,
+                          source_verification):
     output_dir.mkdir(parents=True, exist_ok=True)
-    torch.set_num_threads(max(1, int(threads)))
+    torch.set_num_threads(threads)
     started = time.perf_counter()
     status = {"status": "running", "phase": "source_preflight", "started_at_utc": datetime.now(timezone.utc).isoformat(),
               "palette_workers": palette_workers, "palette_batch_groups": PALETTE_BATCH_GROUPS}

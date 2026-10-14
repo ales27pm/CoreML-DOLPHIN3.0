@@ -223,8 +223,11 @@ not silently fall back to a non-atomic copy or to workspace staging. For example
 The converter creates each part with meta parameters, reads only its source tensors, and runs conversion and compression in separate subprocesses. Completed packages have integrity reports and can be reused after their hashes and configuration are checked. It refuses to silently overwrite incomplete or incompatible outputs. Manifest/reference schema 3 binds the pinned shard and metadata hashes. A schema 2 reference may be migrated only by a fresh source re-hash plus verification of every loaded FP16 parameter; schema 2 manifests and stage reports require a fresh export into a new output directory. Release packaging accepts only independently reverified schema 3 evidence.
 
 Export and reference runs hold an exclusive process lock for their output
-directory. A second writer fails before processing; the persistent sibling
-`.OUTPUT.dolphin-writer.lock` file is deliberately retained to avoid lock-inode
+directory. Exports also lock an explicit `--build-dir`, which must differ from
+`--output`, including when paths are aliases. A second writer fails before
+processing; the persistent sibling
+`.<output-dir-name>.dolphin-writer.lock` file (for example,
+`.output.dolphin-writer.lock`) is deliberately retained to avoid lock-inode
 races and is not part of that output's artifact inventory.
 
 The exporter, numerical reference and independent verifier re-hash the pinned source inputs before use; a former `all_verified: true` flag is not sufficient. Existing published schema 2 models and evidence remain historical and are not upgraded by editing JSON. Download the full tokenizer and source shards, then regenerate the export and its evidence before building a new schema 3 release.

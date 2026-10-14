@@ -6,13 +6,22 @@ import os
 from pathlib import Path
 
 
+def _sibling_lock_path(directory):
+    return directory.with_name(f".{directory.name}.dolphin-writer.lock")
+
+
+def output_lock_path(directory):
+    """Locate only this directory's persistent writer lock, not arbitrary locks."""
+    return _sibling_lock_path(Path(directory).resolve())
+
+
 @contextmanager
 def exclusive_output_directory(directory):
     directory = Path(directory).resolve()
     directory.parent.mkdir(parents=True, exist_ok=True)
     # Keep the lock outside the artifact inventory. Never unlink it: another
     # writer may already have opened this inode while waiting to acquire it.
-    lock_path = directory.with_name(f".{directory.name}.dolphin-writer.lock")
+    lock_path = _sibling_lock_path(directory)
     descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
         try:

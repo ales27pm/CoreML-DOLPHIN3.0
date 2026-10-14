@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from download_source import assert_pinned_source_snapshot, verify_pinned_source_snapshot
+from dolphin_ane.output_lock import output_lock_path
 
 ROOT = Path(__file__).resolve().parent
 SMALL = "Dolphin3_ANE_Conversion_Toolkit"
@@ -61,6 +62,13 @@ def tree_files(directory, exclude=()):
             raise RuntimeError(f"Release inputs must not contain symbolic links: {path}")
         if path.is_file():
             yield path, relative.as_posix()
+
+
+def model_tree_exclusions(models, reference):
+    """Do not archive the exact persistent coordination lock as model evidence."""
+    paths = (reference, models / "evidence/reference", models / "evidence/source-verification.json",
+             output_lock_path(reference))
+    return tuple(path.relative_to(models) for path in paths if path.is_relative_to(models))
 
 
 def capture_archive_inventory(sources):
@@ -375,7 +383,7 @@ def verify_current_inputs(models, reference, verification):
     if digest(models / fixtures["file"]) != fixtures["sha256"]:
         raise RuntimeError("Swift reference fixtures changed after verification")
     actual = {relative for _, relative in tree_files(models,
-              exclude=("evidence/reference", "evidence/source-verification.json"))}
+              exclude=model_tree_exclusions(models, reference))}
     if actual != verified_model_paths:
         raise RuntimeError("Verified model file inventory has missing or unlisted sidecar/evidence files")
 
@@ -467,7 +475,7 @@ def main():
     # subset is already bound to the independent report; this also binds every
     # supplemental toolkit/readme/report byte to the packaging operation.
     model_sources = [(path, release + "/models/" + relative) for path, relative in tree_files(
-        models, exclude=("evidence/reference", "evidence/source-verification.json"))]
+        models, exclude=model_tree_exclusions(models, reference))]
     reference_sources = [(path, release + "/models/evidence/reference/" + relative)
                          for path, relative in tree_files(reference)]
     toolkit_sources = list(tree_files(staged))

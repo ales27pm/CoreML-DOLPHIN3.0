@@ -9,6 +9,7 @@ import zipfile
 import pytest
 
 import build_release
+from dolphin_ane.output_lock import exclusive_output_directory, output_lock_path
 
 
 def _write(path, value):
@@ -447,3 +448,35 @@ def test_release_ready_is_not_emitted_if_archive_changes_after_its_verified_dige
         build_release.main()
     assert "release_ready" not in capsys.readouterr().out
     assert not (destination / "release-files.json").exists()
+
+
+@pytest.mark.parametrize("reference_name", ["reference", "cpu-reference"])
+def test_nested_reference_persistent_lock_is_excluded_from_release_archive(tmp_path, monkeypatch, reference_name):
+    destination = _packaging_inputs(tmp_path, monkeypatch)
+    reference = tmp_path / "models/evidence" / reference_name
+    (tmp_path / "reference").rename(reference)
+    arguments = list(sys.argv)
+    arguments[arguments.index("--reference") + 1] = str(reference)
+    monkeypatch.setattr(sys, "argv", arguments)
+    with exclusive_output_directory(reference):
+        build_release.main()
+    lock = output_lock_path(reference)
+    assert lock.is_file()
+    full = destination / "Dolphin3_ANE_Stateful_LUT6_C8.zip"
+    with zipfile.ZipFile(full) as archive:
+        members = archive.namelist()
+        assert not any("dolphin-writer.lock" in name for name in members)
+        assert any(name.endswith("reference-progress.json") for name in members)
+        assert any(name.endswith("unit-tests.xml") for name in members)
+
+
+def test_model_tree_excludes_only_the_named_reference_lock(tmp_path):
+    models = tmp_path / "models"
+    reference = models / "evidence/reference"
+    reference.mkdir(parents=True)
+    known = output_lock_path(reference)
+    known.write_text("coordination")
+    unrelated = known.with_name(".unrelated.dolphin-writer.lock")
+    unrelated.write_text("not the known coordination path")
+    records = list(build_release.tree_files(models, exclude=build_release.model_tree_exclusions(models, reference)))
+    assert [path for path, _ in records] == [unrelated]
